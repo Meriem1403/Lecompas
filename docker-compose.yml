@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: goudurix-db
+    environment:
+      POSTGRES_DB: goudurix
+      POSTGRES_USER: goudurix
+      POSTGRES_PASSWORD: goudurix
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U goudurix -d goudurix"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: goudurix-backend
+    environment:
+      PORT: 8000
+      DATABASE_URL: postgresql://goudurix:goudurix@db:5432/goudurix
+      API_PREFIX: /make-server-cfb78916
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goudurix-frontend
+    environment:
+      VITE_API_BASE: http://localhost:8000/make-server-cfb78916
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pg_data:
