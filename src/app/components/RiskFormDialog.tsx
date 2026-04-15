@@ -14,6 +14,7 @@ interface Risk {
   numeroRisque: string;
   title: string;
   unite: string;
+  domain?: string;
   service: string;
   site: string;
   situation: string;
@@ -48,13 +49,31 @@ interface RiskFormDialogProps {
   onOpenChange: (open: boolean) => void;
   risk: Risk | null;
   onSave: (risk: Omit<Risk, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => void;
+  serviceOptions?: string[];
+  domainOptions?: string[];
+  locationOptions?: string[];
+  serviceCatalog?: Array<{
+    name: string;
+    domains: string[];
+    locations: string[];
+  }>;
 }
 
-export function RiskFormDialog({ open, onOpenChange, risk, onSave }: RiskFormDialogProps) {
+export function RiskFormDialog({
+  open,
+  onOpenChange,
+  risk,
+  onSave,
+  serviceOptions = [],
+  domainOptions = [],
+  locationOptions = [],
+  serviceCatalog = [],
+}: RiskFormDialogProps) {
   const [formData, setFormData] = useState({
     numeroRisque: '',
     title: '',
     unite: '',
+    domain: '',
     service: '',
     site: '',
     situation: '',
@@ -84,6 +103,7 @@ export function RiskFormDialog({ open, onOpenChange, risk, onSave }: RiskFormDia
         numeroRisque: risk.numeroRisque,
         title: risk.title,
         unite: risk.unite,
+        domain: risk.domain || risk.unite || '',
         service: risk.service,
         site: risk.site,
         situation: risk.situation,
@@ -111,6 +131,7 @@ export function RiskFormDialog({ open, onOpenChange, risk, onSave }: RiskFormDia
         numeroRisque: '',
         title: '',
         unite: '',
+        domain: '',
         service: '',
         site: '',
         situation: '',
@@ -136,6 +157,61 @@ export function RiskFormDialog({ open, onOpenChange, risk, onSave }: RiskFormDia
     }
   }, [risk, open]);
 
+  const splitCsv = (value?: string) =>
+    (value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const currentService = (formData.service || '').trim();
+  const selectedDomains = splitCsv(formData.domain || formData.unite);
+  const selectedLocations = splitCsv(formData.site);
+
+  const availableDomainsForSelection =
+    !currentService
+      ? domainOptions
+      : serviceCatalog.find((service) => service.name === currentService)?.domains || [];
+
+  const availableLocationsForSelection =
+    !currentService
+      ? locationOptions
+      : serviceCatalog.find((service) => service.name === currentService)?.locations || [];
+
+  const handleServiceChange = (serviceName: string) => {
+    const selectedService = serviceCatalog.find((service) => service.name === serviceName);
+    const scopedDomains = selectedService?.domains || domainOptions;
+    const scopedLocations = selectedService?.locations || locationOptions;
+
+    setFormData((prev) => ({
+      ...prev,
+      service: serviceName,
+      domain: selectedDomains.filter((domain) => scopedDomains.includes(domain)).join(', '),
+      unite: selectedDomains.filter((domain) => scopedDomains.includes(domain)).join(', '),
+      site: selectedLocations.filter((location) => scopedLocations.includes(location)).join(', '),
+    }));
+  };
+
+  const handleDomainsChange = (domainName: string, checked: boolean) => {
+    const values = checked
+      ? [...selectedDomains, domainName]
+      : selectedDomains.filter((domain) => domain !== domainName);
+    setFormData((prev) => ({
+      ...prev,
+      domain: values.join(', '),
+      unite: values.join(', '),
+    }));
+  };
+
+  const handleLocationsChange = (locationName: string, checked: boolean) => {
+    const values = checked
+      ? [...selectedLocations, locationName]
+      : selectedLocations.filter((location) => location !== locationName);
+    setFormData((prev) => ({
+      ...prev,
+      site: values.join(', '),
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -151,7 +227,8 @@ export function RiskFormDialog({ open, onOpenChange, risk, onSave }: RiskFormDia
       ...(risk && { id: risk.id }),
       numeroRisque: formData.numeroRisque || `RISK-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
       title: formData.title,
-      unite: formData.unite,
+      unite: formData.domain || formData.unite,
+      domain: formData.domain || formData.unite,
       service: formData.service,
       site: formData.site,
       situation: formData.situation,
@@ -258,38 +335,56 @@ export function RiskFormDialog({ open, onOpenChange, risk, onSave }: RiskFormDia
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="unite">Unité *</Label>
-                  <Input
-                    id="unite"
-                    value={formData.unite}
-                    onChange={(e) => setFormData(prev => ({ ...prev, unite: e.target.value }))}
-                    placeholder="Ex: Unité Administrative"
-                    required
-                  />
+                  <Label htmlFor="unite">Domaine *</Label>
+                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                    {availableDomainsForSelection.map((domain) => (
+                      <label key={domain} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedDomains.includes(domain)}
+                          onChange={(e) => handleDomainsChange(domain, e.target.checked)}
+                        />
+                        {domain}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="service">Service *</Label>
-                  <Input
-                    id="service"
-                    value={formData.service}
-                    onChange={(e) => setFormData(prev => ({ ...prev, service: e.target.value }))}
-                    placeholder="Ex: Service Technique"
-                    required
-                  />
+                  <Select
+                    value={currentService}
+                    onValueChange={handleServiceChange}
+                  >
+                    <SelectTrigger id="service">
+                      <SelectValue placeholder="Selectionner un service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceOptions.map((service) => (
+                        <SelectItem key={service} value={service}>
+                          {service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="site">Site *</Label>
-                  <Input
-                    id="site"
-                    value={formData.site}
-                    onChange={(e) => setFormData(prev => ({ ...prev, site: e.target.value }))}
-                    placeholder="Ex: Siège Marseille"
-                    required
-                  />
+                  <Label htmlFor="site">Lieux *</Label>
+                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                    {availableLocationsForSelection.map((location) => (
+                      <label key={location} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedLocations.includes(location)}
+                          onChange={(e) => handleLocationsChange(location, e.target.checked)}
+                        />
+                        {location}
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">

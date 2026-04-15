@@ -57,7 +57,7 @@ const FAKE_ROLES: Role[] = [
   { id: 3, code: 'ROLE_CHEF', displayName: 'Chef de service' }
 ];
 
-const FAKE_SERVICES: Service[] = [
+export const FAKE_SERVICES: Service[] = [
   {
     id: '1',
     name: 'Sécurité',
@@ -81,7 +81,7 @@ const FAKE_SERVICES: Service[] = [
   }
 ];
 
-const FAKE_DOMAINS = [
+export const FAKE_DOMAINS = [
   {
     id: '1',
     name: 'Prévention',
@@ -109,7 +109,7 @@ const FAKE_DOMAINS = [
   }
 ];
 
-const FAKE_LOCATIONS = [
+export const FAKE_LOCATIONS = [
   {
     id: '1',
     name: 'Siège Paris',
@@ -141,15 +141,36 @@ const FAKE_CATEGORIES = [
 
 interface AdminTabsViewProps {
   activeTab: 'users' | 'roles' | 'services' | 'domains' | 'locations' | 'categories';
+  servicesData?: Service[];
+  setServicesData?: React.Dispatch<React.SetStateAction<Service[]>>;
+  domainsData?: typeof FAKE_DOMAINS;
+  setDomainsData?: React.Dispatch<React.SetStateAction<typeof FAKE_DOMAINS>>;
+  locationsData?: typeof FAKE_LOCATIONS;
+  setLocationsData?: React.Dispatch<React.SetStateAction<typeof FAKE_LOCATIONS>>;
 }
 
-export function AdminTabsView({ activeTab }: AdminTabsViewProps) {
+export function AdminTabsView({
+  activeTab,
+  servicesData,
+  setServicesData,
+  domainsData,
+  setDomainsData,
+  locationsData,
+  setLocationsData,
+}: AdminTabsViewProps) {
   const [users, setUsers] = useState<AppUser[]>(FAKE_USERS);
   const [roles, setRoles] = useState<Role[]>(FAKE_ROLES);
-  const [services, setServices] = useState<Service[]>(FAKE_SERVICES);
-  const [domains, setDomains] = useState(FAKE_DOMAINS);
-  const [locations, setLocations] = useState(FAKE_LOCATIONS);
+  const [internalServices, setInternalServices] = useState<Service[]>(FAKE_SERVICES);
+  const [internalDomains, setInternalDomains] = useState(FAKE_DOMAINS);
+  const [internalLocations, setInternalLocations] = useState(FAKE_LOCATIONS);
   const [categories, setCategories] = useState(FAKE_CATEGORIES);
+
+  const services = servicesData ?? internalServices;
+  const setServices = setServicesData ?? setInternalServices;
+  const domains = domainsData ?? internalDomains;
+  const setDomains = setDomainsData ?? setInternalDomains;
+  const locations = locationsData ?? internalLocations;
+  const setLocations = setLocationsData ?? setInternalLocations;
 
   if (activeTab === 'users') {
     return (
@@ -179,6 +200,8 @@ export function AdminTabsView({ activeTab }: AdminTabsViewProps) {
       <ServiceManagementView
         services={services}
         setServices={setServices}
+        availableDomains={domains.map((domain) => domain.name)}
+        availableLocations={locations.map((location) => location.name)}
       />
     );
   }
@@ -194,6 +217,9 @@ export function AdminTabsView({ activeTab }: AdminTabsViewProps) {
         color="orange"
         gradient="from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
         hasServices={true}
+        availableServices={services.map((service) => service.name)}
+        protectedNames={Array.from(new Set(services.flatMap((service) => service.domains)))}
+        protectedLabel="service"
       />
     );
   }
@@ -209,6 +235,9 @@ export function AdminTabsView({ activeTab }: AdminTabsViewProps) {
         color="cyan"
         gradient="from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700"
         hasServices={true}
+        availableServices={services.map((service) => service.name)}
+        protectedNames={Array.from(new Set(services.flatMap((service) => service.locations)))}
+        protectedLabel="service"
       />
     );
   }

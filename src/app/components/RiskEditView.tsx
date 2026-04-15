@@ -28,6 +28,7 @@ interface Risk {
   numeroRisque: string;
   title: string;
   unite: string;
+  domain?: string;
   service: string;
   site: string;
   situation: string;
@@ -57,6 +58,12 @@ interface Risk {
   updatedAt: string;
 }
 
+interface ServiceCatalogItem {
+  name: string;
+  domains: string[];
+  locations: string[];
+}
+
 interface RiskEditViewProps {
   risk: Risk;
   onSave: (risk: Risk) => void;
@@ -66,6 +73,10 @@ interface RiskEditViewProps {
   getRiskLevelColor: (level: number) => string;
   getRiskLevelLabel: (level: number) => string;
   existingRisks?: Risk[];
+  serviceOptions?: string[];
+  domainOptions?: string[];
+  locationOptions?: string[];
+  serviceCatalog?: ServiceCatalogItem[];
 }
 
 export function RiskEditView({
@@ -76,13 +87,18 @@ export function RiskEditView({
   getCategoryColor,
   getRiskLevelColor,
   getRiskLevelLabel,
-  existingRisks = []
+  existingRisks = [],
+  serviceOptions = [],
+  domainOptions = [],
+  locationOptions = [],
+  serviceCatalog = [],
 }: RiskEditViewProps) {
   const [formData, setFormData] = useState<Risk>(risk || {
     id: '',
     numeroRisque: '',
     title: '',
     unite: '',
+    domain: '',
     service: '',
     site: '',
     situation: '',
@@ -118,6 +134,76 @@ export function RiskEditView({
       setIsCustomCategory(true);
     }
   }, [risk]);
+
+  const splitCsv = (value?: string) =>
+    (value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const currentService = (formData.service || '').trim();
+  const selectedDomains = splitCsv(formData.domain || formData.unite);
+  const selectedLocations = splitCsv(formData.site);
+
+  const availableDomainsForSelection = React.useMemo(() => {
+    if (!currentService) return domainOptions;
+    const selectedService = serviceCatalog.find(
+      (service) => service.name === currentService,
+    );
+    return selectedService?.domains || [];
+  }, [currentService, serviceCatalog, domainOptions]);
+
+  const availableLocationsForSelection = React.useMemo(() => {
+    if (!currentService) return locationOptions;
+    const selectedService = serviceCatalog.find(
+      (service) => service.name === currentService,
+    );
+    return selectedService?.locations || [];
+  }, [currentService, serviceCatalog, locationOptions]);
+
+  const handleServiceChange = (serviceName: string) => {
+    const selectedService = serviceCatalog.find(
+      (service) => service.name === serviceName,
+    );
+    const scopedDomains = selectedService?.domains || domainOptions;
+    const scopedLocations = selectedService?.locations || locationOptions;
+
+    const nextDomains = selectedDomains.filter((domain) =>
+      scopedDomains.includes(domain),
+    );
+    const nextLocations = selectedLocations.filter((location) =>
+      scopedLocations.includes(location),
+    );
+
+    setFormData({
+      ...formData,
+      service: serviceName,
+      domain: nextDomains.join(', '),
+      unite: nextDomains.join(', '),
+      site: nextLocations.join(', '),
+    });
+  };
+
+  const handleDomainsChange = (domainName: string, checked: boolean) => {
+    const values = checked
+      ? [...selectedDomains, domainName]
+      : selectedDomains.filter((domain) => domain !== domainName);
+    setFormData({
+      ...formData,
+      domain: values.join(', '),
+      unite: values.join(', '),
+    });
+  };
+
+  const handleLocationsChange = (locationName: string, checked: boolean) => {
+    const values = checked
+      ? [...selectedLocations, locationName]
+      : selectedLocations.filter((location) => location !== locationName);
+    setFormData({
+      ...formData,
+      site: values.join(', '),
+    });
+  };
 
   // Initialiser isCustomTitle si le titre n'existe pas dans la liste
   React.useEffect(() => {
@@ -303,37 +389,55 @@ export function RiskEditView({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="unite" className="text-sm font-semibold">Unité *</Label>
-                  <Input
-                    id="unite"
-                    value={formData.unite}
-                    onChange={(e) => setFormData({ ...formData, unite: e.target.value })}
-                    placeholder="Ex: Unité Administrative"
-                    required
-                  />
+                  <Label htmlFor="domain" className="text-sm font-semibold">Domaine *</Label>
+                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                    {availableDomainsForSelection.map((domain) => (
+                      <label key={domain} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedDomains.includes(domain)}
+                          onChange={(e) => handleDomainsChange(domain, e.target.checked)}
+                        />
+                        {domain}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="service" className="text-sm font-semibold">Service *</Label>
-                  <Input
-                    id="service"
-                    value={formData.service}
-                    onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                    placeholder="Ex: Service Technique"
-                    required
-                  />
+                  <Select
+                    value={currentService}
+                    onValueChange={handleServiceChange}
+                  >
+                    <SelectTrigger id="service">
+                      <SelectValue placeholder="Selectionner un service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {serviceOptions.map((service) => (
+                        <SelectItem key={service} value={service}>
+                          {service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label htmlFor="site" className="text-sm font-semibold">Site *</Label>
-                  <Input
-                    id="site"
-                    value={formData.site}
-                    onChange={(e) => setFormData({ ...formData, site: e.target.value })}
-                    placeholder="Ex: Siège Marseille"
-                    required
-                  />
+                  <Label htmlFor="site" className="text-sm font-semibold">Lieux *</Label>
+                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                    {availableLocationsForSelection.map((location) => (
+                      <label key={location} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedLocations.includes(location)}
+                          onChange={(e) => handleLocationsChange(location, e.target.checked)}
+                        />
+                        {location}
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="responsable" className="text-sm font-semibold">Responsable *</Label>

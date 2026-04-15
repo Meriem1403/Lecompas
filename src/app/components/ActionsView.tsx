@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   Clock,
   PlusCircle,
-  Shield
+  Shield,
+  Search
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -40,8 +41,10 @@ export interface Action {
   responsable: string;
   deadline: string;
   createdAt: string;
+  createdBy?: string;
   completedAt?: string;
   budget?: number;
+  source?: 'DUERP' | 'MANUEL';
 }
 
 export interface Risk {
@@ -54,6 +57,12 @@ export interface Risk {
   situation: string;
   associatedRisk: string;
   category: string;
+  plannedMeasures?: Array<{
+    description: string;
+    responsible: string;
+    deadline: string;
+    status: 'pending' | 'in_progress' | 'completed';
+  }>;
 }
 
 // Fake data
@@ -142,17 +151,44 @@ const FAKE_ACTIONS: Action[] = [
 interface ActionsViewProps {
   actions?: Action[];
   risks?: Risk[];
+  currentUserRole?: 'admin' | 'chef_service' | 'agent';
+  currentUserName?: string;
 }
 
-export function ActionsView({ actions: propActions, risks = [] }: ActionsViewProps) {
-  const [actions, setActions] = useState<Action[]>(propActions || FAKE_ACTIONS);
+export function ActionsView({
+  actions: propActions,
+  risks = [],
+  currentUserRole = 'agent',
+  currentUserName = '',
+}: ActionsViewProps) {
+  const getFilterButtonClass = (active: boolean, activeClass: string) =>
+    active
+      ? `${activeClass} text-white border-0 shadow-md`
+      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50";
+
+  const [actions, setActions] = useState<Action[]>(
+    (propActions || FAKE_ACTIONS).map((action) => ({
+      ...action,
+      source: action.source ?? 'MANUEL',
+    })),
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [viewingAction, setViewingAction] = useState<Action | null>(null);
   const [editingAction, setEditingAction] = useState<Action | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionToDelete, setActionToDelete] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'DUERP' | 'MANUEL'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | Action['status']>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | Action['priority']>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   const handleAdd = () => {
+    if (currentUserRole !== 'admin') {
+      toast.info("Seul un administrateur peut créer une action depuis cet onglet.");
+      return;
+    }
     setIsCreating(true);
   };
 
@@ -160,7 +196,9 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
     const newAction: Action = {
       ...actionData,
       id: `action-${Date.now()}`,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: new Date().toISOString().split('T')[0],
+      createdBy: currentUserName,
+      source: 'MANUEL',
     };
     setActions([...actions, newAction]);
     toast.success('Action créée avec succès ✅');
@@ -180,11 +218,19 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
   };
 
   const handleEditFromView = (action: Action) => {
+    if (!canEditAction(action)) {
+      toast.info("Vous n'avez pas les droits pour modifier cette action.");
+      return;
+    }
     setViewingAction(null);
     setEditingAction(action);
   };
 
   const handleEdit = (action: Action) => {
+    if (!canEditAction(action)) {
+      toast.info("Vous n'avez pas les droits pour modifier cette action.");
+      return;
+    }
     setEditingAction(action);
   };
 
@@ -199,6 +245,11 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
   };
 
   const handleDeleteClick = (actionId: string) => {
+    const action = allActions.find((a) => a.id === actionId);
+    if (!action || !canDeleteAction(action)) {
+      toast.info("Vous n'avez pas les droits pour supprimer cette action.");
+      return;
+    }
     setActionToDelete(actionId);
     setDeleteDialogOpen(true);
   };
@@ -260,6 +311,87 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
     if (status === 'Terminée') return false;
     return new Date(deadline) < new Date();
   };
+
+  const canEditAction = (action: Action) => {
+    if (currentUserRole === 'admin') return true;
+    if (currentUserRole === 'chef_service') {
+      return (
+        action.responsable === currentUserName ||
+        (action.createdBy || '') === currentUserName
+      );
+    }
+    return false;
+  };
+
+  const canDeleteAction = (action: Action) => canEditAction(action);
+
+  const duerpActions = useMemo<Action[]>(() => {
+    return risks.flatMap((risk) => {
+      const plannedMeasures = risk.plannedMeasures || [];
+      return plannedMeasures
+        .filter((measure) => measure.description?.trim())
+        .map((measure, index) => {
+          const mappedStatus: Action['status'] =
+            measure.status === 'completed'
+              ? 'Terminée'
+              : measure.status === 'in_progress'
+                ? 'En cours'
+                : 'À faire';
+
+          return {
+            id: `duerp-${risk.id}-${index}`,
+            title: measure.description,
+            description: measure.description,
+            riskId: risk.id,
+            riskTitle: `${risk.numeroRisque} - ${risk.title}`,
+            priority: 'Moyenne',
+            status: mappedStatus,
+            responsable: measure.responsible || risk.service || 'Non défini',
+            deadline: measure.deadline || new Date().toISOString().split('T')[0],
+            createdAt: new Date().toISOString().split('T')[0],
+            createdBy: risk.responsable || '',
+            source: 'DUERP',
+          };
+        });
+    });
+  }, [risks]);
+
+  const allActions = useMemo<Action[]>(() => {
+    return [...duerpActions, ...actions];
+  }, [duerpActions, actions]);
+
+  const filteredActions = useMemo<Action[]>(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return allActions.filter((action) => {
+      const sourceMatch =
+        sourceFilter === 'all' || action.source === sourceFilter;
+      const statusMatch =
+        statusFilter === 'all' || action.status === statusFilter;
+      const priorityMatch =
+        priorityFilter === 'all' || action.priority === priorityFilter;
+
+      const searchMatch =
+        normalizedSearch.length === 0 ||
+        action.title.toLowerCase().includes(normalizedSearch) ||
+        action.description.toLowerCase().includes(normalizedSearch) ||
+        action.riskTitle.toLowerCase().includes(normalizedSearch) ||
+        action.responsable.toLowerCase().includes(normalizedSearch);
+
+      return sourceMatch && statusMatch && priorityMatch && searchMatch;
+    });
+  }, [allActions, sourceFilter, statusFilter, priorityFilter, searchQuery]);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [sourceFilter, statusFilter, priorityFilter, searchQuery]);
+
+  const totalResults = filteredActions.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
+  const paginatedActions = useMemo<Action[]>(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredActions.slice(start, start + pageSize);
+  }, [filteredActions, currentPage]);
 
   // Si on est en mode création, afficher uniquement la page de création
   if (isCreating) {
@@ -323,7 +455,7 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm font-medium">En cours</p>
-                <p className="text-3xl font-bold">{actions.filter(a => a.status === 'En cours').length}</p>
+                <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'En cours').length}</p>
               </div>
               <Clock className="h-12 w-12 text-blue-100" />
             </div>
@@ -335,7 +467,7 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-100 text-sm font-medium">À faire</p>
-                <p className="text-3xl font-bold">{actions.filter(a => a.status === 'À faire').length}</p>
+                <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'À faire').length}</p>
               </div>
               <Calendar className="h-12 w-12 text-gray-100" />
             </div>
@@ -347,7 +479,7 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-red-100 text-sm font-medium">En retard</p>
-                <p className="text-3xl font-bold">{actions.filter(a => a.status === 'En retard').length}</p>
+                <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'En retard').length}</p>
               </div>
               <AlertCircle className="h-12 w-12 text-red-100" />
             </div>
@@ -359,7 +491,7 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-100 text-sm font-medium">Terminées</p>
-                <p className="text-3xl font-bold">{actions.filter(a => a.status === 'Terminée').length}</p>
+                <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'Terminée').length}</p>
               </div>
               <CheckCircle2 className="h-12 w-12 text-green-100" />
             </div>
@@ -368,8 +500,174 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
       </div>
 
       {/* Actions List */}
+      <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="w-full">
+              <div className="relative max-w-xl">
+                <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher une action, un risque, un responsable..."
+                  className="w-full h-10 rounded-md border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-700">Source :</span>
+              <Button
+                size="sm"
+                variant={sourceFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => setSourceFilter('all')}
+                className={getFilterButtonClass(
+                  sourceFilter === 'all',
+                  'bg-gradient-to-r from-slate-600 to-gray-700',
+                )}
+              >
+                Toutes
+              </Button>
+              <Button
+                size="sm"
+                variant={sourceFilter === 'DUERP' ? 'default' : 'outline'}
+                onClick={() => setSourceFilter('DUERP')}
+                className={getFilterButtonClass(
+                  sourceFilter === 'DUERP',
+                  'bg-gradient-to-r from-violet-600 to-purple-600',
+                )}
+              >
+                DUERP
+              </Button>
+              <Button
+                size="sm"
+                variant={sourceFilter === 'MANUEL' ? 'default' : 'outline'}
+                onClick={() => setSourceFilter('MANUEL')}
+                className={getFilterButtonClass(
+                  sourceFilter === 'MANUEL',
+                  'bg-gradient-to-r from-cyan-600 to-blue-600',
+                )}
+              >
+                Manuelles
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-700">Statut :</span>
+              <Button
+                size="sm"
+                variant={statusFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('all')}
+                className={getFilterButtonClass(
+                  statusFilter === 'all',
+                  'bg-gradient-to-r from-slate-600 to-gray-700',
+                )}
+              >
+                Tous
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === 'À faire' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('À faire')}
+                className={getFilterButtonClass(
+                  statusFilter === 'À faire',
+                  'bg-gradient-to-r from-gray-500 to-slate-500',
+                )}
+              >
+                À faire
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === 'En cours' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('En cours')}
+                className={getFilterButtonClass(
+                  statusFilter === 'En cours',
+                  'bg-gradient-to-r from-blue-500 to-cyan-500',
+                )}
+              >
+                En cours
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === 'Terminée' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('Terminée')}
+                className={getFilterButtonClass(
+                  statusFilter === 'Terminée',
+                  'bg-gradient-to-r from-green-500 to-emerald-500',
+                )}
+              >
+                Terminée
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === 'En retard' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('En retard')}
+                className={getFilterButtonClass(
+                  statusFilter === 'En retard',
+                  'bg-gradient-to-r from-red-500 to-rose-500',
+                )}
+              >
+                En retard
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-700">Priorité :</span>
+              <Button
+                size="sm"
+                variant={priorityFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => setPriorityFilter('all')}
+                className={getFilterButtonClass(
+                  priorityFilter === 'all',
+                  'bg-gradient-to-r from-slate-600 to-gray-700',
+                )}
+              >
+                Toutes
+              </Button>
+              <Button
+                size="sm"
+                variant={priorityFilter === 'Haute' ? 'default' : 'outline'}
+                onClick={() => setPriorityFilter('Haute')}
+                className={getFilterButtonClass(
+                  priorityFilter === 'Haute',
+                  'bg-gradient-to-r from-red-500 to-rose-500',
+                )}
+              >
+                Haute
+              </Button>
+              <Button
+                size="sm"
+                variant={priorityFilter === 'Moyenne' ? 'default' : 'outline'}
+                onClick={() => setPriorityFilter('Moyenne')}
+                className={getFilterButtonClass(
+                  priorityFilter === 'Moyenne',
+                  'bg-gradient-to-r from-orange-500 to-amber-500',
+                )}
+              >
+                Moyenne
+              </Button>
+              <Button
+                size="sm"
+                variant={priorityFilter === 'Faible' ? 'default' : 'outline'}
+                onClick={() => setPriorityFilter('Faible')}
+                className={getFilterButtonClass(
+                  priorityFilter === 'Faible',
+                  'bg-gradient-to-r from-green-500 to-emerald-500',
+                )}
+              >
+                Faible
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 text-sm text-gray-600">
+            {totalResults} résultat{totalResults > 1 ? 's' : ''} trouvé{totalResults > 1 ? 's' : ''}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="space-y-4">
-        {actions.map((action) => {
+        {paginatedActions.map((action) => {
           const statusConfig = getStatusConfig(action.status);
           const StatusIcon = statusConfig.icon;
           const overdue = isOverdue(action.deadline, action.status);
@@ -444,6 +742,11 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
                           <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0`}>
                             {action.status}
                           </Badge>
+                          {action.source === 'DUERP' && (
+                            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 shadow-md">
+                              DUERP
+                            </Badge>
+                          )}
                           {overdue && action.status !== 'Terminée' && (
                             <Badge className="bg-gradient-to-r from-red-500 to-rose-500 text-white border-0 shadow-md animate-pulse">
                               <AlertCircle className="h-3 w-3 mr-1" />
@@ -468,6 +771,7 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
                     <Button 
                       size="sm" 
                       onClick={() => handleEdit(action)}
+                      disabled={!canEditAction(action)}
                       className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Edit className="h-3.5 w-3.5 mr-1" />
@@ -476,6 +780,7 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
                     <Button 
                       size="sm" 
                       onClick={() => handleDeleteClick(action.id)}
+                      disabled={!canDeleteAction(action)}
                       className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -487,7 +792,42 @@ export function ActionsView({ actions: propActions, risks = [] }: ActionsViewPro
             </Card>
           );
         })}
+        {filteredActions.length === 0 && (
+          <Card className="border-0 shadow-md bg-white/80">
+            <CardContent className="p-6 text-center text-gray-600">
+              Aucune action ne correspond aux filtres sélectionnés.
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {totalResults > 0 && (
+        <Card className="border-0 shadow-md bg-white/80">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-600">
+              Page {currentPage} sur {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Précédent
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Suivant
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

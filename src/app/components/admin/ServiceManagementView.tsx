@@ -30,11 +30,18 @@ export interface Service {
 interface ServiceManagementViewProps {
   services: Service[];
   setServices: React.Dispatch<React.SetStateAction<Service[]>>;
+  availableDomains?: string[];
+  availableLocations?: string[];
 }
 
 type ViewMode = 'list' | 'edit' | 'create';
 
-export function ServiceManagementView({ services, setServices }: ServiceManagementViewProps) {
+export function ServiceManagementView({
+  services,
+  setServices,
+  availableDomains = [],
+  availableLocations = [],
+}: ServiceManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -213,6 +220,8 @@ export function ServiceManagementView({ services, setServices }: ServiceManageme
       onSave={handleSave} 
       onCancel={handleBack}
       isEdit={viewMode === 'edit'}
+      availableDomains={availableDomains}
+      availableLocations={availableLocations}
     />;
   }
 
@@ -223,42 +232,38 @@ function ServiceFormView({
   service, 
   onSave, 
   onCancel,
-  isEdit 
+  isEdit,
+  availableDomains,
+  availableLocations,
 }: { 
   service: Service | null; 
   onSave: (service: Partial<Service>) => void; 
   onCancel: () => void;
   isEdit: boolean;
+  availableDomains: string[];
+  availableLocations: string[];
 }) {
   const [formData, setFormData] = useState<Partial<Service>>(service || { active: true, domains: [], locations: [] });
-  const [domainInput, setDomainInput] = useState('');
-  const [locationInput, setLocationInput] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
 
-  const addDomain = () => {
-    if (domainInput.trim()) {
-      setFormData({ ...formData, domains: [...(formData.domains || []), domainInput.trim()] });
-      setDomainInput('');
-    }
+  const toggleDomain = (domain: string) => {
+    const selectedDomains = formData.domains || [];
+    const nextDomains = selectedDomains.includes(domain)
+      ? selectedDomains.filter((item) => item !== domain)
+      : [...selectedDomains, domain];
+    setFormData({ ...formData, domains: nextDomains });
   };
 
-  const removeDomain = (index: number) => {
-    setFormData({ ...formData, domains: (formData.domains || []).filter((_, i) => i !== index) });
-  };
-
-  const addLocation = () => {
-    if (locationInput.trim()) {
-      setFormData({ ...formData, locations: [...(formData.locations || []), locationInput.trim()] });
-      setLocationInput('');
-    }
-  };
-
-  const removeLocation = (index: number) => {
-    setFormData({ ...formData, locations: (formData.locations || []).filter((_, i) => i !== index) });
+  const toggleLocation = (location: string) => {
+    const selectedLocations = formData.locations || [];
+    const nextLocations = selectedLocations.includes(location)
+      ? selectedLocations.filter((item) => item !== location)
+      : [...selectedLocations, location];
+    setFormData({ ...formData, locations: nextLocations });
   };
 
   return (
@@ -302,53 +307,53 @@ function ServiceFormView({
 
             <div className="space-y-2">
               <Label>Domaines</Label>
-              <div className="flex space-x-2">
-                <Input
-                  value={domainInput}
-                  onChange={(e) => setDomainInput(e.target.value)}
-                  placeholder="Ajouter un domaine"
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addDomain())}
-                />
-                <Button type="button" onClick={addDomain} variant="outline">
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
-              </div>
               <div className="flex flex-wrap gap-2 mt-2">
-                {(formData.domains || []).map((domain, index) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                    {domain}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
-                      onClick={() => removeDomain(index)}
-                    />
-                  </Badge>
-                ))}
+                {availableDomains.length === 0 && (
+                  <p className="text-sm text-gray-500">
+                    Crée d'abord au moins un domaine dans l'onglet Domaines.
+                  </p>
+                )}
+                {availableDomains.map((domain) => {
+                  const selected = (formData.domains || []).includes(domain);
+                  return (
+                    <Button
+                      key={domain}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => toggleDomain(domain)}
+                      className={selected ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white" : ""}
+                    >
+                      {domain}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Lieux</Label>
-              <div className="flex space-x-2">
-                <Input
-                  value={locationInput}
-                  onChange={(e) => setLocationInput(e.target.value)}
-                  placeholder="Ajouter un lieu"
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addLocation())}
-                />
-                <Button type="button" onClick={addLocation} variant="outline">
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
-              </div>
               <div className="flex flex-wrap gap-2 mt-2">
-                {(formData.locations || []).map((location, index) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                    {location}
-                    <X 
-                      className="h-3 w-3 cursor-pointer" 
-                      onClick={() => removeLocation(index)}
-                    />
-                  </Badge>
-                ))}
+                {availableLocations.length === 0 && (
+                  <p className="text-sm text-gray-500">
+                    Crée d'abord au moins un lieu dans l'onglet Lieux.
+                  </p>
+                )}
+                {availableLocations.map((location) => {
+                  const selected = (formData.locations || []).includes(location);
+                  return (
+                    <Button
+                      key={location}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "default" : "outline"}
+                      onClick={() => toggleLocation(location)}
+                      className={selected ? "bg-gradient-to-r from-cyan-500 to-teal-500 text-white" : ""}
+                    >
+                      {location}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
 

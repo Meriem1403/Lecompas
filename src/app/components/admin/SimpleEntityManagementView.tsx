@@ -32,6 +32,9 @@ interface SimpleEntityManagementViewProps {
   color: string;
   gradient: string;
   hasServices?: boolean;
+  availableServices?: string[];
+  protectedNames?: string[];
+  protectedLabel?: string;
 }
 
 type ViewMode = 'list' | 'edit' | 'create';
@@ -44,7 +47,10 @@ export function SimpleEntityManagementView({
   icon: Icon,
   color,
   gradient,
-  hasServices = false
+  hasServices = false,
+  availableServices = [],
+  protectedNames = [],
+  protectedLabel = 'service',
 }: SimpleEntityManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedItem, setSelectedItem] = useState<SimpleEntity | null>(null);
@@ -62,6 +68,16 @@ export function SimpleEntityManagementView({
   };
 
   const handleDelete = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    if (protectedNames.includes(item.name)) {
+      toast.error(
+        `Impossible de supprimer "${item.name}" : cet élément est déjà utilisé par au moins un ${protectedLabel}.`,
+      );
+      return;
+    }
+
     setItemToDelete(id);
     setDeleteDialogOpen(true);
   };
@@ -155,6 +171,7 @@ export function SimpleEntityManagementView({
                     <Button 
                       size="sm" 
                       onClick={() => handleDelete(item.id)} 
+                      disabled={protectedNames.includes(item.name)}
                       className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -198,6 +215,7 @@ export function SimpleEntityManagementView({
       title={title}
       gradient={gradient}
       hasServices={hasServices}
+      availableServices={availableServices}
     />;
   }
 
@@ -211,7 +229,8 @@ function EntityFormView({
   isEdit,
   title,
   gradient,
-  hasServices
+  hasServices,
+  availableServices,
 }: { 
   item: SimpleEntity | null; 
   onSave: (item: Partial<SimpleEntity>) => void; 
@@ -220,24 +239,21 @@ function EntityFormView({
   title: string;
   gradient: string;
   hasServices: boolean;
+  availableServices: string[];
 }) {
   const [formData, setFormData] = useState<Partial<SimpleEntity>>(item || { services: [] });
-  const [serviceInput, setServiceInput] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
 
-  const addService = () => {
-    if (serviceInput.trim()) {
-      setFormData({ ...formData, services: [...(formData.services || []), serviceInput.trim()] });
-      setServiceInput('');
-    }
-  };
-
-  const removeService = (index: number) => {
-    setFormData({ ...formData, services: (formData.services || []).filter((_, i) => i !== index) });
+  const toggleService = (serviceName: string) => {
+    const selectedServices = formData.services || [];
+    const nextServices = selectedServices.includes(serviceName)
+      ? selectedServices.filter((service) => service !== serviceName)
+      : [...selectedServices, serviceName];
+    setFormData({ ...formData, services: nextServices });
   };
 
   return (
@@ -273,30 +289,27 @@ function EntityFormView({
             {hasServices && (
               <div className="space-y-2">
                 <Label>Services concernés</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    value={serviceInput}
-                    onChange={(e) => setServiceInput(e.target.value)}
-                    placeholder="Ajouter un service"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addService())}
-                  />
-                  <Button type="button" onClick={addService} variant="outline">
-                    <PlusCircle className="h-4 w-4" />
-                  </Button>
-                </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {(formData.services || []).map((service, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                      {service}
-                      <button 
+                  {availableServices.length === 0 && (
+                    <p className="text-sm text-gray-500">
+                      Crée d'abord au moins un service dans l'onglet Services.
+                    </p>
+                  )}
+                  {availableServices.map((serviceName) => {
+                    const selected = (formData.services || []).includes(serviceName);
+                    return (
+                      <Button
+                        key={serviceName}
                         type="button"
-                        onClick={() => removeService(index)}
-                        className="ml-1 hover:bg-red-100 rounded-full"
+                        size="sm"
+                        variant={selected ? "default" : "outline"}
+                        onClick={() => toggleService(serviceName)}
+                        className={selected ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white" : ""}
                       >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
+                        {serviceName}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             )}

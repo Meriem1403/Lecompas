@@ -33,7 +33,12 @@ import { AccidentsView } from "./components/AccidentsView";
 import { ActionsView } from "./components/ActionsView";
 import { RiskFormDialog } from "./components/RiskFormDialog";
 import { RiskEditView } from "./components/RiskEditView";
-import { AdminTabsView } from "./components/AdminTabsView";
+import {
+  AdminTabsView,
+  FAKE_DOMAINS,
+  FAKE_LOCATIONS,
+  FAKE_SERVICES,
+} from "./components/AdminTabsView";
 import { DocumentsView } from "./components/DocumentsView";
 import { ArchivesView } from "./components/ArchivesView";
 import { RegistreAccidentsView } from "./components/RegistreAccidentsView";
@@ -136,6 +141,7 @@ interface Risk {
   numeroRisque: string; // Numéro risque
   title: string; // Risque
   unite: string; // Unité
+  domain?: string; // Domaine
   service: string; // Service
   site: string; // Site
   situation: string; // Situation dangereuse
@@ -607,6 +613,9 @@ export default function App() {
   const [activeView, setActiveView] = useState("categories");
   const [categoryView, setCategoryView] = useState<string | null>(null);
   const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
+  const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
+  const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
+  const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
   const [accidents, setAccidents] =
     useState<Accident[]>(FAKE_ACCIDENTS);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(
@@ -622,6 +631,10 @@ export default function App() {
   const [riskToDelete, setRiskToDelete] = useState<
     string | null
   >(null);
+
+  const serviceOptions = adminServices.map((s) => s.name);
+  const domainOptions = adminDomains.map((d) => d.name);
+  const locationOptions = adminLocations.map((l) => l.name);
 
   // Notifications state (actualités non lues)
   const [notifications, setNotifications] = useState<any[]>([
@@ -1799,6 +1812,10 @@ export default function App() {
               getRiskLevelColor={getRiskLevelColor}
               getRiskLevelLabel={getRiskLevelLabel}
               existingRisks={risks}
+              serviceOptions={serviceOptions}
+              domainOptions={domainOptions}
+              locationOptions={locationOptions}
+              serviceCatalog={adminServices}
             />
           )}
 
@@ -2044,6 +2061,10 @@ export default function App() {
                   getRiskLevelColor={getRiskLevelColor}
                   getRiskLevelLabel={getRiskLevelLabel}
                   existingRisks={risks}
+                  serviceOptions={serviceOptions}
+                  domainOptions={domainOptions}
+                  locationOptions={locationOptions}
+                  serviceCatalog={adminServices}
                 />
               ) : selectedRisk ? (
                 /* Risk Detail View */
@@ -2549,13 +2570,23 @@ export default function App() {
           )}
 
           {/* Actions View */}
-          {activeView === "actions" && <ActionsView risks={risks} />}
+          {activeView === "actions" && (
+            <ActionsView
+              risks={risks}
+              currentUserRole={user?.role || "agent"}
+              currentUserName={user?.name || ""}
+            />
+          )}
 
           {/* Risks Management View */}
           {activeView === "risks-management" && (
             <RisksManagementView
               risks={risks}
               setRisks={setRisks}
+              serviceOptions={serviceOptions}
+              domainOptions={domainOptions}
+              locationOptions={locationOptions}
+              serviceCatalog={adminServices}
             />
           )}
 
@@ -2682,6 +2713,12 @@ export default function App() {
                   | "locations"
                   | "categories"
               }
+              servicesData={adminServices}
+              setServicesData={setAdminServices}
+              domainsData={adminDomains}
+              setDomainsData={setAdminDomains}
+              locationsData={adminLocations}
+              setLocationsData={setAdminLocations}
             />
           )}
 
@@ -2855,6 +2892,10 @@ export default function App() {
         onOpenChange={setRiskDialogOpen}
         risk={riskToEdit}
         onSave={handleSaveRisk}
+        serviceOptions={serviceOptions}
+        domainOptions={domainOptions}
+        locationOptions={locationOptions}
+        serviceCatalog={adminServices}
       />
 
       <AlertDialog
