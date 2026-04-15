@@ -2191,30 +2191,66 @@ export default function App() {
                           <div className="grid grid-cols-3 gap-3">
                             <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
                               <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <Building2 className="h-3 w-3 mr-1" />{" "}
-                                Unité
+                                <Users className="h-3 w-3 mr-1" />{" "}
+                                Services
                               </p>
-                              <p className="font-bold text-gray-800">
-                                {selectedRisk.unite}
-                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {(selectedRisk.service || "")
+                                  .split(",")
+                                  .map((item) => item.trim())
+                                  .filter(Boolean)
+                                  .map((service) => (
+                                    <Badge
+                                      key={service}
+                                      variant="outline"
+                                      className="bg-blue-50 text-blue-700 border-blue-200"
+                                    >
+                                      {service}
+                                    </Badge>
+                                  ))}
+                              </div>
                             </div>
                             <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
                               <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <Users className="h-3 w-3 mr-1" />{" "}
-                                Service
+                                <Building2 className="h-3 w-3 mr-1" />{" "}
+                                Domaines
                               </p>
-                              <p className="font-bold text-gray-800">
-                                {selectedRisk.service}
-                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {(selectedRisk.domain || selectedRisk.unite || "")
+                                  .split(",")
+                                  .map((item) => item.trim())
+                                  .filter(Boolean)
+                                  .map((domain) => (
+                                    <Badge
+                                      key={domain}
+                                      variant="outline"
+                                      className="bg-orange-50 text-orange-700 border-orange-200"
+                                    >
+                                      {domain}
+                                    </Badge>
+                                  ))}
+                              </div>
                             </div>
                             <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
                               <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
                                 <MapPin className="h-3 w-3 mr-1" />{" "}
-                                Site
+                                Lieux
                               </p>
-                              <p className="font-bold text-gray-800">
-                                {selectedRisk.site}
-                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {(selectedRisk.site || "")
+                                  .split(",")
+                                  .map((item) => item.trim())
+                                  .filter(Boolean)
+                                  .map((location) => (
+                                    <Badge
+                                      key={location}
+                                      variant="outline"
+                                      className="bg-cyan-50 text-cyan-700 border-cyan-200"
+                                    >
+                                      {location}
+                                    </Badge>
+                                  ))}
+                              </div>
                             </div>
                           </div>
                         </div>

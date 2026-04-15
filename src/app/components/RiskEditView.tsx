@@ -141,32 +141,57 @@ export function RiskEditView({
       .map((item) => item.trim())
       .filter(Boolean);
 
-  const currentService = (formData.service || '').trim();
+  const selectedServices = splitCsv(formData.service);
   const selectedDomains = splitCsv(formData.domain || formData.unite);
   const selectedLocations = splitCsv(formData.site);
 
   const availableDomainsForSelection = React.useMemo(() => {
-    if (!currentService) return domainOptions;
-    const selectedService = serviceCatalog.find(
-      (service) => service.name === currentService,
+    if (selectedServices.length === 0) return domainOptions;
+    return Array.from(
+      new Set(
+        serviceCatalog
+          .filter((service) => selectedServices.includes(service.name))
+          .flatMap((service) => service.domains),
+      ),
     );
-    return selectedService?.domains || [];
-  }, [currentService, serviceCatalog, domainOptions]);
+  }, [selectedServices, serviceCatalog, domainOptions]);
 
   const availableLocationsForSelection = React.useMemo(() => {
-    if (!currentService) return locationOptions;
-    const selectedService = serviceCatalog.find(
-      (service) => service.name === currentService,
+    if (selectedServices.length === 0) return locationOptions;
+    return Array.from(
+      new Set(
+        serviceCatalog
+          .filter((service) => selectedServices.includes(service.name))
+          .flatMap((service) => service.locations),
+      ),
     );
-    return selectedService?.locations || [];
-  }, [currentService, serviceCatalog, locationOptions]);
+  }, [selectedServices, serviceCatalog, locationOptions]);
 
-  const handleServiceChange = (serviceName: string) => {
-    const selectedService = serviceCatalog.find(
-      (service) => service.name === serviceName,
-    );
-    const scopedDomains = selectedService?.domains || domainOptions;
-    const scopedLocations = selectedService?.locations || locationOptions;
+  const handleServicesChange = (serviceName: string, checked: boolean) => {
+    const nextServices = checked
+      ? [...selectedServices, serviceName]
+      : selectedServices.filter((service) => service !== serviceName);
+
+    const scopedDomains =
+      nextServices.length === 0
+        ? domainOptions
+        : Array.from(
+            new Set(
+              serviceCatalog
+                .filter((service) => nextServices.includes(service.name))
+                .flatMap((service) => service.domains),
+            ),
+          );
+    const scopedLocations =
+      nextServices.length === 0
+        ? locationOptions
+        : Array.from(
+            new Set(
+              serviceCatalog
+                .filter((service) => nextServices.includes(service.name))
+                .flatMap((service) => service.locations),
+            ),
+          );
 
     const nextDomains = selectedDomains.filter((domain) =>
       scopedDomains.includes(domain),
@@ -177,7 +202,7 @@ export function RiskEditView({
 
     setFormData({
       ...formData,
-      service: serviceName,
+      service: nextServices.join(', '),
       domain: nextDomains.join(', '),
       unite: nextDomains.join(', '),
       site: nextLocations.join(', '),
@@ -408,21 +433,18 @@ export function RiskEditView({
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="service" className="text-sm font-semibold">Service *</Label>
-                  <Select
-                    value={currentService}
-                    onValueChange={handleServiceChange}
-                  >
-                    <SelectTrigger id="service">
-                      <SelectValue placeholder="Selectionner un service" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviceOptions.map((service) => (
-                        <SelectItem key={service} value={service}>
-                          {service}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                    {serviceOptions.map((service) => (
+                      <label key={service} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedServices.includes(service)}
+                          onChange={(e) => handleServicesChange(service, e.target.checked)}
+                        />
+                        {service}
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="site" className="text-sm font-semibold">Lieux *</Label>

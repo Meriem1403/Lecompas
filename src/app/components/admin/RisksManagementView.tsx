@@ -95,28 +95,61 @@ export function RisksManagementView({
       .map((item) => item.trim())
       .filter(Boolean);
 
-  const currentService = (formData.service || '').trim();
+  const selectedServices = splitCsv(formData.service);
   const selectedDomains = splitCsv(formData.domain || formData.unite);
   const selectedLocations = splitCsv(formData.site);
 
   const availableDomainsForSelection =
-    !currentService
+    selectedServices.length === 0
       ? domainOptions
-      : serviceCatalog.find((service) => service.name === currentService)?.domains || [];
+      : Array.from(
+          new Set(
+            serviceCatalog
+              .filter((service) => selectedServices.includes(service.name))
+              .flatMap((service) => service.domains),
+          ),
+        );
 
   const availableLocationsForSelection =
-    !currentService
+    selectedServices.length === 0
       ? locationOptions
-      : serviceCatalog.find((service) => service.name === currentService)?.locations || [];
+      : Array.from(
+          new Set(
+            serviceCatalog
+              .filter((service) => selectedServices.includes(service.name))
+              .flatMap((service) => service.locations),
+          ),
+        );
 
-  const handleServiceChange = (serviceName: string) => {
-    const selectedService = serviceCatalog.find((service) => service.name === serviceName);
-    const scopedDomains = selectedService?.domains || domainOptions;
-    const scopedLocations = selectedService?.locations || locationOptions;
+  const handleServicesChange = (serviceName: string, checked: boolean) => {
+    const nextServices = checked
+      ? [...selectedServices, serviceName]
+      : selectedServices.filter((service) => service !== serviceName);
+
+    const scopedDomains =
+      nextServices.length === 0
+        ? domainOptions
+        : Array.from(
+            new Set(
+              serviceCatalog
+                .filter((service) => nextServices.includes(service.name))
+                .flatMap((service) => service.domains),
+            ),
+          );
+    const scopedLocations =
+      nextServices.length === 0
+        ? locationOptions
+        : Array.from(
+            new Set(
+              serviceCatalog
+                .filter((service) => nextServices.includes(service.name))
+                .flatMap((service) => service.locations),
+            ),
+          );
 
     setFormData({
       ...formData,
-      service: serviceName,
+      service: nextServices.join(', '),
       domain: selectedDomains.filter((domain) => scopedDomains.includes(domain)).join(', '),
       unite: selectedDomains.filter((domain) => scopedDomains.includes(domain)).join(', '),
       site: selectedLocations.filter((location) => scopedLocations.includes(location)).join(', '),
@@ -698,16 +731,46 @@ export function RisksManagementView({
                     <p className="font-semibold text-gray-900">{selectedRisk.category}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-600">Service</Label>
-                    <p className="font-semibold text-gray-900">{selectedRisk.service}</p>
+                    <Label className="text-gray-600">Services</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(selectedRisk.service || '')
+                        .split(',')
+                        .map((item) => item.trim())
+                        .filter(Boolean)
+                        .map((service) => (
+                          <Badge key={service} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {service}
+                          </Badge>
+                        ))}
+                    </div>
                   </div>
                   <div>
-                    <Label className="text-gray-600">Site</Label>
-                    <p className="font-semibold text-gray-900">{selectedRisk.site}</p>
+                    <Label className="text-gray-600">Lieux</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(selectedRisk.site || '')
+                        .split(',')
+                        .map((item) => item.trim())
+                        .filter(Boolean)
+                        .map((location) => (
+                          <Badge key={location} variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200">
+                            {location}
+                          </Badge>
+                        ))}
+                    </div>
                   </div>
                   <div>
-                    <Label className="text-gray-600">Unité</Label>
-                    <p className="font-semibold text-gray-900">{selectedRisk.unite}</p>
+                    <Label className="text-gray-600">Domaines</Label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(selectedRisk.domain || selectedRisk.unite || '')
+                        .split(',')
+                        .map((item) => item.trim())
+                        .filter(Boolean)
+                        .map((domain) => (
+                          <Badge key={domain} variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                            {domain}
+                          </Badge>
+                        ))}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-gray-600">Responsable</Label>
@@ -982,21 +1045,18 @@ export function RisksManagementView({
                 </div>
                 <div>
                   <Label>Service *</Label>
-                  <Select
-                    value={currentService}
-                    onValueChange={handleServiceChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un service" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviceOptions.map((service) => (
-                        <SelectItem key={service} value={service}>
-                          {service}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                    {serviceOptions.map((service) => (
+                      <label key={service} className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={selectedServices.includes(service)}
+                          onChange={(e) => handleServicesChange(service, e.target.checked)}
+                        />
+                        {service}
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label>Lieux *</Label>
