@@ -67,6 +67,11 @@ interface RisksManagementViewProps {
     domains: string[];
     locations: string[];
   }>;
+  riskReferences?: Array<{
+    id: string;
+    numeroRisque: string;
+    title: string;
+  }>;
 }
 
 type ViewMode = 'list' | 'view' | 'edit' | 'create';
@@ -78,6 +83,7 @@ export function RisksManagementView({
   domainOptions = [],
   locationOptions = [],
   serviceCatalog = [],
+  riskReferences = [],
 }: RisksManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
@@ -88,6 +94,14 @@ export function RisksManagementView({
 
   // Form state pour création/édition
   const [formData, setFormData] = useState<Partial<Risk>>({});
+
+  const selectedRiskReferenceValue = riskReferences.some(
+    (ref) =>
+      ref.numeroRisque === (formData.numeroRisque || "") &&
+      ref.title === (formData.title || ""),
+  )
+    ? `${formData.numeroRisque}::${formData.title}`
+    : "__custom__";
 
   const splitCsv = (value?: string) =>
     (value || '')
@@ -1018,6 +1032,44 @@ export function RisksManagementView({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Numéro de risque *</Label>
+                  {riskReferences.length > 0 && (
+                    <Select
+                      value={selectedRiskReferenceValue}
+                      onValueChange={(value) => {
+                        if (value === "__custom__") return;
+                        const selectedReference = riskReferences.find(
+                          (ref) =>
+                            `${ref.numeroRisque}::${ref.title}` ===
+                            value,
+                        );
+                        if (!selectedReference) return;
+                        setFormData({
+                          ...formData,
+                          numeroRisque:
+                            selectedReference.numeroRisque,
+                          title: selectedReference.title,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mb-2">
+                        <SelectValue placeholder="Sélectionner dans le référentiel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__custom__">
+                          Saisie manuelle
+                        </SelectItem>
+                        {riskReferences.map((reference) => (
+                          <SelectItem
+                            key={reference.id}
+                            value={`${reference.numeroRisque}::${reference.title}`}
+                          >
+                            {reference.numeroRisque} -{" "}
+                            {reference.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Input
                     value={formData.numeroRisque || ''}
                     onChange={(e) => setFormData({ ...formData, numeroRisque: e.target.value })}
@@ -1107,6 +1159,44 @@ export function RisksManagementView({
               <div className="space-y-4">
                 <div>
                   <Label>Risque *</Label>
+                  {riskReferences.length > 0 && (
+                    <Select
+                      value={selectedRiskReferenceValue}
+                      onValueChange={(value) => {
+                        if (value === "__custom__") return;
+                        const selectedReference = riskReferences.find(
+                          (ref) =>
+                            `${ref.numeroRisque}::${ref.title}` ===
+                            value,
+                        );
+                        if (!selectedReference) return;
+                        setFormData({
+                          ...formData,
+                          numeroRisque:
+                            selectedReference.numeroRisque,
+                          title: selectedReference.title,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mb-2">
+                        <SelectValue placeholder="Sélectionner dans le référentiel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__custom__">
+                          Saisie manuelle
+                        </SelectItem>
+                        {riskReferences.map((reference) => (
+                          <SelectItem
+                            key={reference.id}
+                            value={`${reference.numeroRisque}::${reference.title}`}
+                          >
+                            {reference.numeroRisque} -{" "}
+                            {reference.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Input
                     value={formData.title || ''}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}

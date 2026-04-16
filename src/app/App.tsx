@@ -52,6 +52,10 @@ import { RetourActionView } from "./components/RetourActionView";
 import { DashboardView } from "./components/DashboardView";
 import { DUERPSignatureManagement } from "./components/DUERPSignatureManagement";
 import { RisksManagementView } from "./components/admin/RisksManagementView";
+import {
+  RiskReference,
+  RiskReferencesManagementView,
+} from "./components/admin/RiskReferencesManagementView";
 import { MercuryView } from "./components/MercuryView";
 import { AsbestosView } from "./components/AsbestosView";
 import { AsbestosAttestationsView } from "./components/AsbestosAttestationsView";
@@ -615,6 +619,25 @@ export default function App() {
   const [activeView, setActiveView] = useState("categories");
   const [categoryView, setCategoryView] = useState<string | null>(null);
   const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
+  const [riskReferences, setRiskReferences] = useState<
+    RiskReference[]
+  >(
+    Array.from(
+      new Map(
+        FAKE_RISKS.map((risk) => [
+          `${risk.numeroRisque}::${risk.title}`,
+          {
+            id: crypto.randomUUID(),
+            numeroRisque: risk.numeroRisque,
+            title: risk.title,
+          },
+        ]),
+      ).values(),
+    ),
+  );
+  const previousRiskReferencesRef = React.useRef<RiskReference[]>(
+    riskReferences,
+  );
   const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
   const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
@@ -666,6 +689,98 @@ export default function App() {
   };
 
   const visibleRisks = risks.filter(canAccessRisk);
+  const [riskServiceFilter, setRiskServiceFilter] =
+    useState("all");
+  const [riskStatusFilter, setRiskStatusFilter] =
+    useState("all");
+  const [riskCategoryFilter, setRiskCategoryFilter] =
+    useState("all");
+  const [riskLevelFilter, setRiskLevelFilter] =
+    useState("all");
+  const [riskNumberFilter, setRiskNumberFilter] =
+    useState("all");
+  const [riskSearchQuery, setRiskSearchQuery] = useState("");
+  const [riskCurrentPage, setRiskCurrentPage] = useState(1);
+  const riskPageSize = 6;
+
+  const filteredVisibleRisks = React.useMemo(() => {
+    const query = riskSearchQuery.trim().toLowerCase();
+    return visibleRisks.filter((risk) => {
+      const matchesService =
+        riskServiceFilter === "all" ||
+        risk.service === riskServiceFilter;
+      const matchesStatus =
+        riskStatusFilter === "all" ||
+        risk.status === riskStatusFilter;
+      const matchesCategory =
+        riskCategoryFilter === "all" ||
+        risk.category === riskCategoryFilter;
+      const matchesRiskLevel =
+        riskLevelFilter === "all" ||
+        String(risk.riskLevel) === riskLevelFilter;
+      const matchesRiskNumber =
+        riskNumberFilter === "all" ||
+        risk.numeroRisque === riskNumberFilter;
+
+      const matchesSearch =
+        query.length === 0 ||
+        [
+          risk.title,
+          risk.situation,
+          risk.associatedRisk,
+          risk.responsable,
+          risk.service,
+          risk.domain || risk.unite,
+          risk.site,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      return (
+        matchesService &&
+        matchesStatus &&
+        matchesCategory &&
+        matchesRiskLevel &&
+        matchesRiskNumber &&
+        matchesSearch
+      );
+    });
+  }, [
+    visibleRisks,
+    riskServiceFilter,
+    riskStatusFilter,
+    riskCategoryFilter,
+    riskLevelFilter,
+    riskNumberFilter,
+    riskSearchQuery,
+  ]);
+
+  const totalRiskPages = Math.max(
+    1,
+    Math.ceil(filteredVisibleRisks.length / riskPageSize),
+  );
+  const paginatedRisks = React.useMemo(() => {
+    const start = (riskCurrentPage - 1) * riskPageSize;
+    return filteredVisibleRisks.slice(start, start + riskPageSize);
+  }, [filteredVisibleRisks, riskCurrentPage]);
+
+  React.useEffect(() => {
+    setRiskCurrentPage(1);
+  }, [
+    riskServiceFilter,
+    riskStatusFilter,
+    riskCategoryFilter,
+    riskLevelFilter,
+    riskNumberFilter,
+    riskSearchQuery,
+  ]);
+
+  React.useEffect(() => {
+    if (riskCurrentPage > totalRiskPages) {
+      setRiskCurrentPage(totalRiskPages);
+    }
+  }, [riskCurrentPage, totalRiskPages]);
 
   const serviceOptions = adminServices.map((s) => s.name);
   const domainOptions = adminDomains.map((d) => d.name);
@@ -747,6 +862,57 @@ export default function App() {
       return hasChanges ? normalizedRisks : previousRisks;
     });
   }, [adminServices, adminDomains, adminLocations]);
+
+  React.useEffect(() => {
+    const previousReferences = previousRiskReferencesRef.current;
+    const previousById = new Map(
+      previousReferences.map((reference) => [reference.id, reference]),
+    );
+    const changedReferences = riskReferences
+      .map((reference) => ({
+        current: reference,
+        previous: previousById.get(reference.id),
+      }))
+      .filter(
+        ({ current, previous }) =>
+          previous &&
+          (previous.numeroRisque !== current.numeroRisque ||
+            previous.title !== current.title),
+      ) as Array<{
+      current: RiskReference;
+      previous: RiskReference;
+    }>;
+
+    if (changedReferences.length === 0) {
+      previousRiskReferencesRef.current = riskReferences;
+      return;
+    }
+
+    setRisks((previousRisks) => {
+      let hasChanges = false;
+      const updatedRisks = previousRisks.map((risk) => {
+        const matchingReference = changedReferences.find(
+          ({ previous }) =>
+            risk.numeroRisque === previous.numeroRisque &&
+            risk.title === previous.title,
+        );
+
+        if (!matchingReference) return risk;
+
+        hasChanges = true;
+        return {
+          ...risk,
+          numeroRisque: matchingReference.current.numeroRisque,
+          title: matchingReference.current.title,
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      return hasChanges ? updatedRisks : previousRisks;
+    });
+
+    previousRiskReferencesRef.current = riskReferences;
+  }, [riskReferences]);
 
   // Notifications state (actualités non lues)
   const [notifications, setNotifications] = useState<any[]>([
@@ -1455,6 +1621,12 @@ export default function App() {
           color: "text-red-600",
         },
         {
+          id: "risk-references",
+          label: "Référentiel risques",
+          icon: FileText,
+          color: "text-amber-600",
+        },
+        {
           id: "action-returns",
           label: "Retours d'action",
           icon: MessageSquare,
@@ -1980,6 +2152,7 @@ export default function App() {
               domainOptions={domainOptions}
               locationOptions={locationOptions}
               serviceCatalog={adminServices}
+              riskReferences={riskReferences}
             />
           )}
 
@@ -2015,8 +2188,170 @@ export default function App() {
                     )}
                   </div>
 
+                  <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
+                        <div className="xl:col-span-2">
+                          <Input
+                            placeholder="Rechercher (risque, service, domaine, lieux, responsable...)"
+                            value={riskSearchQuery}
+                            onChange={(e) =>
+                              setRiskSearchQuery(e.target.value)
+                            }
+                          />
+                        </div>
+                        <Select
+                          value={riskServiceFilter}
+                          onValueChange={setRiskServiceFilter}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Service" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Tous les services
+                            </SelectItem>
+                            {[...new Set(visibleRisks.map((r) => r.service))]
+                              .sort()
+                              .map((service) => (
+                                <SelectItem
+                                  key={service}
+                                  value={service}
+                                >
+                                  {service}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={riskStatusFilter}
+                          onValueChange={setRiskStatusFilter}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Statut" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Tous les statuts
+                            </SelectItem>
+                            <SelectItem value="identifié">
+                              Identifié
+                            </SelectItem>
+                            <SelectItem value="en_cours">
+                              En cours
+                            </SelectItem>
+                            <SelectItem value="traité">
+                              Traité
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={riskCategoryFilter}
+                          onValueChange={setRiskCategoryFilter}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Catégorie" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Toutes catégories
+                            </SelectItem>
+                            {[...new Set(visibleRisks.map((r) => r.category))]
+                              .sort()
+                              .map((category) => (
+                                <SelectItem
+                                  key={category}
+                                  value={category}
+                                >
+                                  {category}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={riskLevelFilter}
+                          onValueChange={setRiskLevelFilter}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Niveau" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Tous niveaux
+                            </SelectItem>
+                            {[...new Set(
+                              visibleRisks.map((r) =>
+                                String(r.riskLevel),
+                              ),
+                            )]
+                              .sort(
+                                (a, b) =>
+                                  Number(a) - Number(b),
+                              )
+                              .map((riskLevel) => (
+                                <SelectItem
+                                  key={riskLevel}
+                                  value={riskLevel}
+                                >
+                                  Niveau {riskLevel}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={riskNumberFilter}
+                          onValueChange={setRiskNumberFilter}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="N° risque" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Tous les numéros
+                            </SelectItem>
+                            {[...new Set(
+                              visibleRisks.map(
+                                (r) => r.numeroRisque,
+                              ),
+                            )]
+                              .sort()
+                              .map((riskNumber) => (
+                                <SelectItem
+                                  key={riskNumber}
+                                  value={riskNumber}
+                                >
+                                  {riskNumber}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          {filteredVisibleRisks.length} risque(s)
+                          affiché(s)
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRiskServiceFilter("all");
+                            setRiskStatusFilter("all");
+                            setRiskCategoryFilter("all");
+                            setRiskLevelFilter("all");
+                            setRiskNumberFilter("all");
+                            setRiskSearchQuery("");
+                            setRiskCurrentPage(1);
+                          }}
+                        >
+                          Réinitialiser les filtres
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {visibleRisks.length === 0 ? (
+                    {filteredVisibleRisks.length === 0 ? (
                       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur col-span-full">
                         <CardContent className="pt-12 pb-12 text-center">
                           <div className="h-24 w-24 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-6">
@@ -2037,7 +2372,7 @@ export default function App() {
                         </CardContent>
                       </Card>
                     ) : (
-                      visibleRisks.map((risk) => {
+                      paginatedRisks.map((risk) => {
                         const Icon = getCategoryIcon(
                           risk.category,
                         );
@@ -2117,7 +2452,17 @@ export default function App() {
                                 </Badge>
                               </div>
                               <CardTitle className="text-lg mt-4 group-hover:text-purple-600 transition-colors font-bold">
-                                {risk.title}
+                                <div className="space-y-2">
+                                  <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 shadow-sm">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
+                                      Numéro du risque
+                                    </span>
+                                    <span className="font-mono text-xs font-bold text-violet-900">
+                                      {risk.numeroRisque}
+                                    </span>
+                                  </div>
+                                  <p>{risk.title}</p>
+                                </div>
                               </CardTitle>
                               <CardDescription className="line-clamp-2 text-gray-600">
                                 {risk.situation}
@@ -2229,6 +2574,41 @@ export default function App() {
                       })
                     )}
                   </div>
+                  {filteredVisibleRisks.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-600">
+                        Page {riskCurrentPage} / {totalRiskPages}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={riskCurrentPage === 1}
+                          onClick={() =>
+                            setRiskCurrentPage((page) =>
+                              Math.max(1, page - 1),
+                            )
+                          }
+                        >
+                          Précédent
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            riskCurrentPage === totalRiskPages
+                          }
+                          onClick={() =>
+                            setRiskCurrentPage((page) =>
+                              Math.min(totalRiskPages, page + 1),
+                            )
+                          }
+                        >
+                          Suivant
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : isEditingRisk && selectedRisk ? (
                 /* Risk Edit View */
@@ -2256,6 +2636,7 @@ export default function App() {
                   domainOptions={domainOptions}
                   locationOptions={locationOptions}
                   serviceCatalog={adminServices}
+                  riskReferences={riskReferences}
                 />
               ) : selectedRisk ? (
                 /* Risk Detail View */
@@ -2814,6 +3195,14 @@ export default function App() {
               domainOptions={domainOptions}
               locationOptions={locationOptions}
               serviceCatalog={adminServices}
+              riskReferences={riskReferences}
+            />
+          )}
+
+          {activeView === "risk-references" && (
+            <RiskReferencesManagementView
+              references={riskReferences}
+              setReferences={setRiskReferences}
             />
           )}
 
@@ -3123,6 +3512,7 @@ export default function App() {
         domainOptions={domainOptions}
         locationOptions={locationOptions}
         serviceCatalog={adminServices}
+        riskReferences={riskReferences}
       />
 
       <AlertDialog

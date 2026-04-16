@@ -77,6 +77,11 @@ interface RiskEditViewProps {
   domainOptions?: string[];
   locationOptions?: string[];
   serviceCatalog?: ServiceCatalogItem[];
+  riskReferences?: Array<{
+    id: string;
+    numeroRisque: string;
+    title: string;
+  }>;
 }
 
 export function RiskEditView({
@@ -92,6 +97,7 @@ export function RiskEditView({
   domainOptions = [],
   locationOptions = [],
   serviceCatalog = [],
+  riskReferences = [],
 }: RiskEditViewProps) {
   const [formData, setFormData] = useState<Risk>(risk || {
     id: '',
@@ -406,6 +412,52 @@ export function RiskEditView({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="numeroRisque" className="text-sm font-semibold">Numéro Risque</Label>
+                  {riskReferences.length > 0 && (
+                    <Select
+                      value={
+                        riskReferences.some(
+                          (ref) =>
+                            ref.numeroRisque ===
+                              formData.numeroRisque &&
+                            ref.title === formData.title,
+                        )
+                          ? formData.numeroRisque
+                          : "__custom__"
+                      }
+                      onValueChange={(value) => {
+                        if (value === "__custom__") return;
+                        const selectedReference =
+                          riskReferences.find(
+                            (ref) => ref.numeroRisque === value,
+                          );
+                        if (!selectedReference) return;
+                        setFormData({
+                          ...formData,
+                          numeroRisque:
+                            selectedReference.numeroRisque,
+                          title: selectedReference.title,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mb-2">
+                        <SelectValue placeholder="Sélectionner dans le référentiel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__custom__">
+                          Saisie manuelle
+                        </SelectItem>
+                        {riskReferences.map((reference) => (
+                          <SelectItem
+                            key={reference.id}
+                            value={reference.numeroRisque}
+                          >
+                            {reference.numeroRisque} -{" "}
+                            {reference.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <Input
                     id="numeroRisque"
                     value={formData.numeroRisque}
