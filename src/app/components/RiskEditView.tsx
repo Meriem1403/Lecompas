@@ -82,6 +82,13 @@ interface RiskEditViewProps {
     numeroRisque: string;
     title: string;
   }>;
+  concernedPersons?: Array<{
+    id: string;
+    fullName: string;
+    service: string;
+    domain: string;
+    location: string;
+  }>;
 }
 
 export function RiskEditView({
@@ -98,6 +105,7 @@ export function RiskEditView({
   locationOptions = [],
   serviceCatalog = [],
   riskReferences = [],
+  concernedPersons = [],
 }: RiskEditViewProps) {
   const [formData, setFormData] = useState<Risk>(risk || {
     id: '',
@@ -150,6 +158,26 @@ export function RiskEditView({
   const selectedServices = splitCsv(formData.service);
   const selectedDomains = splitCsv(formData.domain || formData.unite);
   const selectedLocations = splitCsv(formData.site);
+
+  const matchesScope = (personValue: string, selectedValues: string[]) => {
+    if (selectedValues.length === 0) return true;
+    const personValues = splitCsv(personValue).map((value) =>
+      value.toLowerCase(),
+    );
+    return selectedValues.some((value) =>
+      personValues.includes(value.toLowerCase()),
+    );
+  };
+
+  const filteredResponsibleOptions = concernedPersons
+    .filter(
+      (person) =>
+        matchesScope(person.service, selectedServices) &&
+        matchesScope(person.domain, selectedDomains) &&
+        matchesScope(person.location, selectedLocations),
+    )
+    .map((person) => person.fullName)
+    .filter(Boolean);
 
   const availableDomainsForSelection = React.useMemo(() => {
     if (selectedServices.length === 0) return domainOptions;
@@ -515,13 +543,30 @@ export function RiskEditView({
                 </div>
                 <div>
                   <Label htmlFor="responsable" className="text-sm font-semibold">Responsable *</Label>
-                  <Input
-                    id="responsable"
-                    value={formData.responsable}
-                    onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                    placeholder="Ex: Jean Martin"
-                    required
-                  />
+                  <Select
+                    value={formData.responsable || "__empty__"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        responsable:
+                          value === "__empty__" ? "" : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger id="responsable">
+                      <SelectValue placeholder="Sélectionner un responsable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty__">
+                        Non renseigné
+                      </SelectItem>
+                      {filteredResponsibleOptions.map((person) => (
+                        <SelectItem key={person} value={person}>
+                          {person}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -659,11 +704,32 @@ export function RiskEditView({
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs">Responsable</Label>
-                            <Input
-                              value={measure.responsible}
-                              onChange={(e) => updatePlannedMeasure(idx, 'responsible', e.target.value)}
-                              placeholder="Nom du responsable"
-                            />
+                            <Select
+                              value={measure.responsible || "__empty__"}
+                              onValueChange={(value) =>
+                                updatePlannedMeasure(
+                                  idx,
+                                  "responsible",
+                                  value === "__empty__"
+                                    ? ""
+                                    : value,
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Responsable de l'action" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__empty__">
+                                  Non renseigné
+                                </SelectItem>
+                                {filteredResponsibleOptions.map((person) => (
+                                  <SelectItem key={person} value={person}>
+                                    {person}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div>
                             <Label className="text-xs">Échéance</Label>

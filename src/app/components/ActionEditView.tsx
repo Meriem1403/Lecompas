@@ -83,7 +83,7 @@ export function ActionEditView({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button 
           type="button"
           variant="ghost" 
@@ -92,18 +92,19 @@ export function ActionEditView({
         >
           ← Annuler et retour
         </Button>
-        <div className="flex space-x-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
           <Button 
             type="button"
             variant="outline"
             onClick={onCancel}
+            className="w-full sm:w-auto"
           >
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
           <Button 
             type="submit"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+            className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
           >
             <Save className="h-4 w-4 mr-2" />
             Enregistrer
@@ -116,7 +117,7 @@ export function ActionEditView({
         <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
                 <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${statusGradient} flex items-center justify-center shadow-lg`}>
                   <StatusIcon className="h-8 w-8 text-white" />
                 </div>

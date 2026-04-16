@@ -430,7 +430,7 @@ export function ActionsView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-xl">
             <Calendar className="h-8 w-8 text-white" />
@@ -442,7 +442,7 @@ export function ActionsView({
             </p>
           </div>
         </div>
-        <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg" onClick={handleAdd}>
+        <Button className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg" onClick={handleAdd}>
           <PlusCircle className="h-4 w-4 mr-2" />
           Nouvelle action
         </Button>
@@ -502,7 +502,7 @@ export function ActionsView({
       {/* Actions List */}
       <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
         <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="space-y-3">
             <div className="w-full">
               <div className="relative max-w-xl">
                 <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -516,7 +516,8 @@ export function ActionsView({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-max pb-1">
               <span className="text-sm font-semibold text-gray-700">Source :</span>
               <Button
                 size="sm"
@@ -551,9 +552,11 @@ export function ActionsView({
               >
                 Manuelles
               </Button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-max pb-1">
               <span className="text-sm font-semibold text-gray-700">Statut :</span>
               <Button
                 size="sm"
@@ -610,9 +613,11 @@ export function ActionsView({
               >
                 En retard
               </Button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-max pb-1">
               <span className="text-sm font-semibold text-gray-700">Priorité :</span>
               <Button
                 size="sm"
@@ -658,6 +663,7 @@ export function ActionsView({
               >
                 Faible
               </Button>
+              </div>
             </div>
           </div>
           <div className="mt-3 text-sm text-gray-600">
@@ -675,9 +681,9 @@ export function ActionsView({
           return (
             <Card key={action.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group">
               <CardContent className="p-6">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex-1">
-                    <div className="flex items-start space-x-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4">
                       <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${statusConfig.gradient} flex items-center justify-center flex-shrink-0 shadow-lg`}>
                         <StatusIcon className="h-7 w-7 text-white" />
                       </div>
@@ -690,7 +696,7 @@ export function ActionsView({
                         </div>
 
                         {/* Meta Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
                           <div className="flex items-center space-x-2">
                             <div className="flex-shrink-0">
                               <Shield className="h-4 w-4 text-purple-500" />
@@ -759,11 +765,11 @@ export function ActionsView({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center space-x-2 ml-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 xl:ml-4">
                     <Button 
                       size="sm" 
                       onClick={() => handleView(action)}
-                      className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Eye className="h-3.5 w-3.5 mr-1" />
                       Consulter
@@ -772,7 +778,7 @@ export function ActionsView({
                       size="sm" 
                       onClick={() => handleEdit(action)}
                       disabled={!canEditAction(action)}
-                      className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Edit className="h-3.5 w-3.5 mr-1" />
                       Modifier
@@ -781,7 +787,7 @@ export function ActionsView({
                       size="sm" 
                       onClick={() => handleDeleteClick(action.id)}
                       disabled={!canDeleteAction(action)}
-                      className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />
                       Supprimer

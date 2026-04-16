@@ -35,10 +35,12 @@ import { RiskFormDialog } from "./components/RiskFormDialog";
 import { RiskEditView } from "./components/RiskEditView";
 import {
   AdminTabsView,
+  FAKE_USERS,
   FAKE_DOMAINS,
   FAKE_LOCATIONS,
   FAKE_SERVICES,
 } from "./components/AdminTabsView";
+import { AppUser } from "./components/admin/UserManagementView";
 import { DocumentsView } from "./components/DocumentsView";
 import { ArchivesView } from "./components/ArchivesView";
 import { RegistreAccidentsView } from "./components/RegistreAccidentsView";
@@ -619,6 +621,8 @@ export default function App() {
   const [activeView, setActiveView] = useState("categories");
   const [categoryView, setCategoryView] = useState<string | null>(null);
   const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
+  const [adminUsers, setAdminUsers] =
+    useState<AppUser[]>(FAKE_USERS);
   const [riskReferences, setRiskReferences] = useState<
     RiskReference[]
   >(
@@ -785,6 +789,13 @@ export default function App() {
   const serviceOptions = adminServices.map((s) => s.name);
   const domainOptions = adminDomains.map((d) => d.name);
   const locationOptions = adminLocations.map((l) => l.name);
+  const concernedPersons = adminUsers.map((user) => ({
+    id: user.id,
+    fullName: `${user.firstName} ${user.lastName}`.trim(),
+    service: user.service || "",
+    domain: user.domain || "",
+    location: user.location || "",
+  }));
 
   const splitCsvValues = (value?: string) =>
     (value || "")
@@ -2153,6 +2164,7 @@ export default function App() {
               locationOptions={locationOptions}
               serviceCatalog={adminServices}
               riskReferences={riskReferences}
+              concernedPersons={concernedPersons}
             />
           )}
 
@@ -2637,6 +2649,7 @@ export default function App() {
                   locationOptions={locationOptions}
                   serviceCatalog={adminServices}
                   riskReferences={riskReferences}
+                  concernedPersons={concernedPersons}
                 />
               ) : selectedRisk ? (
                 /* Risk Detail View */
@@ -3196,6 +3209,7 @@ export default function App() {
               locationOptions={locationOptions}
               serviceCatalog={adminServices}
               riskReferences={riskReferences}
+              concernedPersons={concernedPersons}
             />
           )}
 
@@ -3331,6 +3345,8 @@ export default function App() {
               }
               servicesData={adminServices}
               setServicesData={setAdminServices}
+              usersData={adminUsers}
+              setUsersData={setAdminUsers}
               domainsData={adminDomains}
               setDomainsData={setAdminDomains}
               locationsData={adminLocations}
@@ -3513,6 +3529,7 @@ export default function App() {
         locationOptions={locationOptions}
         serviceCatalog={adminServices}
         riskReferences={riskReferences}
+        concernedPersons={concernedPersons}
       />
 
       <AlertDialog

@@ -83,7 +83,7 @@ export function ActionDetailView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button 
           variant="ghost" 
           onClick={onBack}
@@ -94,7 +94,7 @@ export function ActionDetailView({
         </Button>
         <Button 
           onClick={() => onEdit(action)}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+          className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
         >
           <Edit className="h-4 w-4 mr-2" />
           Modifier
@@ -105,7 +105,7 @@ export function ActionDetailView({
         {/* Main Content */}
         <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
           <CardHeader>
-            <div className="flex items-start space-x-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4">
               <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${statusConfig.gradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
                 <StatusIcon className="h-8 w-8 text-white" />
               </div>

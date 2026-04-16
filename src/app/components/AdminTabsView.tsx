@@ -6,7 +6,7 @@ import { SimpleEntityManagementView } from '@/app/components/admin/SimpleEntityM
 import { Layers, MapPin, Tag } from 'lucide-react';
 
 // Fake data
-const FAKE_USERS: AppUser[] = [
+export const FAKE_USERS: AppUser[] = [
   {
     id: '0',
     firstName: 'Jean-Marc',
@@ -169,6 +169,8 @@ const FAKE_CATEGORIES = [
 
 interface AdminTabsViewProps {
   activeTab: 'users' | 'roles' | 'services' | 'domains' | 'locations' | 'categories';
+  usersData?: AppUser[];
+  setUsersData?: React.Dispatch<React.SetStateAction<AppUser[]>>;
   servicesData?: Service[];
   setServicesData?: React.Dispatch<React.SetStateAction<Service[]>>;
   domainsData?: typeof FAKE_DOMAINS;
@@ -179,6 +181,8 @@ interface AdminTabsViewProps {
 
 export function AdminTabsView({
   activeTab,
+  usersData,
+  setUsersData,
   servicesData,
   setServicesData,
   domainsData,
@@ -186,13 +190,15 @@ export function AdminTabsView({
   locationsData,
   setLocationsData,
 }: AdminTabsViewProps) {
-  const [users, setUsers] = useState<AppUser[]>(FAKE_USERS);
+  const [internalUsers, setInternalUsers] = useState<AppUser[]>(FAKE_USERS);
   const [roles, setRoles] = useState<Role[]>(FAKE_ROLES);
   const [internalServices, setInternalServices] = useState<Service[]>(FAKE_SERVICES);
   const [internalDomains, setInternalDomains] = useState(FAKE_DOMAINS);
   const [internalLocations, setInternalLocations] = useState(FAKE_LOCATIONS);
   const [categories, setCategories] = useState(FAKE_CATEGORIES);
 
+  const users = usersData ?? internalUsers;
+  const setUsers = setUsersData ?? setInternalUsers;
   const services = servicesData ?? internalServices;
   const setServices = setServicesData ?? setInternalServices;
   const domains = domainsData ?? internalDomains;

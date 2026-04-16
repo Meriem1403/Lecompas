@@ -72,6 +72,13 @@ interface RisksManagementViewProps {
     numeroRisque: string;
     title: string;
   }>;
+  concernedPersons?: Array<{
+    id: string;
+    fullName: string;
+    service: string;
+    domain: string;
+    location: string;
+  }>;
 }
 
 type ViewMode = 'list' | 'view' | 'edit' | 'create';
@@ -84,6 +91,7 @@ export function RisksManagementView({
   locationOptions = [],
   serviceCatalog = [],
   riskReferences = [],
+  concernedPersons = [],
 }: RisksManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
@@ -112,6 +120,26 @@ export function RisksManagementView({
   const selectedServices = splitCsv(formData.service);
   const selectedDomains = splitCsv(formData.domain || formData.unite);
   const selectedLocations = splitCsv(formData.site);
+
+  const matchesScope = (personValue: string, selectedValues: string[]) => {
+    if (selectedValues.length === 0) return true;
+    const personValues = splitCsv(personValue).map((value) =>
+      value.toLowerCase(),
+    );
+    return selectedValues.some((value) =>
+      personValues.includes(value.toLowerCase()),
+    );
+  };
+
+  const filteredResponsibleOptions = concernedPersons
+    .filter(
+      (person) =>
+        matchesScope(person.service, selectedServices) &&
+        matchesScope(person.domain, selectedDomains) &&
+        matchesScope(person.location, selectedLocations),
+    )
+    .map((person) => person.fullName)
+    .filter(Boolean);
 
   const availableDomainsForSelection =
     selectedServices.length === 0
@@ -1142,11 +1170,30 @@ export function RisksManagementView({
                 </div>
                 <div>
                   <Label>Responsable *</Label>
-                  <Input
-                    value={formData.responsable || ''}
-                    onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                    placeholder="Nom du responsable"
-                  />
+                  <Select
+                    value={(formData.responsable as string) || "__empty__"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        responsable:
+                          value === "__empty__" ? "" : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner un responsable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty__">
+                        Non renseigné
+                      </SelectItem>
+                      {filteredResponsibleOptions.map((person) => (
+                        <SelectItem key={person} value={person}>
+                          {person}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>
@@ -1427,15 +1474,34 @@ export function RisksManagementView({
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Responsable</Label>
-                          <Input
-                            value={measure.responsible}
-                            onChange={(e) => {
+                          <Select
+                            value={measure.responsible || "__empty__"}
+                            onValueChange={(value: string) => {
                               const newMeasures = [...(formData.plannedMeasures || [])];
-                              newMeasures[idx] = { ...newMeasures[idx], responsible: e.target.value };
+                              newMeasures[idx] = {
+                                ...newMeasures[idx],
+                                responsible:
+                                  value === "__empty__"
+                                    ? ""
+                                    : value,
+                              };
                               setFormData({ ...formData, plannedMeasures: newMeasures });
                             }}
-                            placeholder="Nom du responsable"
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Responsable de l'action" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__empty__">
+                                Non renseigné
+                              </SelectItem>
+                              {filteredResponsibleOptions.map((person) => (
+                                <SelectItem key={person} value={person}>
+                                  {person}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label className="text-xs">Échéance</Label>
