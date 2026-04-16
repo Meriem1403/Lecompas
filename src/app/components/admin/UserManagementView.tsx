@@ -174,7 +174,12 @@ export function UserManagementView({
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Email</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Poste</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Service</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Domaine</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Lieu</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Catégorie</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Rôle</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Créé le</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Créé par</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -186,11 +191,18 @@ export function UserManagementView({
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.email}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.position}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.service}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.domain}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.location}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.category}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0">
                             {roles.find(r => r.code === user.role)?.displayName || user.role}
                           </Badge>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {new Date(user.createdAt).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.createdBy}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <div className="flex space-x-2">
                             <Button 

@@ -8,6 +8,20 @@ import { Layers, MapPin, Tag } from 'lucide-react';
 // Fake data
 const FAKE_USERS: AppUser[] = [
   {
+    id: '0',
+    firstName: 'Jean-Marc',
+    lastName: 'DUBOIS',
+    email: 'admin@dirm-med.gouv.fr',
+    position: 'Directeur interrégional',
+    service: 'Direction',
+    domain: 'Pilotage',
+    location: 'Siège Paris',
+    category: 'Cadre dirigeant',
+    role: 'ROLE_ADMIN',
+    createdAt: '2025-01-01T08:00:00Z',
+    createdBy: 'Système'
+  },
+  {
     id: '1',
     firstName: 'Jean',
     lastName: 'Dupont',
@@ -34,6 +48,20 @@ const FAKE_USERS: AppUser[] = [
     role: 'ROLE_CHEF',
     createdAt: '2025-02-01T09:00:00Z',
     createdBy: 'Jean Dupont'
+  },
+  {
+    id: '4',
+    firstName: 'Sophie',
+    lastName: 'Bernard',
+    email: 'sophie.bernard@example.com',
+    position: 'Chef de service Maintenance',
+    service: 'Maintenance',
+    domain: 'Informatique',
+    location: 'Marseille',
+    category: 'Cadre',
+    role: 'ROLE_CHEF',
+    createdAt: '2025-03-05T09:30:00Z',
+    createdBy: 'Jean-Marc DUBOIS'
   },
   {
     id: '3',

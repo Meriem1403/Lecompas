@@ -134,6 +134,8 @@ interface User {
   name: string;
   role: "admin" | "chef_service" | "agent";
   service: string;
+  domain?: string;
+  location?: string;
 }
 
 interface Risk {
@@ -212,7 +214,7 @@ const FAKE_RISKS: Risk[] = [
     numeroRisque: "RISK-2026-001",
     title: "Risque de chute sur sol glissant",
     unite: "Unité Administrative",
-    service: "Service Affaires Maritimes",
+    service: "Sécurité",
     site: "Siège Marseille",
     situation:
       "Sol mouillé dans le couloir principal du bâtiment A suite au nettoyage quotidien",
@@ -265,7 +267,7 @@ const FAKE_RISKS: Risk[] = [
     numeroRisque: "RISK-2026-002",
     title: "Exposition aux produits chimiques - Atelier",
     unite: "Unité Technique",
-    service: "Service Technique",
+    service: "Maintenance",
     site: "Port de Marseille",
     situation:
       "Manipulation quotidienne de solvants et produits chimiques dans l'atelier de peinture sans ventilation adéquate",
@@ -323,7 +325,7 @@ const FAKE_RISKS: Risk[] = [
     numeroRisque: "RISK-2026-003",
     title: "Travail en hauteur - Maintenance toiture",
     unite: "Unité Maintenance",
-    service: "Service Technique",
+    service: "Maintenance",
     site: "Port de Toulon",
     situation:
       "Interventions de maintenance sur toiture plate à 8 mètres de hauteur sans système antichute permanent",
@@ -375,7 +377,7 @@ const FAKE_RISKS: Risk[] = [
     numeroRisque: "RISK-2026-004",
     title: "Risques psychosociaux - Service client",
     unite: "Unité Administrative",
-    service: "Service Formation",
+    service: "Production",
     site: "Siège Marseille",
     situation:
       "Charge de travail élevée au service client avec pics d'activité réguliers, clients agressifs, objectifs de performance élevés",
@@ -437,7 +439,7 @@ const FAKE_RISKS: Risk[] = [
     title:
       "Troubles musculo-squelettiques - Postes de travail bureau",
     unite: "Unité Administrative",
-    service: "Service Administratif",
+    service: "Sécurité",
     site: "Siège Marseille",
     situation:
       "Postes de travail sur écran non ergonomiques, sièges inadaptés, absence de matériel ergonomique",
@@ -494,7 +496,7 @@ const FAKE_RISKS: Risk[] = [
     numeroRisque: "RISK-2026-006",
     title: "Risque électrique - Armoires électriques",
     unite: "Unité Maintenance",
-    service: "Service Technique",
+    service: "Maintenance",
     site: "Siège Marseille",
     situation:
       "Armoires électriques vétustes dans le sous-sol, certaines portes ne ferment plus correctement",
@@ -632,9 +634,119 @@ export default function App() {
     string | null
   >(null);
 
+  const parseMultiValues = (value?: string) =>
+    (value || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+
+  const canAccessRisk = (risk: Risk) => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+
+    const userServices = parseMultiValues(user.service);
+    const userDomains = parseMultiValues(user.domain);
+    const userLocations = parseMultiValues(user.location);
+
+    const riskServices = parseMultiValues(risk.service);
+    const riskDomains = parseMultiValues(risk.domain || risk.unite);
+    const riskLocations = parseMultiValues(risk.site);
+
+    const serviceMatch =
+      userServices.length === 0 ||
+      userServices.some((service) => riskServices.includes(service));
+    const domainMatch =
+      userDomains.length === 0 ||
+      userDomains.some((domain) => riskDomains.includes(domain));
+    const locationMatch =
+      userLocations.length === 0 ||
+      userLocations.some((location) => riskLocations.includes(location));
+
+    return serviceMatch && domainMatch && locationMatch;
+  };
+
+  const visibleRisks = risks.filter(canAccessRisk);
+
   const serviceOptions = adminServices.map((s) => s.name);
   const domainOptions = adminDomains.map((d) => d.name);
   const locationOptions = adminLocations.map((l) => l.name);
+
+  const splitCsvValues = (value?: string) =>
+    (value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const pickCatalogValue = (
+    rawValues: string[],
+    allowedValues: string[],
+  ) => {
+    const allowedByKey = new Map(
+      allowedValues.map((value) => [value.toLowerCase(), value]),
+    );
+    for (const raw of rawValues) {
+      const match = allowedByKey.get(raw.toLowerCase());
+      if (match) return match;
+    }
+    return "";
+  };
+
+  const normalizeRiskWithCatalog = (risk: Risk): Risk => {
+    const normalizedService = pickCatalogValue(
+      splitCsvValues(risk.service),
+      serviceOptions,
+    ) || serviceOptions[0] || "";
+
+    const selectedServiceConfig = adminServices.find(
+      (service) => service.name === normalizedService,
+    );
+
+    const allowedDomains =
+      selectedServiceConfig?.domains.filter((domain) =>
+        domainOptions.includes(domain),
+      ) || domainOptions;
+    const allowedLocations =
+      selectedServiceConfig?.locations.filter((location) =>
+        locationOptions.includes(location),
+      ) || locationOptions;
+
+    const normalizedDomain =
+      pickCatalogValue(
+        splitCsvValues(risk.domain || risk.unite),
+        allowedDomains,
+      ) || allowedDomains[0] || "";
+    const normalizedLocation =
+      pickCatalogValue(splitCsvValues(risk.site), allowedLocations) ||
+      allowedLocations[0] ||
+      "";
+
+    return {
+      ...risk,
+      service: normalizedService,
+      domain: normalizedDomain,
+      unite: normalizedDomain,
+      site: normalizedLocation,
+    };
+  };
+
+  React.useEffect(() => {
+    setRisks((previousRisks) => {
+      const normalizedRisks = previousRisks.map((risk) =>
+        normalizeRiskWithCatalog(risk),
+      );
+      const hasChanges = normalizedRisks.some((risk, index) => {
+        const currentRisk = previousRisks[index];
+        return (
+          currentRisk.service !== risk.service ||
+          (currentRisk.domain || "") !== (risk.domain || "") ||
+          (currentRisk.unite || "") !== (risk.unite || "") ||
+          (currentRisk.site || "") !== (risk.site || "")
+        );
+      });
+
+      return hasChanges ? normalizedRisks : previousRisks;
+    });
+  }, [adminServices, adminDomains, adminLocations]);
 
   // Notifications state (actualités non lues)
   const [notifications, setNotifications] = useState<any[]>([
@@ -672,20 +784,26 @@ export default function App() {
         name: "Jean-Marc DUBOIS",
         role: "admin" as const,
         service: "Direction",
+        domain: "",
+        location: "",
       },
       {
         email: "chef@dirm-med.gouv.fr",
         password: "chef123",
         name: "Marie MARTIN",
         role: "chef_service" as const,
-        service: "Secrétariat Général",
+        service: "Maintenance",
+        domain: "Informatique",
+        location: "Marseille",
       },
       {
         email: "agent@dirm-med.gouv.fr",
         password: "agent123",
         name: "Pierre LECLERC",
         role: "agent" as const,
-        service: "Service Technique",
+        service: "Maintenance",
+        domain: "",
+        location: "",
       },
     ];
 
@@ -703,6 +821,8 @@ export default function App() {
         name: account.name,
         role: account.role,
         service: account.service,
+        domain: account.domain,
+        location: account.location,
       });
       setAccessToken(token);
       setIsAuthenticated(true);
@@ -716,6 +836,8 @@ export default function App() {
             name: account.name,
             role: account.role,
             service: account.service,
+            domain: account.domain,
+            location: account.location,
           }),
         );
         localStorage.setItem("duerp_token", token);
@@ -762,6 +884,13 @@ export default function App() {
       }
     }
   }, []);
+
+  React.useEffect(() => {
+    if (selectedRisk && !canAccessRisk(selectedRisk)) {
+      setSelectedRisk(null);
+      setIsEditingRisk(false);
+    }
+  }, [selectedRisk, risks, user]);
 
   // Action Returns state
   const [actionReturns, setActionReturns] = useState<
@@ -1535,8 +1664,43 @@ export default function App() {
                   | "admin"
                   | "chef_service"
                   | "agent";
+                const testProfileByRole = {
+                  admin: {
+                    name: "Jean-Marc DUBOIS",
+                    email: "admin@dirm-med.gouv.fr",
+                    service: "Direction",
+                    domain: "",
+                    location: "",
+                  },
+                  chef_service: {
+                    name: "Sophie BERNARD",
+                    email: "sophie.bernard@example.com",
+                    service: "Maintenance",
+                    domain: "",
+                    location: "",
+                  },
+                  agent: {
+                    name: "Pierre LECLERC",
+                    email: "agent@dirm-med.gouv.fr",
+                    service: "Maintenance",
+                    domain: "",
+                    location: "",
+                  },
+                } as const;
+
+                const roleScope = testProfileByRole[newRole];
                 setUser(
-                  user ? { ...user, role: newRole } : null,
+                  user
+                    ? {
+                        ...user,
+                        role: newRole,
+                        name: roleScope.name,
+                        email: roleScope.email,
+                        service: roleScope.service,
+                        domain: roleScope.domain,
+                        location: roleScope.location,
+                      }
+                    : null,
                 );
                 toast.success(
                   `Rôle changé : ${
@@ -1852,7 +2016,7 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {risks.length === 0 ? (
+                    {visibleRisks.length === 0 ? (
                       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur col-span-full">
                         <CardContent className="pt-12 pb-12 text-center">
                           <div className="h-24 w-24 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-6">
@@ -1873,7 +2037,7 @@ export default function App() {
                         </CardContent>
                       </Card>
                     ) : (
-                      risks.map((risk) => {
+                      visibleRisks.map((risk) => {
                         const Icon = getCategoryIcon(
                           risk.category,
                         );
@@ -1961,15 +2125,42 @@ export default function App() {
                             </CardHeader>
                             <CardContent>
                               <div className="space-y-4">
-                                {/* Service Badge */}
-                                {risk.service && (
-                                  <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                    <Building2 className="h-4 w-4 text-blue-600" />
-                                    <span className="text-sm font-semibold text-blue-700">
-                                      {risk.service}
-                                    </span>
-                                  </div>
-                                )}
+                                {/* Service / Domaine / Lieux */}
+                                <div className="space-y-2">
+                                  {risk.service && (
+                                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                                      <Building2 className="h-4 w-4 text-blue-600" />
+                                      <span className="text-xs font-bold uppercase tracking-wide text-blue-700">
+                                        Service :
+                                      </span>
+                                      <span className="text-sm font-semibold text-blue-700">
+                                        {risk.service}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {(risk.domain || risk.unite) && (
+                                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+                                      <Layers className="h-4 w-4 text-indigo-600" />
+                                      <span className="text-xs font-bold uppercase tracking-wide text-indigo-700">
+                                        Domaine :
+                                      </span>
+                                      <span className="text-sm font-semibold text-indigo-700">
+                                        {risk.domain || risk.unite}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {risk.site && (
+                                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                      <MapPin className="h-4 w-4 text-emerald-600" />
+                                      <span className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                                        Lieux :
+                                      </span>
+                                      <span className="text-sm font-semibold text-emerald-700">
+                                        {risk.site}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
 
                                 <div>
                                   <div className="flex items-center justify-between text-sm mb-2">
