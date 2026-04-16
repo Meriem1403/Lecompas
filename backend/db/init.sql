@@ -22,18 +22,18 @@ CREATE TABLE IF NOT EXISTS kv_store_cfb78916 (
 
 INSERT INTO users(id, email, password, name, role, service) VALUES
 ('11111111-1111-1111-1111-111111111111', 'admin@dirm-med.gouv.fr', 'admin123', 'Jean-Marc DUBOIS', 'admin', 'Direction'),
-('22222222-2222-2222-2222-222222222222', 'chef@dirm-med.gouv.fr', 'chef123', 'Marie MARTIN', 'chef_service', 'Secrétariat Général'),
-('33333333-3333-3333-3333-333333333333', 'agent@dirm-med.gouv.fr', 'agent123', 'Pierre LECLERC', 'agent', 'Service Technique')
+('22222222-2222-2222-2222-222222222222', 'chef@dirm-med.gouv.fr', 'chef123', 'Marie MARTIN', 'chef_service', 'Maintenance'),
+('33333333-3333-3333-3333-333333333333', 'agent@dirm-med.gouv.fr', 'agent123', 'Pierre LECLERC', 'agent', 'Maintenance')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO kv_store_cfb78916(key, value) VALUES
 ('user:11111111-1111-1111-1111-111111111111', '{"id":"11111111-1111-1111-1111-111111111111","email":"admin@dirm-med.gouv.fr","name":"Jean-Marc DUBOIS","role":"admin","service":"Direction","createdAt":"2026-01-01T00:00:00.000Z"}'::jsonb),
-('user:22222222-2222-2222-2222-222222222222', '{"id":"22222222-2222-2222-2222-222222222222","email":"chef@dirm-med.gouv.fr","name":"Marie MARTIN","role":"chef_service","service":"Secrétariat Général","createdAt":"2026-01-01T00:00:00.000Z"}'::jsonb),
-('user:33333333-3333-3333-3333-333333333333', '{"id":"33333333-3333-3333-3333-333333333333","email":"agent@dirm-med.gouv.fr","name":"Pierre LECLERC","role":"agent","service":"Service Technique","createdAt":"2026-01-01T00:00:00.000Z"}'::jsonb),
+('user:22222222-2222-2222-2222-222222222222', '{"id":"22222222-2222-2222-2222-222222222222","email":"chef@dirm-med.gouv.fr","name":"Marie MARTIN","role":"chef_service","service":"Maintenance","domain":"","location":"","createdAt":"2026-01-01T00:00:00.000Z"}'::jsonb),
+('user:33333333-3333-3333-3333-333333333333', '{"id":"33333333-3333-3333-3333-333333333333","email":"agent@dirm-med.gouv.fr","name":"Pierre LECLERC","role":"agent","service":"Maintenance","domain":"","location":"","createdAt":"2026-01-01T00:00:00.000Z"}'::jsonb),
 ('risks:list', '["1","2","3","4","5","6"]'::jsonb),
 ('accidents:list', '["1","2","3","4"]'::jsonb),
 ('risk:1', $${
-  "id":"1","numeroRisque":"RISK-2026-001","title":"Risque de chute sur sol glissant","unite":"Unité Administrative","service":"Service Affaires Maritimes","site":"Siège Marseille",
+  "id":"1","numeroRisque":"RISK-2026-001","title":"Risque de chute sur sol glissant","unite":"Unité Administrative","service":"Sécurité","site":"Siège Marseille",
   "situation":"Sol mouillé dans le couloir principal du bâtiment A suite au nettoyage quotidien",
   "associatedRisk":"Chute de plain-pied pouvant entraîner des traumatismes (entorses, fractures)","category":"mécanique","responsable":"Jean Martin (Responsable HSE)",
   "severity":3,"probability":3,"riskLevel":9,"existingMeasures":["Panneaux de signalisation \"Sol glissant\"","Nettoyage hors heures de pointe","Chaussures antidérapantes fournies au personnel"],
@@ -46,7 +46,7 @@ INSERT INTO kv_store_cfb78916(key, value) VALUES
   "observation":"Amélioration significative constatée depuis la mise en place des mesures","createdAt":"2025-12-15T10:00:00Z","updatedAt":"2026-01-20T15:30:00Z"
 }$$::jsonb),
 ('risk:2', $${
-  "id":"2","numeroRisque":"RISK-2026-002","title":"Exposition aux produits chimiques - Atelier","unite":"Unité Technique","service":"Service Technique","site":"Port de Marseille",
+  "id":"2","numeroRisque":"RISK-2026-002","title":"Exposition aux produits chimiques - Atelier","unite":"Unité Technique","service":"Maintenance","site":"Port de Marseille",
   "situation":"Manipulation quotidienne de solvants et produits chimiques dans l'atelier de peinture sans ventilation adéquate",
   "associatedRisk":"Intoxication par inhalation, brûlures chimiques, dermatoses professionnelles","category":"chimique","responsable":"Pierre Leclerc (Chef de service)",
   "severity":4,"probability":3,"riskLevel":12,"existingMeasures":["EPI : gants nitrile, masque FFP2","Fiches de données de sécurité disponibles","Formation annuelle manipulation produits chimiques","Douche de sécurité installée"],
@@ -60,7 +60,7 @@ INSERT INTO kv_store_cfb78916(key, value) VALUES
   "observation":"Risque prioritaire nécessitant une action rapide","createdAt":"2025-11-10T08:00:00Z","updatedAt":"2026-01-15T09:00:00Z"
 }$$::jsonb),
 ('risk:3', $${
-  "id":"3","numeroRisque":"RISK-2026-003","title":"Travail en hauteur - Maintenance toiture","unite":"Unité Maintenance","service":"Service Technique","site":"Port de Toulon",
+  "id":"3","numeroRisque":"RISK-2026-003","title":"Travail en hauteur - Maintenance toiture","unite":"Unité Maintenance","service":"Maintenance","site":"Port de Toulon",
   "situation":"Interventions de maintenance sur toiture plate à 8 mètres de hauteur sans système antichute permanent",
   "associatedRisk":"Chute de hauteur avec risque de blessures graves voire mortelles","category":"mécanique","responsable":"Marc Durand (Responsable travaux)",
   "severity":4,"probability":2,"riskLevel":8,"existingMeasures":["Harnais de sécurité individuel","Ligne de vie temporaire","Autorisation de travail en hauteur obligatoire","Formation travail en hauteur validée","Contrôle visuel des EPI avant chaque intervention"],
@@ -73,7 +73,7 @@ INSERT INTO kv_store_cfb78916(key, value) VALUES
   "observation":"Investissement important nécessaire pour la sécurité","createdAt":"2025-10-05T14:00:00Z","updatedAt":"2026-01-10T11:00:00Z"
 }$$::jsonb),
 ('risk:4', $${
-  "id":"4","numeroRisque":"RISK-2026-004","title":"Risques psychosociaux - Service client","unite":"Unité Administrative","service":"Service Formation","site":"Siège Marseille",
+  "id":"4","numeroRisque":"RISK-2026-004","title":"Risques psychosociaux - Service client","unite":"Unité Administrative","service":"Production","site":"Siège Marseille",
   "situation":"Charge de travail élevée au service client avec pics d'activité réguliers, clients agressifs, objectifs de performance élevés",
   "associatedRisk":"Stress chronique, burn-out, troubles anxieux, démotivation, turnover élevé","category":"psychosocial","responsable":"Anne Petit (Manager Service Client)",
   "severity":3,"probability":4,"riskLevel":12,"existingMeasures":["Entretiens annuels d'évaluation","Cellule d'écoute psychologique","Droit à la déconnexion","Formation gestion du stress"],
@@ -87,7 +87,7 @@ INSERT INTO kv_store_cfb78916(key, value) VALUES
   "observation":"Suivi régulier nécessaire avec les équipes RH","createdAt":"2025-09-20T09:00:00Z","updatedAt":"2026-02-01T16:00:00Z"
 }$$::jsonb),
 ('risk:5', $${
-  "id":"5","numeroRisque":"RISK-2026-005","title":"Troubles musculo-squelettiques - Postes de travail bureau","unite":"Unité Administrative","service":"Service Administratif","site":"Siège Marseille",
+  "id":"5","numeroRisque":"RISK-2026-005","title":"Troubles musculo-squelettiques - Postes de travail bureau","unite":"Unité Administrative","service":"Sécurité","site":"Siège Marseille",
   "situation":"Postes de travail sur écran non ergonomiques, sièges inadaptés, absence de matériel ergonomique",
   "associatedRisk":"TMS (tendinites, lombalgies, cervicalgies), fatigue visuelle","category":"ergonomique","responsable":"Sophie Bernard (Responsable Achats)",
   "severity":2,"probability":4,"riskLevel":8,"existingMeasures":["Écrans ajustables en hauteur","Formation gestes et postures","Pauses recommandées toutes les 2h"],
@@ -101,7 +101,7 @@ INSERT INTO kv_store_cfb78916(key, value) VALUES
   "observation":"Amélioration progressive du confort de travail","createdAt":"2025-12-01T10:00:00Z","updatedAt":"2026-01-10T14:00:00Z"
 }$$::jsonb),
 ('risk:6', $${
-  "id":"6","numeroRisque":"RISK-2026-006","title":"Risque électrique - Armoires électriques","unite":"Unité Maintenance","service":"Service Technique","site":"Siège Marseille",
+  "id":"6","numeroRisque":"RISK-2026-006","title":"Risque électrique - Armoires électriques","unite":"Unité Maintenance","service":"Maintenance","site":"Siège Marseille",
   "situation":"Armoires électriques vétustes dans le sous-sol, certaines portes ne ferment plus correctement",
   "associatedRisk":"Électrisation, électrocution, incendie d'origine électrique","category":"électrique","responsable":"Pierre Leclerc (Chef maintenance)",
   "severity":4,"probability":2,"riskLevel":8,"existingMeasures":["Habilitations électriques du personnel","Signalisation danger électrique","Vérifications annuelles réglementaires","Consignation avant intervention"],

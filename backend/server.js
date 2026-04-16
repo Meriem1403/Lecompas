@@ -66,6 +66,38 @@ const getUserFromToken = async (token) => {
   return rows[0] ?? null;
 };
 
+const splitCsvValues = (value) =>
+  String(value || "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+
+const hasIntersection = (left, right) =>
+  left.some((item) => right.includes(item));
+
+const canUserAccessRisk = (userProfile, risk) => {
+  if (!userProfile) return false;
+  if (userProfile.role === "admin") return true;
+
+  const userServices = splitCsvValues(userProfile.service);
+  const userDomains = splitCsvValues(userProfile.domain);
+  const userLocations = splitCsvValues(userProfile.location);
+
+  const riskServices = splitCsvValues(risk.service);
+  const riskDomains = splitCsvValues(risk.domain || risk.unite);
+  const riskLocations = splitCsvValues(risk.site);
+
+  const serviceMatch =
+    userServices.length === 0 || hasIntersection(userServices, riskServices);
+  const domainMatch =
+    userDomains.length === 0 || hasIntersection(userDomains, riskDomains);
+  const locationMatch =
+    userLocations.length === 0 ||
+    hasIntersection(userLocations, riskLocations);
+
+  return serviceMatch && domainMatch && locationMatch;
+};
+
 app.get(`${apiPrefix}/health`, (_req, res) => {
   res.json({ status: "ok", mode: "local" });
 });
@@ -186,9 +218,13 @@ app.get(`${apiPrefix}/risks`, async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const userProfile = (await kvGet(`user:${user.id}`)) || user;
     const risksList = (await kvGet("risks:list")) || [];
     const risks = await kvMget(risksList.map((id) => `risk:${id}`));
-    return res.json({ risks });
+    const visibleRisks = risks.filter((risk) =>
+      canUserAccessRisk(userProfile, risk),
+    );
+    return res.json({ risks: visibleRisks });
   } catch (_error) {
     return res.status(500).json({ error: "Server error getting risks" });
   }
