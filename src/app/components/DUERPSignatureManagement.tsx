@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Separator } from '@/app/components/ui/separator';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -158,9 +157,9 @@ export function DUERPSignatureManagement({
   const canSendForSignature = !currentSignature || currentSignature.status === 'draft' || currentSignature.status === 'expired';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-3 sm:p-6">
       {/* Header avec statut actuel */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${currentSignature ? getStatusColor(currentSignature.status) : 'from-blue-500 to-cyan-500'} flex items-center justify-center shadow-lg`}>
           <FileSignature className="h-6 w-6 text-white" />
         </div>
@@ -168,15 +167,15 @@ export function DUERPSignatureManagement({
           <h2 className="text-2xl font-bold text-gray-900">Signature du DUERP</h2>
           <p className="text-gray-600">Gestion de la validation et signature électronique</p>
         </div>
-        {currentSignature && getStatusBadge(currentSignature.status)}
+        {currentSignature && <div className="w-full sm:w-auto">{getStatusBadge(currentSignature.status)}</div>}
       </div>
 
       {/* Document actuel */}
       {currentSignature && (
         <Card className="border-0 shadow-xl">
           <CardHeader className={`bg-gradient-to-r ${currentSignature.status === 'signed' ? 'from-green-50 to-emerald-50' : currentSignature.status === 'pending_signature' ? 'from-amber-50 to-orange-50' : 'from-gray-50 to-slate-50'}`}>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <CardTitle className="flex items-center gap-2">
                   <FileSignature className="h-5 w-5" />
                   DUERP Version {currentSignature.version}
@@ -202,8 +201,7 @@ export function DUERPSignatureManagement({
                 <div className="flex-1">
                   <p className="font-semibold text-gray-900">{currentSignature.signatoryName}</p>
                   <p className="text-sm text-gray-600">{currentSignature.signatoryTitle}</p>
-                  <p className="text-sm text-blue-600 flex items-center gap-1 mt-1">
-                    <Mail className="h-3 w-3" />
+                  <p className="text-sm text-blue-600 mt-1">
                     {currentSignature.signatoryEmail}
                   </p>
                 </div>
@@ -320,11 +318,11 @@ export function DUERPSignatureManagement({
             )}
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
               <Button
                 variant="outline"
                 onClick={() => onViewDocument(currentSignature.id)}
-                className="border-blue-300 hover:bg-blue-50"
+                className="w-full sm:w-auto border-blue-300 hover:bg-blue-50"
               >
                 <Eye className="h-4 w-4 mr-2" />
                 Visualiser le document
@@ -332,7 +330,7 @@ export function DUERPSignatureManagement({
               <Button
                 variant="outline"
                 onClick={() => onDownloadDocument(currentSignature.id)}
-                className="border-green-300 hover:bg-green-50"
+                className="w-full sm:w-auto border-green-300 hover:bg-green-50"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Télécharger le PDF
@@ -340,7 +338,7 @@ export function DUERPSignatureManagement({
               {canSendForSignature && (
                 <Button
                   onClick={() => setSendDialogOpen(true)}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                 >
                   <Send className="h-4 w-4 mr-2" />
                   Envoyer pour signature
@@ -386,26 +384,26 @@ export function DUERPSignatureManagement({
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <ScrollArea className="h-[400px] pr-4">
-              <div className="space-y-4">
+            <div className="space-y-4">
                 {signatureHistory.map((signature, index) => (
                   <div
                     key={signature.id}
                     className="p-4 rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                          {signature.version}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">Version {signature.version}</p>
-                          <p className="text-xs text-gray-600">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
+                              Version {signature.version}
+                            </Badge>
+                            {getStatusBadge(signature.status)}
+                          </div>
+                          <p className="mt-1 text-xs text-gray-600">
                             Créé le {new Date(signature.createdDate).toLocaleDateString('fr-FR')}
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(signature.status)}
                     </div>
 
                     {signature.signedDate && (
@@ -415,10 +413,11 @@ export function DUERPSignatureManagement({
                       </div>
                     )}
 
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex flex-col sm:flex-row gap-2 mt-3">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="w-full sm:w-auto"
                         onClick={() => onViewDocument(signature.id)}
                       >
                         <Eye className="h-3 w-3 mr-1" />
@@ -427,6 +426,7 @@ export function DUERPSignatureManagement({
                       <Button
                         size="sm"
                         variant="outline"
+                        className="w-full sm:w-auto"
                         onClick={() => onDownloadDocument(signature.id)}
                       >
                         <Download className="h-3 w-3 mr-1" />
@@ -435,8 +435,7 @@ export function DUERPSignatureManagement({
                     </div>
                   </div>
                 ))}
-              </div>
-            </ScrollArea>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -487,11 +486,11 @@ export function DUERPSignatureManagement({
             </div>
           </div>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSendForSignature}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
             >
               <Send className="h-4 w-4 mr-2" />
               Envoyer pour signature

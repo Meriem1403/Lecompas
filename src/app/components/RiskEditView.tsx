@@ -332,7 +332,7 @@ export function RiskEditView({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button 
           type="button"
           variant="ghost" 
@@ -341,18 +341,19 @@ export function RiskEditView({
         >
           ← Annuler et retour
         </Button>
-        <div className="flex space-x-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
           <Button 
             type="button"
             variant="outline"
             onClick={onCancel}
+            className="w-full sm:w-auto"
           >
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
           <Button 
             type="submit"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+            className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
           >
             <Save className="h-4 w-4 mr-2" />
             Enregistrer
@@ -365,12 +366,12 @@ export function RiskEditView({
         <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
                 <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${getCategoryColor(formData.category)} flex items-center justify-center shadow-lg`}>
                   {React.createElement(getCategoryIcon(formData.category), { className: 'h-8 w-8 text-white' })}
                 </div>
                 <div className="flex-1 space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <Label htmlFor="title" className="text-sm font-semibold text-gray-600">Titre du risque</Label>
                     {existingTitles.length > 0 && !isCustomTitle && (
                       <Button
@@ -437,7 +438,7 @@ export function RiskEditView({
                 Identification du risque
               </h4>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="numeroRisque" className="text-sm font-semibold">Numéro Risque</Label>
                   {riskReferences.length > 0 && (
@@ -510,7 +511,7 @@ export function RiskEditView({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="service" className="text-sm font-semibold">Service *</Label>
                   <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
@@ -611,7 +612,7 @@ export function RiskEditView({
 
             {/* Mesures existantes */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
                 <Label className="text-sm font-bold text-gray-700 flex items-center">
                   <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
                   Mesures de Prévention Existantes
@@ -629,7 +630,7 @@ export function RiskEditView({
               <div className="space-y-2">
                 {formData.existingMeasures && formData.existingMeasures.length > 0 ? (
                   formData.existingMeasures.map((measure, idx) => (
-                    <div key={idx} className="flex items-center space-x-2">
+                    <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                         {idx + 1}
                       </Badge>
@@ -660,7 +661,7 @@ export function RiskEditView({
 
             {/* Mesures planifiées */}
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
                 <Label className="text-sm font-bold text-gray-700 flex items-center">
                   <Calendar className="h-4 w-4 mr-2 text-blue-500" />
                   Actions Planifiées
@@ -680,7 +681,7 @@ export function RiskEditView({
                   formData.plannedMeasures.map((measure, idx) => (
                     <Card key={idx} className="border-2 border-gray-300 bg-gray-50">
                       <CardContent className="p-4 space-y-3">
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <Badge className="bg-blue-500 text-white">Action {idx + 1}</Badge>
                           <Button
                             type="button"
@@ -701,7 +702,7 @@ export function RiskEditView({
                             className="min-h-[60px]"
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs">Responsable</Label>
                             <Select

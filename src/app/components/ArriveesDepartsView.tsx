@@ -549,9 +549,9 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
       {/* En-tête avec gradient */}
       <Card className="border-0 shadow-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white overflow-hidden relative">
         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <CardHeader className="relative">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
+        <CardHeader className="relative py-8 sm:py-10">
+          <div className="flex flex-col items-start gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex items-center gap-4">
               <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
                 <UserPlus className="h-8 w-8" />
               </div>
@@ -565,7 +565,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
             <Button
               onClick={handleStartNewDemande}
               size="lg"
-              className="bg-white text-blue-600 hover:bg-blue-50 shadow-xl hover:shadow-2xl transition-all"
+              className="w-full lg:w-auto lg:self-start bg-white text-blue-600 hover:bg-blue-50 shadow-xl hover:shadow-2xl transition-all"
             >
               <Plus className="h-5 w-5 mr-2" />
               Nouvelle demande
@@ -576,11 +576,11 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
 
       {/* Statistiques rapides (admin uniquement) */}
       {userRole === 'admin' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-blue-600 mb-1">Total demandes</p>
                   <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
                 </div>
@@ -593,8 +593,8 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
 
           <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100/50 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-orange-600 mb-1">En attente</p>
                   <p className="text-3xl font-bold text-orange-900">{stats.enAttente}</p>
                 </div>
@@ -607,8 +607,8 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
 
           <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-green-100/50 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-green-600 mb-1">Validées</p>
                   <p className="text-3xl font-bold text-green-900">{stats.validees}</p>
                 </div>
@@ -621,8 +621,8 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
 
           <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100/50 hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-purple-600 mb-1">Arrivées</p>
                   <p className="text-3xl font-bold text-purple-900">{stats.arrivees}</p>
                 </div>
@@ -639,10 +639,11 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
       <Card className="border-0 shadow-xl">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <CardHeader className="pb-4">
-            <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-gradient-to-r from-gray-100 to-gray-200">
+            <div className="w-full overflow-x-auto">
+              <TabsList className="flex min-w-max w-full md:grid md:grid-cols-3 h-auto p-1 bg-gradient-to-r from-gray-100 to-gray-200 gap-1">
               <TabsTrigger 
                 value="mes-demandes" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white py-3 px-6 rounded-lg transition-all"
+                className="flex-1 md:flex-none whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white py-3 px-4 md:px-6 rounded-lg transition-all"
               >
                 <FileText className="h-5 w-5 mr-2" />
                 <span className="font-semibold">Mes demandes</span>
@@ -651,21 +652,22 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                 <>
                   <TabsTrigger 
                     value="demandes"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white py-3 px-6 rounded-lg transition-all"
+                    className="flex-1 md:flex-none whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white py-3 px-4 md:px-6 rounded-lg transition-all"
                   >
                     <ClipboardList className="h-5 w-5 mr-2" />
                     <span className="font-semibold">Toutes les demandes</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="questionnaires"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white py-3 px-6 rounded-lg transition-all"
+                    className="flex-1 md:flex-none whitespace-nowrap data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white py-3 px-4 md:px-6 rounded-lg transition-all"
                   >
                     <Settings className="h-5 w-5 mr-2" />
                     <span className="font-semibold">Questionnaires</span>
                   </TabsTrigger>
                 </>
               )}
-            </TabsList>
+              </TabsList>
+            </div>
           </CardHeader>
 
           <Separator />
@@ -673,7 +675,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
           <CardContent className="pt-6">
             {/* Mes demandes */}
             <TabsContent value="mes-demandes" className="mt-0 space-y-4">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900">Mes demandes</h3>
                   <p className="text-sm text-gray-500 mt-1">
@@ -711,7 +713,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                                 </div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                               <div className="flex items-center gap-2 text-gray-600">
                                 <User className="h-4 w-4 text-blue-500" />
                                 <span><strong>Statut:</strong> {demande.statut}</span>
@@ -733,7 +735,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                           <Button
                             size="lg"
                             onClick={() => handleViewDemande(demande)}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             Consulter
@@ -749,7 +751,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
             {/* Toutes les demandes (Admin) */}
             {userRole === 'admin' && (
               <TabsContent value="demandes" className="mt-0 space-y-4">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">Toutes les demandes</h3>
                     <p className="text-sm text-gray-500 mt-1">
@@ -759,7 +761,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                 </div>
 
                 {/* Filtres améliorés */}
-                <Card className="bg-gradient-to-r from-gray-50 to-gray-100 border-2">
+                <Card className="bg-gradient-to-r from-slate-50 to-slate-100 border-2 border-slate-200">
                   <CardContent className="p-6">
                     <div className="flex items-center gap-2 mb-4">
                       <Filter className="h-5 w-5 text-gray-600" />
@@ -773,30 +775,30 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                             placeholder="Rechercher par nom ou prénom..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 h-12 border-2 focus:border-blue-500"
+                            className="pl-10 h-12 bg-white border-2 border-slate-300 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:border-blue-500"
                           />
                         </div>
                       </div>
                       <Select value={filterStatut} onValueChange={setFilterStatut}>
-                        <SelectTrigger className="w-56 h-12 border-2">
+                        <SelectTrigger className="w-56 h-12 bg-white border-2 border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500">
                           <SelectValue placeholder="Filtrer par statut" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">📋 Tous les statuts</SelectItem>
-                          <SelectItem value="brouillon">📝 Brouillon</SelectItem>
-                          <SelectItem value="en_attente">⏳ En attente</SelectItem>
-                          <SelectItem value="validee">✅ Validée</SelectItem>
-                          <SelectItem value="refusee">❌ Refusée</SelectItem>
+                          <SelectItem value="all">Tous les statuts</SelectItem>
+                          <SelectItem value="brouillon">Brouillon</SelectItem>
+                          <SelectItem value="en_attente">En attente</SelectItem>
+                          <SelectItem value="validee">Validée</SelectItem>
+                          <SelectItem value="refusee">Refusée</SelectItem>
                         </SelectContent>
                       </Select>
                       <Select value={filterType} onValueChange={setFilterType}>
-                        <SelectTrigger className="w-56 h-12 border-2">
+                        <SelectTrigger className="w-56 h-12 bg-white border-2 border-slate-300 text-slate-900 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500">
                           <SelectValue placeholder="Filtrer par type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">📁 Tous les types</SelectItem>
-                          <SelectItem value="arrivee">👋 Arrivée</SelectItem>
-                          <SelectItem value="depart">👋 Départ</SelectItem>
+                          <SelectItem value="all">Tous les types</SelectItem>
+                          <SelectItem value="arrivee">Arrivée</SelectItem>
+                          <SelectItem value="depart">Départ</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -808,7 +810,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                   {filteredDemandes.map((demande) => (
                     <Card key={demande.id} className="border-2 hover:border-blue-300 hover:shadow-xl transition-all duration-200 group">
                       <CardContent className="p-6">
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-4">
                               <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
@@ -824,7 +826,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                                 </div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 text-sm">
                               <div className="flex items-center gap-2 text-gray-600">
                                 <User className="h-4 w-4 text-blue-500" />
                                 <span><strong>Statut:</strong> {demande.statut}</span>
@@ -847,11 +849,11 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                             <Button
                               size="lg"
                               onClick={() => handleViewDemande(demande)}
-                              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
+                              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg"
                             >
                               <Eye className="h-4 w-4 mr-2" />
                               Consulter
@@ -859,7 +861,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                             <Button
                               size="lg"
                               variant="outline"
-                              className="text-red-600 hover:bg-red-50 border-2 border-red-300 hover:border-red-500"
+                              className="w-full sm:w-auto text-red-600 hover:bg-red-50 border-2 border-red-300 hover:border-red-500"
                               onClick={() => {
                                 setSelectedDemande(demande);
                                 setIsDeleteDialogOpen(true);
@@ -879,7 +881,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
             {/* Questionnaires (Admin) */}
             {userRole === 'admin' && (
               <TabsContent value="questionnaires" className="mt-0 space-y-4">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900">Questionnaires</h3>
                     <p className="text-sm text-gray-500 mt-1">
@@ -896,7 +898,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {questionnaires.map((questionnaire) => (
                     <Card
                       key={questionnaire.id}
@@ -907,7 +909,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                       }`}
                     >
                       <CardHeader className="pb-4">
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
@@ -935,7 +937,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                                   : 'bg-gray-100 text-gray-700 border-gray-300'
                               }`}
                             >
-                              {questionnaire.actif ? '✓ Actif' : '○ Inactif'}
+                              {questionnaire.actif ? 'Actif' : 'Inactif'}
                             </Badge>
                           </div>
                         </div>

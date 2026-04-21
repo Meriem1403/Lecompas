@@ -137,8 +137,8 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
@@ -152,7 +152,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={onCancel}>
             <X className="h-4 w-4 mr-2" />
             Annuler
@@ -204,7 +204,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
             <p className="text-xs text-gray-500 mt-1">Description précise de l'emplacement</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="batiment" className="text-base">Bâtiment</Label>
               <Input
@@ -241,7 +241,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="dateReperage" className="text-base">Date du 1er repérage *</Label>
               <Input
@@ -295,7 +295,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="dernierControle" className="text-base">Date du dernier contrôle</Label>
               <Input
@@ -367,7 +367,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
           <Separator />
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-white rounded-lg border-2 border-gray-200">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-white rounded-lg border-2 border-gray-200">
               <div className="flex items-center gap-3">
                 <Shield className="h-5 w-5 text-purple-600" />
                 <div>
@@ -384,7 +384,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
             </div>
 
             {retraitRealise && (
-              <div className="grid grid-cols-2 gap-4 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 bg-green-50 rounded-lg border border-green-200">
                 <div>
                   <Label htmlFor="dateRetrait" className="text-base">Date du retrait</Label>
                   <Input
@@ -436,7 +436,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
             <p className="text-xs text-gray-500 mt-1">Décrivez les actions futures prévues pour la gestion de ce matériau</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="echeanceAction" className="text-base">Échéance de l'action</Label>
               <Input
@@ -511,8 +511,8 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
           <div>
             <Label className="text-base">Fichier du diagnostic</Label>
             {fichierDiagnostic ? (
-              <div className="mt-2 p-4 bg-white border-2 border-purple-300 rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="mt-2 p-4 bg-white border-2 border-purple-300 rounded-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
                   <FileText className="h-10 w-10 text-purple-600" />
                   <div>
                     <p className="font-semibold text-gray-900">{fichierDiagnostic}</p>
@@ -551,14 +551,14 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
       {/* Footer Actions */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
-          <div className="flex justify-between items-center">
-            <Button variant="outline" onClick={onCancel}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+            <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
               <X className="h-4 w-4 mr-2" />
               Annuler
             </Button>
             <Button
               onClick={handleSave}
-              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+              className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
             >
               <Save className="h-4 w-4 mr-2" />
               Enregistrer l'intervention

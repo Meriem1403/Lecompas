@@ -193,11 +193,11 @@ export function NotificationSettings({
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <Button
                   variant={localPrefs.frequency === 'immediate' ? 'default' : 'outline'}
                   onClick={() => setLocalPrefs(prev => ({ ...prev, frequency: 'immediate' }))}
-                  className={localPrefs.frequency === 'immediate' ? 'bg-gradient-to-r from-green-500 to-emerald-500' : ''}
+                  className={`w-full justify-center ${localPrefs.frequency === 'immediate' ? 'bg-gradient-to-r from-green-500 to-emerald-500' : ''}`}
                 >
                   <Send className="h-4 w-4 mr-2" />
                   Immédiate
@@ -205,7 +205,7 @@ export function NotificationSettings({
                 <Button
                   variant={localPrefs.frequency === 'daily' ? 'default' : 'outline'}
                   onClick={() => setLocalPrefs(prev => ({ ...prev, frequency: 'daily' }))}
-                  className={localPrefs.frequency === 'daily' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : ''}
+                  className={`w-full justify-center ${localPrefs.frequency === 'daily' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : ''}`}
                 >
                   <Bell className="h-4 w-4 mr-2" />
                   Quotidien
@@ -213,7 +213,7 @@ export function NotificationSettings({
                 <Button
                   variant={localPrefs.frequency === 'weekly' ? 'default' : 'outline'}
                   onClick={() => setLocalPrefs(prev => ({ ...prev, frequency: 'weekly' }))}
-                  className={localPrefs.frequency === 'weekly' ? 'bg-gradient-to-r from-purple-500 to-pink-500' : ''}
+                  className={`w-full justify-center ${localPrefs.frequency === 'weekly' ? 'bg-gradient-to-r from-purple-500 to-pink-500' : ''}`}
                 >
                   <Activity className="h-4 w-4 mr-2" />
                   Hebdomadaire

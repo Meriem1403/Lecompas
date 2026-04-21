@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { ArrowLeft, Save, HelpCircle, AlertCircle, Building2, MapPin, User, MessageSquare, FileText, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Save, HelpCircle, AlertCircle, Building2, MapPin, User, MessageSquare, FileText, CheckCircle2, ChevronLeft, ChevronRight, Lock, Wrench, Shield, HardHat, AlertTriangle, Lightbulb, BookOpen, Siren, PlusCircle } from 'lucide-react';
 import { SSTRemark, GeographicSite, Domain } from '../SSTRegistryView';
 import { toast } from 'sonner';
 import {
@@ -59,60 +59,60 @@ export function SSTRegistryForm({
     'Autre',
   ];
 
-  const domainOptions: { value: Domain; label: string; description: string; icon: string }[] = [
+  const domainOptions: { value: Domain; label: string; description: string; icon: React.ComponentType<{ className?: string }> }[] = [
     {
       value: 'locaux_travail',
       label: 'Locaux de travail',
       description: 'Aménagement, stockages, propreté…',
-      icon: '🏢',
+      icon: Building2,
     },
     {
       value: 'machines_outils',
       label: 'Machines ou outils',
       description: 'Pas ou plus adaptés, sécurité shuntée, dysfonctionnements, difficultés d\'usage...',
-      icon: '🔧',
+      icon: Wrench,
     },
     {
       value: 'epc',
       label: 'Équipements de protection collective',
       description: 'Garde corps usagé, armoire électrique ouverte...',
-      icon: '🛡️',
+      icon: Shield,
     },
     {
       value: 'epi',
       label: 'Équipements de protection individuelle',
       description: 'Non adapté, modèle présentant un défaut...',
-      icon: '🦺',
+      icon: HardHat,
     },
     {
       value: 'situations_risques',
       label: 'Situations à risques',
       description: 'Risques liés aux installations électriques, produits dangereux (CMR, ACD), conduite des engins, conditions de circulation, travaux en cours…',
-      icon: '⚠️',
+      icon: AlertTriangle,
     },
     {
       value: 'conditions_travail',
       label: 'Conditions de travail',
       description: 'Bruit, éclairage, ventilation des locaux, espaces de travail, manutentions manuelles, travail sur écran…',
-      icon: '💡',
+      icon: Lightbulb,
     },
     {
       value: 'formation',
       label: 'Formation dans le domaine de la prévention des risques professionnels',
       description: '',
-      icon: '📚',
+      icon: BookOpen,
     },
     {
       value: 'evenements_dangereux',
       label: 'Événements dangereux',
       description: 'Accidents matériel, bénins, corporel, presqu\'accident',
-      icon: '🚨',
+      icon: Siren,
     },
     {
       value: 'autre',
       label: 'Autre',
       description: '',
-      icon: '➕',
+      icon: PlusCircle,
     },
   ];
 
@@ -215,7 +215,7 @@ export function SSTRegistryForm({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Button variant="ghost" size="sm" onClick={onCancel} className="mb-2">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -238,7 +238,10 @@ export function SSTRegistryForm({
               <AlertCircle className="h-7 w-7 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="font-bold text-blue-900 text-lg mb-2">💡 À quoi sert ce registre ?</h3>
+              <h3 className="font-bold text-blue-900 text-lg mb-2 flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-blue-700" />
+                À quoi sert ce registre ?
+              </h3>
               <p className="text-gray-700 leading-relaxed mb-3">
                 Ce registre vous permet de consigner vos observations et suggestions relatives à la <strong>prévention des risques professionnels</strong> et à l'<strong>amélioration des conditions de travail</strong>.
               </p>
@@ -251,25 +254,25 @@ export function SSTRegistryForm({
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-4 space-y-2 bg-white/60 p-4 rounded-lg border-2 border-blue-200">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="flex gap-2">
-                      <span className="text-lg">⚠️</span>
+                    <div className="flex gap-2 items-start">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
                       <p className="text-sm"><strong>Un risque</strong> observé ou encouru</p>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="text-lg">🚑</span>
+                    <div className="flex gap-2 items-start">
+                      <Siren className="h-4 w-4 text-red-600 mt-0.5" />
                       <p className="text-sm"><strong>Un accident ou incident</strong> vu ou vécu</p>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="text-lg">🔧</span>
+                    <div className="flex gap-2 items-start">
+                      <Wrench className="h-4 w-4 text-gray-700 mt-0.5" />
                       <p className="text-sm"><strong>Un dysfonctionnement</strong> d'installation ou de dispositif de sécurité</p>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="text-lg">💡</span>
+                    <div className="flex gap-2 items-start">
+                      <Lightbulb className="h-4 w-4 text-yellow-600 mt-0.5" />
                       <p className="text-sm"><strong>Des suggestions</strong> d'amélioration (éclairage, bruit, environnement...)</p>
                     </div>
                   </div>
                   <p className="text-xs text-gray-600 mt-3 italic border-t pt-3 border-blue-200">
-                    📝 Pour tout fait, incident ou accident : détaillez les circonstances et les facteurs ayant concouru à leur réalisation.
+                    Pour tout fait, incident ou accident : détaillez les circonstances et les facteurs ayant concouru à leur réalisation.
                   </p>
                 </CollapsibleContent>
               </Collapsible>
@@ -279,7 +282,7 @@ export function SSTRegistryForm({
       </Card>
 
       {/* Progress Steps */}
-      <div className="flex justify-between items-center px-4">
+      <div className="hidden md:flex justify-between items-center px-4">
         {steps.map((step, index) => {
           const StepIcon = step.icon;
           const isActive = currentStep === step.number;
@@ -363,7 +366,7 @@ export function SSTRegistryForm({
                 <MapPin className="h-5 w-5 text-rose-600" />
                 Site(s) géographique(s) concerné(s)
               </Label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {(['PACA', 'Occitanie', 'Corse'] as GeographicSite[]).map((site) => (
                   <label
                     key={site}
@@ -422,7 +425,8 @@ export function SSTRegistryForm({
                   }`}>
                     {isAnonymous && <div className="h-3 w-3 rounded-full bg-white" />}
                   </div>
-                  <span className="font-semibold">🔒 Anonyme</span>
+                  <Lock className="h-4 w-4" />
+                  <span className="font-semibold">Anonyme</span>
                 </label>
                 <label
                   className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
@@ -437,7 +441,8 @@ export function SSTRegistryForm({
                   }`}>
                     {!isAnonymous && <div className="h-3 w-3 rounded-full bg-white" />}
                   </div>
-                  <span className="font-semibold">👤 Pas anonyme</span>
+                  <User className="h-4 w-4" />
+                  <span className="font-semibold">Pas anonyme</span>
                 </label>
               </RadioGroup>
               {!isAnonymous && (
@@ -456,11 +461,11 @@ export function SSTRegistryForm({
             <div className="flex justify-end">
               <Button
                 onClick={() => setCurrentStep(2)}
-                className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg"
+                className="w-full sm:w-auto bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg"
                 size="lg"
               >
                 Continuer
-                <span className="ml-2">→</span>
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>
@@ -497,7 +502,7 @@ export function SSTRegistryForm({
                       onCheckedChange={() => handleDomainToggle(option.value)}
                       className="sr-only"
                     />
-                    <span className="text-3xl">{option.icon}</span>
+                    <option.icon className="h-6 w-6" />
                     <div className="flex-1">
                       <p className="font-bold text-base mb-1">{option.label}</p>
                       {option.description && (
@@ -520,23 +525,23 @@ export function SSTRegistryForm({
               ))}
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between pt-4">
               <Button
                 onClick={() => setCurrentStep(1)}
                 variant="outline"
                 size="lg"
-                className="border-2"
+                className="w-full sm:w-auto border-2"
               >
-                <span className="mr-2">←</span>
+                <ChevronLeft className="mr-2 h-4 w-4" />
                 Retour
               </Button>
               <Button
                 onClick={() => setCurrentStep(3)}
-                className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg"
+                className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg"
                 size="lg"
               >
                 Continuer
-                <span className="ml-2">→</span>
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>
@@ -579,7 +584,7 @@ export function SSTRegistryForm({
                 className="mt-1.5 border-2 hover:border-amber-300 transition-colors resize-none"
               />
               <p className="text-xs text-gray-600 mt-2 italic">
-                💡 Soyez précis : décrivez les circonstances et les facteurs ayant contribué à la situation
+                Soyez précis : décrivez les circonstances et les facteurs ayant contribué à la situation
               </p>
             </div>
 
@@ -601,23 +606,23 @@ export function SSTRegistryForm({
               />
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between pt-4">
               <Button
                 onClick={() => setCurrentStep(2)}
                 variant="outline"
                 size="lg"
-                className="border-2"
+                className="w-full sm:w-auto border-2"
               >
-                <span className="mr-2">←</span>
+                <ChevronLeft className="mr-2 h-4 w-4" />
                 Retour
               </Button>
               <Button
                 onClick={() => setCurrentStep(4)}
-                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg"
+                className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg"
                 size="lg"
               >
                 Vérifier
-                <span className="ml-2">→</span>
+                <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>
@@ -647,7 +652,7 @@ export function SSTRegistryForm({
                 <p><strong>Service :</strong> {service === 'Autre' ? otherService : service}</p>
                 <p><strong>Sites :</strong> {geographicSites.length > 0 ? geographicSites.join(', ') : 'Non spécifié'}</p>
                 {siteComments && <p><strong>Commentaire :</strong> {siteComments}</p>}
-                <p><strong>Identité :</strong> {isAnonymous ? '🔒 Anonyme' : `👤 ${agentName}`}</p>
+                <p><strong>Identité :</strong> {isAnonymous ? 'Anonyme' : agentName}</p>
                 <p><strong>Localisation :</strong> {sitePrecisions}</p>
               </div>
             </div>
@@ -662,7 +667,8 @@ export function SSTRegistryForm({
                   const option = domainOptions.find(d => d.value === domain);
                   return (
                     <Badge key={domain} className="bg-purple-600 text-white px-3 py-1">
-                      {option?.icon} {option?.label}
+                      {option && <option.icon className="h-3.5 w-3.5 mr-1" />}
+                      {option?.label}
                       {domain === 'autre' && otherDomain && `: ${otherDomain}`}
                     </Badge>
                   );
@@ -680,19 +686,19 @@ export function SSTRegistryForm({
               </p>
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-between pt-4">
               <Button
                 onClick={() => setCurrentStep(3)}
                 variant="outline"
                 size="lg"
-                className="border-2"
+                className="w-full sm:w-auto border-2"
               >
-                <span className="mr-2">←</span>
+                <ChevronLeft className="mr-2 h-4 w-4" />
                 Retour
               </Button>
               <Button
                 onClick={handleSubmit}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
+                className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
                 size="lg"
               >
                 <Save className="h-5 w-5 mr-2" />

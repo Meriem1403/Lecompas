@@ -1,12 +1,14 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { 
+  AppWindow,
   Shield, 
   Users, 
   Leaf, 
   MessageSquare, 
   Settings as SettingsIcon, 
   FileSignature,
+  Cpu,
   LayoutDashboard,
   ChevronRight
 } from "lucide-react";
@@ -28,28 +30,12 @@ interface CategoriesViewProps {
 export function CategoriesView({ onSelectCategory, onGoToDashboard }: CategoriesViewProps) {
   const categories: Category[] = [
     {
-      id: "duerp",
-      title: "DUERP Manager",
-      description: "Gestion des risques professionnels et de la sécurité au travail",
-      icon: Shield,
-      gradient: "from-blue-500 via-cyan-500 to-teal-500",
-      moduleCount: 6,
-    },
-    {
-      id: "rh",
-      title: "Ressources humaines",
-      description: "Visites médicales, registre SST, arrivées et départs",
-      icon: Users,
-      gradient: "from-teal-500 via-cyan-500 to-blue-500",
+      id: "applications",
+      title: "Applications",
+      description: "Dashboard, équipe et gestion des accès",
+      icon: AppWindow,
+      gradient: "from-sky-500 via-blue-500 to-indigo-500",
       moduleCount: 3,
-    },
-    {
-      id: "environnement",
-      title: "Environnement",
-      description: "Campagnes mercure, diagnostics amiante, gestion de la pêche",
-      icon: Leaf,
-      gradient: "from-cyan-500 via-teal-500 to-blue-500",
-      moduleCount: 4,
     },
     {
       id: "communication",
@@ -66,6 +52,38 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard }: Categories
       icon: SettingsIcon,
       gradient: "from-purple-600 via-pink-600 to-rose-600",
       moduleCount: 8,
+    },
+    {
+      id: "rh",
+      title: "Ressources humaines",
+      description: "Visites médicales, registre SST, arrivées et départs",
+      icon: Users,
+      gradient: "from-teal-500 via-cyan-500 to-blue-500",
+      moduleCount: 3,
+    },
+    {
+      id: "informatique",
+      title: "Informatique",
+      description: "Applications Cerbère et habilitations",
+      icon: Cpu,
+      gradient: "from-indigo-500 via-blue-500 to-cyan-500",
+      moduleCount: 1,
+    },
+    {
+      id: "duerp",
+      title: "Prévention",
+      description: "Évaluation des risques, plan d'actions, documents DUERP et accidentologie",
+      icon: Shield,
+      gradient: "from-blue-500 via-cyan-500 to-teal-500",
+      moduleCount: 6,
+    },
+    {
+      id: "environnement",
+      title: "Environnement",
+      description: "Campagnes mercure, diagnostics amiante, gestion de la pêche",
+      icon: Leaf,
+      gradient: "from-cyan-500 via-teal-500 to-blue-500",
+      moduleCount: 4,
     },
     {
       id: "validation",
@@ -85,10 +103,10 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard }: Categories
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                Plateforme DI-MED
+                Le Compas
               </h1>
               <p className="text-gray-600 mt-1">
-                Direction Interrégionale de la Mer Méditerranée
+                DIRM
               </p>
             </div>
             <button

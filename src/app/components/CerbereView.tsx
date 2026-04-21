@@ -470,15 +470,15 @@ export function CerbereView() {
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <h3 className="text-2xl font-bold text-gray-900">Gestion Cerbère</h3>
           <p className="text-gray-600">
             Applications, profils et demandes d'habilitation
           </p>
         </div>
         {pendingRequestsCount > 0 && (
-          <Badge className="bg-orange-500 text-white px-4 py-2 text-base">
+          <Badge className="w-full lg:w-auto justify-center bg-orange-500 text-white px-4 py-2 text-base">
             <AlertTriangle className="h-4 w-4 mr-2" />
             {pendingRequestsCount} demande{pendingRequestsCount > 1 ? 's' : ''} en attente
           </Badge>
@@ -486,10 +486,10 @@ export function CerbereView() {
       </div>
 
       {/* Onglets */}
-      <div className="flex space-x-2 border-b border-gray-200">
+      <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('applications')}
-          className={`px-6 py-3 font-semibold transition-colors relative ${
+          className={`whitespace-nowrap px-6 py-3 font-semibold transition-colors relative ${
             activeTab === 'applications'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-600 hover:text-gray-900'
@@ -502,7 +502,7 @@ export function CerbereView() {
         </button>
         <button
           onClick={() => setActiveTab('requests')}
-          className={`px-6 py-3 font-semibold transition-colors relative ${
+          className={`whitespace-nowrap px-6 py-3 font-semibold transition-colors relative ${
             activeTab === 'requests'
               ? 'text-blue-600 border-b-2 border-blue-600'
               : 'text-gray-600 hover:text-gray-900'
@@ -521,15 +521,15 @@ export function CerbereView() {
       {/* Contenu - Applications */}
       {activeTab === 'applications' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="flex-1 max-w-md">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="w-full lg:flex-1 lg:max-w-md">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Rechercher une application..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-white border-slate-300"
                 />
               </div>
             </div>
@@ -538,7 +538,7 @@ export function CerbereView() {
                 setFormData({ code: '', nom: '', description: '' });
                 setIsAddAppDialogOpen(true);
               }}
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
             >
               <Plus className="h-4 w-4 mr-2" />
               Nouvelle application
@@ -549,14 +549,14 @@ export function CerbereView() {
             {applications.map((app) => (
               <Card key={app.id} className="border-0 shadow-xl bg-white/80 backdrop-blur">
                 <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="space-y-1 min-w-0">
                       <div className="flex items-center space-x-3">
                         <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                           <Shield className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <CardTitle className="text-xl">{app.nom}</CardTitle>
+                          <CardTitle className="text-xl break-words">{app.nom}</CardTitle>
                           <Badge variant="outline" className="mt-1">
                             {app.code}
                           </Badge>
@@ -564,7 +564,7 @@ export function CerbereView() {
                       </div>
                       <CardDescription className="mt-2">{app.description}</CardDescription>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         size="sm"
                         variant="outline"
@@ -596,7 +596,7 @@ export function CerbereView() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
                       <h4 className="font-semibold text-gray-900">
                         Profils ({app.profils.length})
                       </h4>
@@ -622,7 +622,7 @@ export function CerbereView() {
                         {app.profils.map((profil) => (
                           <div
                             key={profil.id}
-                            className="flex justify-between items-center p-3 rounded-lg bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200"
+                            className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200"
                           >
                             <div className="flex-1">
                               <p className="font-semibold text-gray-900">
@@ -657,22 +657,22 @@ export function CerbereView() {
       {/* Contenu - Demandes d'habilitation */}
       {activeTab === 'requests' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center gap-4">
-            <div className="flex-1 max-w-md">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="w-full xl:flex-1 xl:max-w-md">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Rechercher une demande..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-white border-slate-300"
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2">
               <Filter className="h-4 w-4 text-gray-600" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48 bg-white border-slate-300">
                   <SelectValue placeholder="Filtrer par statut" />
                 </SelectTrigger>
                 <SelectContent>
@@ -684,7 +684,7 @@ export function CerbereView() {
               </Select>
               <Button
                 onClick={() => setCurrentView('form')}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Nouvelle demande
@@ -692,165 +692,136 @@ export function CerbereView() {
             </div>
           </div>
 
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b-2 border-blue-100">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Agent concerné
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Demandeur
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Applications
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Règle de portée
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Soumise le
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Statut
-                      </th>
-                      <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredRequests.map((request) => (
-                      <tr
-                        key={request.id}
-                        className="hover:bg-blue-50/50 transition-colors"
+          <div className="space-y-4">
+            {filteredRequests.map((request) => (
+              <Card key={request.id} className="border-0 shadow-xl bg-white/80 backdrop-blur">
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold text-sm shrink-0">
+                        {request.agentConcerne.split(' ').map((n) => n[0]).join('')}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 break-words">{request.agentConcerne}</p>
+                        <p className="text-sm text-gray-600">Demandeur : {request.demandeur}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      {getStatusBadge(request.statut)}
+                      <p className="text-xs text-gray-500">
+                        Soumise le {new Date(request.soumiseLe).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Applications</p>
+                    <div className="flex flex-wrap gap-1">
+                      {request.applications.map((app, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {app}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {request.profils.map((profil, idx) => (
+                        <Badge key={idx} className="text-xs bg-blue-100 text-blue-800 border-blue-300">
+                          {profil}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Règle de portée</p>
+                      <p className="text-sm text-gray-800 break-words">{request.reglePortee}</p>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">Restrictions</p>
+                      <p className="text-sm text-gray-800 break-words">{request.restrictions || 'Aucune'}</p>
+                    </div>
+                  </div>
+
+                  {request.valideePar && (
+                    <p className="text-xs text-gray-500">
+                      Par {request.valideePar} le {new Date(request.dateValidation!).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+
+                  {request.statut === 'en_attente' ? (
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:flex-1"
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          setCurrentView('detail');
+                        }}
                       >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold text-sm">
-                              {request.agentConcerne.split(' ').map((n) => n[0]).join('')}
-                            </div>
-                            <span className="font-medium text-gray-900">
-                              {request.agentConcerne}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">{request.demandeur}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {request.applications.map((app, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {app}
-                              </Badge>
-                            ))}
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {request.profils.map((profil, idx) => (
-                              <Badge
-                                key={idx}
-                                className="text-xs bg-blue-100 text-blue-800 border-blue-300"
-                              >
-                                {profil}
-                              </Badge>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">{request.reglePortee}</span>
-                          {request.restrictions && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {request.restrictions}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
-                          {new Date(request.soumiseLe).toLocaleDateString('fr-FR')}
-                        </td>
-                        <td className="px-6 py-4">
-                          {getStatusBadge(request.statut)}
-                          {request.valideePar && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Par {request.valideePar}
-                              <br />
-                              Le {new Date(request.dateValidation!).toLocaleDateString('fr-FR')}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {request.statut === 'en_attente' ? (
-                            <div className="flex justify-center space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setCurrentView('detail');
-                                }}
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                Voir
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setIsValidateDialogOpen(true);
-                                }}
-                              >
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Valider
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 hover:bg-red-50"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setIsRejectDialogOpen(true);
-                                }}
-                              >
-                                <XCircle className="h-3 w-3 mr-1" />
-                                Refuser
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex justify-center">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setCurrentView('detail');
-                                }}
-                              >
-                                <Eye className="h-3 w-3 mr-1" />
-                                Voir
-                              </Button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {filteredRequests.length === 0 && (
-                <div className="text-center py-12">
+                        <Eye className="h-3 w-3 mr-1" />
+                        Voir
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          setIsValidateDialogOpen(true);
+                        }}
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Valider
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:flex-1 text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          setIsRejectDialogOpen(true);
+                        }}
+                      >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Refuser
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        onClick={() => {
+                          setSelectedRequest(request);
+                          setCurrentView('detail');
+                        }}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Voir
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
+            {filteredRequests.length === 0 && (
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
+                <CardContent className="text-center py-12">
                   <Users className="h-12 w-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-500">Aucune demande trouvée</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       )}
 
       {/* Dialog - Ajouter une application */}
       <Dialog open={isAddAppDialogOpen} onOpenChange={setIsAddAppDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Nouvelle application Cerbère</DialogTitle>
             <DialogDescription>
@@ -887,18 +858,18 @@ export function CerbereView() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddAppDialogOpen(false)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsAddAppDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleAddApplication}>Ajouter</Button>
+            <Button className="w-full sm:w-auto" onClick={handleAddApplication}>Ajouter</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Dialog - Modifier une application */}
       <Dialog open={isEditAppDialogOpen} onOpenChange={setIsEditAppDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Modifier l'application</DialogTitle>
             <DialogDescription>
@@ -932,18 +903,18 @@ export function CerbereView() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditAppDialogOpen(false)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEditAppDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleEditApplication}>Enregistrer</Button>
+            <Button className="w-full sm:w-auto" onClick={handleEditApplication}>Enregistrer</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Dialog - Ajouter un profil */}
       <Dialog open={isAddProfilDialogOpen} onOpenChange={setIsAddProfilDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Nouveau profil</DialogTitle>
             <DialogDescription>
@@ -975,18 +946,18 @@ export function CerbereView() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddProfilDialogOpen(false)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsAddProfilDialogOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleAddProfil}>Ajouter</Button>
+            <Button className="w-full sm:w-auto" onClick={handleAddProfil}>Ajouter</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Dialog - Valider une demande */}
       <Dialog open={isValidateDialogOpen} onOpenChange={setIsValidateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Valider la demande</DialogTitle>
             <DialogDescription>
@@ -1008,13 +979,13 @@ export function CerbereView() {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsValidateDialogOpen(false)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsValidateDialogOpen(false)}>
               Annuler
             </Button>
             <Button
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
               onClick={handleValidateRequest}
-              className="bg-green-600 hover:bg-green-700"
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               Valider
@@ -1025,7 +996,7 @@ export function CerbereView() {
 
       {/* Dialog - Refuser une demande */}
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Refuser la demande</DialogTitle>
             <DialogDescription>
@@ -1054,13 +1025,13 @@ export function CerbereView() {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
               Annuler
             </Button>
             <Button
+              className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
               onClick={handleRejectRequest}
-              className="bg-red-600 hover:bg-red-700"
             >
               <XCircle className="h-4 w-4 mr-2" />
               Refuser

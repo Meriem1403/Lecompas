@@ -121,7 +121,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-xl">
             <Shield className="h-8 w-8 text-white" />
@@ -135,7 +135,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg"
+          className="w-full lg:w-auto bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg"
           size="lg"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -144,11 +144,11 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-600">Non amiantés</p>
                 <p className="text-3xl font-bold text-green-600 mt-1">
                   {interventions.filter(i => i.statut === 'non_amiante').length}
@@ -163,8 +163,8 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
 
         <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-600">À surveiller</p>
                 <p className="text-3xl font-bold text-orange-600 mt-1">
                   {interventions.filter(i => i.statut === 'surveiller').length}
@@ -179,8 +179,8 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
 
         <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-rose-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-600">Action requise</p>
                 <p className="text-3xl font-bold text-red-600 mt-1">
                   {interventions.filter(i => i.statut === 'action_requise').length}
@@ -195,8 +195,8 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
 
         <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-slate-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-600">Retrait effectué</p>
                 <p className="text-3xl font-bold text-gray-600 mt-1">
                   {interventions.filter(i => i.statut === 'retrait_effectue').length}
@@ -220,13 +220,17 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                 placeholder="Rechercher par zone, localisation, référence, bâtiment..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-white border-slate-300 focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:border-indigo-500"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-gray-400" />
+            <div className="w-full md:w-auto">
+              <div className="mb-2 flex items-center gap-2 md:hidden">
+                <Filter className="h-5 w-5 text-gray-400" />
+                <span className="text-sm text-gray-600">Filtres</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full md:w-[190px] bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -238,7 +242,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                 </SelectContent>
               </Select>
               <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full md:w-[190px] bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -249,6 +253,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                   <SelectItem value="Urgente">Urgente</SelectItem>
                 </SelectContent>
               </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -286,7 +291,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
             return (
               <Card key={intervention.id} className={`border-2 ${config.borderColor} shadow-lg hover:shadow-xl transition-all`}>
                 <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${config.color} flex items-center justify-center`}>
@@ -320,22 +325,25 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <MapPin className="h-4 w-4 text-slate-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">Localisation</p>
                             <p className="text-sm font-semibold text-gray-900">{intervention.localisationPrecise}</p>
                             {intervention.batiment && (
-                              <p className="text-xs text-gray-600 mt-0.5">
-                                <Building2 className="h-3 w-3 inline mr-1" />
+                              <p className="mt-0.5 text-xs text-gray-600 break-words">
                                 {intervention.batiment}
                               </p>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-start gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <Calendar className="h-4 w-4 text-slate-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">1er repérage</p>
                             <p className="text-sm font-semibold text-gray-900">
@@ -346,8 +354,10 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                         </div>
 
                         {intervention.dernierControle && (
-                          <div className="flex items-start gap-2">
-                            <Activity className="h-4 w-4 text-gray-400 mt-0.5" />
+                          <div className="flex items-start gap-3">
+                            <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                              <Activity className="h-4 w-4 text-slate-600" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500">Dernier contrôle</p>
                               <p className="text-sm font-semibold text-gray-900">
@@ -358,8 +368,10 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                         )}
 
                         {intervention.echeanceAction && (
-                          <div className="flex items-start gap-2">
-                            <Clock className="h-4 w-4 text-gray-400 mt-0.5" />
+                          <div className="flex items-start gap-3">
+                            <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                              <Clock className="h-4 w-4 text-slate-600" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500">Échéance action</p>
                               <p className="text-sm font-semibold text-gray-900">
@@ -395,10 +407,11 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                       )}
                     </div>
 
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex flex-col sm:flex-row gap-2 xl:ml-4">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => onViewDetail(intervention)}
                       >
                         <Eye className="h-4 w-4 mr-2" />
@@ -407,6 +420,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => onEdit(intervention)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
@@ -415,7 +429,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        className="w-full sm:w-auto text-red-600 hover:bg-red-50 hover:text-red-700"
                         onClick={() => handleDeleteClick(intervention)}
                       >
                         <Trash2 className="h-4 w-4" />

@@ -6,7 +6,6 @@ import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -432,28 +431,28 @@ export function RisksManagementView({
       <>
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg">
                 <AlertTriangle className="h-6 w-6 text-white" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Gestion des risques</h2>
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold text-gray-900 break-words">Gestion des risques</h2>
                 <p className="text-gray-600">{risks.length} risque{risks.length > 1 ? 's' : ''} répertorié{risks.length > 1 ? 's' : ''}</p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={handleExportExcel}
                 variant="outline"
-                className="border-green-600 text-green-600 hover:bg-green-50"
+                className="w-full sm:w-auto border-green-600 text-green-600 hover:bg-green-50"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Exporter Excel
               </Button>
               <Button
                 onClick={handleCreate}
-                className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
+                className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Nouveau risque
@@ -462,19 +461,19 @@ export function RisksManagementView({
           </div>
 
           {/* Filtres */}
-          <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+          <Card className="border-2 border-slate-200 shadow-lg bg-gradient-to-r from-slate-50 to-slate-100">
             <CardContent className="pt-6">
-              <div className="flex gap-4 flex-wrap items-center">
-                <div className="flex-1 min-w-[300px]">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                <div className="w-full md:flex-1">
                   <Input
-                    placeholder="🔍 Rechercher par numéro, titre, service..."
+                    placeholder="Rechercher par numéro, titre, service..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full"
+                    className="w-full bg-white border-2 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
                   />
                 </div>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full md:w-[220px] bg-white border-2 border-slate-400 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
                     <SelectValue placeholder="Filtrer par statut" />
                   </SelectTrigger>
                   <SelectContent>
@@ -491,7 +490,7 @@ export function RisksManagementView({
           {/* Tableau des risques */}
           <Card className="border-0 shadow-xl">
             <CardContent className="p-0">
-              <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+              <div className="overflow-x-auto">
                 <table className="w-full" style={{ minWidth: '3500px' }}>
                   <thead className="bg-gradient-to-r from-gray-50 to-slate-50 sticky top-0 z-10">
                       <tr>
@@ -729,10 +728,10 @@ export function RisksManagementView({
   // Vue détail
   if (viewMode === 'view' && selectedRisk) {
     return (
-      <div className="space-y-6">
+        <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
             <Button variant="outline" size="sm" onClick={handleBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
@@ -740,22 +739,21 @@ export function RisksManagementView({
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
               <AlertTriangle className="h-5 w-5 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-xl font-bold text-gray-900">{selectedRisk.numeroRisque}</h2>
-              <p className="text-sm text-gray-600">{selectedRisk.title}</p>
+              <p className="text-sm text-gray-600 break-words">{selectedRisk.title}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             {getStatusBadge(selectedRisk.status)}
-            <Button onClick={() => handleEdit(selectedRisk)} className="bg-orange-600 hover:bg-orange-700">
+            <Button onClick={() => handleEdit(selectedRisk)} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700">
               <Edit className="h-4 w-4 mr-2" />
               Modifier
             </Button>
           </div>
         </div>
 
-        <ScrollArea className="h-[700px]">
-          <div className="space-y-6 pr-4">
+        <div className="space-y-6">
             {/* Informations générales */}
             <Card className="border-0 shadow-lg">
               <CardContent className="pt-6 space-y-4">
@@ -763,7 +761,7 @@ export function RisksManagementView({
                   <Target className="h-5 w-5 text-blue-600" />
                   Informations générales
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-gray-600">Numéro de risque</Label>
                     <p className="font-mono font-semibold text-gray-900">{selectedRisk.numeroRisque}</p>
@@ -860,7 +858,7 @@ export function RisksManagementView({
                   <Target className="h-5 w-5 text-purple-600" />
                   Évaluation
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 bg-red-50 rounded-lg border-2 border-red-200 text-center">
                     <Label className="text-gray-600 text-xs font-semibold">Gravité</Label>
                     <p className="text-4xl font-bold text-red-600 mt-2">{selectedRisk.severity}/4</p>
@@ -942,7 +940,7 @@ export function RisksManagementView({
                   <div className="space-y-3">
                     {selectedRisk.plannedMeasures.map((measure, idx) => (
                       <div key={idx} className="p-4 border-2 border-gray-300 rounded-lg bg-gray-50">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
                           <div className="flex-1">
                             <Badge className="bg-blue-500 text-white mb-2">Action {idx + 1}</Badge>
                             <p className="font-medium text-gray-900">{measure.description}</p>
@@ -955,7 +953,7 @@ export function RisksManagementView({
                             {measure.status === 'completed' ? 'Terminée' : measure.status === 'in_progress' ? 'En cours' : 'En attente'}
                           </Badge>
                         </div>
-                        <div className="flex gap-4 text-sm text-gray-600 mt-2">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600 mt-2">
                           <span>{measure.responsible}</span>
                           <span>{measure.deadline ? new Date(measure.deadline).toLocaleDateString('fr-FR') : 'Pas de date'}</span>
                         </div>
@@ -975,7 +973,7 @@ export function RisksManagementView({
                   <Calculator className="h-5 w-5 text-cyan-600" />
                   Évaluation Avancée
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-gray-600">Moyen de Maîtrise</Label>
                     <p className="text-gray-900 mt-1 font-semibold">{selectedRisk.moyenMaitrise || 'Non défini'}</p>
@@ -1022,7 +1020,6 @@ export function RisksManagementView({
               </CardContent>
             </Card>
           </div>
-        </ScrollArea>
       </div>
     );
   }
@@ -1031,8 +1028,8 @@ export function RisksManagementView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-center gap-3 min-w-0">
           <Button variant="outline" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
@@ -1040,24 +1037,23 @@ export function RisksManagementView({
           <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
             <AlertTriangle className="h-5 w-5 text-white" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-xl font-bold text-gray-900">
               {viewMode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
             </h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 break-words">
               {viewMode === 'create' ? 'Créer un nouveau risque professionnel' : `Modification de ${formData.numeroRisque}`}
             </p>
           </div>
         </div>
       </div>
 
-      <ScrollArea className="h-[700px]">
-        <div className="space-y-6 pr-4">
+      <div className="space-y-6">
           {/* Informations générales */}
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Informations générales</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Numéro de risque *</Label>
                   {riskReferences.length > 0 && (
@@ -1276,7 +1272,7 @@ export function RisksManagementView({
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Évaluation du risque</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Gravité (1-4) *</Label>
                   <Select
@@ -1320,7 +1316,7 @@ export function RisksManagementView({
                   {(formData.severity || 1) * (formData.probability || 1)}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <Label>Moyen de Maîtrise *</Label>
                   <Input
@@ -1350,7 +1346,7 @@ export function RisksManagementView({
           {/* Mesures existantes */}
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Mesures de Prévention Existantes</h3>
                 <Button
                   type="button"
@@ -1361,7 +1357,7 @@ export function RisksManagementView({
                       existingMeasures: [...(formData.existingMeasures || []), '']
                     });
                   }}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500"
+                  className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-500"
                 >
                   <PlusCircle className="h-4 w-4 mr-1" />
                   Ajouter
@@ -1369,7 +1365,7 @@ export function RisksManagementView({
               </div>
               <div className="space-y-2">
                 {(formData.existingMeasures || []).map((measure, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
+                  <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center">
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                       {idx + 1}
                     </Badge>
@@ -1409,7 +1405,7 @@ export function RisksManagementView({
           {/* Mesures planifiées */}
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-blue-600" />
                   Actions Planifiées
@@ -1431,7 +1427,7 @@ export function RisksManagementView({
                       ]
                     });
                   }}
-                  className="bg-gradient-to-r from-blue-500 to-cyan-500"
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500"
                 >
                   <PlusCircle className="h-4 w-4 mr-1" />
                   Ajouter
@@ -1441,7 +1437,7 @@ export function RisksManagementView({
                 {(formData.plannedMeasures || []).map((measure, idx) => (
                   <Card key={idx} className="border-2 border-gray-300 bg-gray-50">
                     <CardContent className="pt-4 space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <Badge className="bg-blue-500 text-white">Action {idx + 1}</Badge>
                         <Button
                           type="button"
@@ -1471,7 +1467,7 @@ export function RisksManagementView({
                           className="min-h-[60px]"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Responsable</Label>
                           <Select
@@ -1550,7 +1546,7 @@ export function RisksManagementView({
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Suivi</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Statut *</Label>
                   <Select
@@ -1598,19 +1594,18 @@ export function RisksManagementView({
           </Card>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pb-6">
-            <Button variant="outline" onClick={handleBack}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pb-6">
+            <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
               Annuler
             </Button>
             <Button
               onClick={handleSave}
-              className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+              className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 whitespace-normal text-center h-auto py-2"
             >
               {viewMode === 'create' ? 'Créer le risque' : 'Enregistrer les modifications'}
             </Button>
           </div>
         </div>
-      </ScrollArea>
     </div>
   );
 }

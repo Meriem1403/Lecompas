@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { PlusCircle, Edit, Trash2, ArrowLeft, Building2, Layers, MapPin, Tag, LucideIcon } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ArrowLeft, LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface SimpleEntity {
@@ -116,14 +116,14 @@ export function SimpleEntityManagementView({
     return (
       <>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
               <p className="text-gray-600">{description}</p>
             </div>
             <Button 
               onClick={handleCreate} 
-              className={`bg-gradient-to-r ${gradient} shadow-lg`}
+              className={`w-full lg:w-auto bg-gradient-to-r ${gradient} shadow-lg`}
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               Nouveau
@@ -138,7 +138,7 @@ export function SimpleEntityManagementView({
                     <div className={`h-16 w-16 rounded-full bg-gradient-to-br ${gradient.split(' ').slice(1).join(' ')} flex items-center justify-center shadow-lg mb-3`}>
                       <Icon className="h-8 w-8 text-white" />
                     </div>
-                    <CardTitle className="text-lg">{item.name}</CardTitle>
+                    <CardTitle className="text-lg break-words">{item.name}</CardTitle>
                     {hasServices && item.services && (
                       <div className="mt-2">
                         <p className="text-xs text-gray-500 mb-1">Services ({item.services.length})</p>
@@ -159,11 +159,11 @@ export function SimpleEntityManagementView({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button 
                       size="sm" 
                       onClick={() => handleEdit(item)} 
-                      className={`flex-1 bg-gradient-to-r ${gradient} text-white shadow-md hover:shadow-lg transition-all`}
+                      className={`w-full sm:flex-1 bg-gradient-to-r ${gradient} text-white shadow-md hover:shadow-lg transition-all`}
                     >
                       <Edit className="h-3.5 w-3.5 mr-1" /> 
                       Modifier
@@ -172,7 +172,7 @@ export function SimpleEntityManagementView({
                       size="sm" 
                       onClick={() => handleDelete(item.id)} 
                       disabled={protectedNames.includes(item.name)}
-                      className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -257,9 +257,9 @@ function EntityFormView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={onCancel}>
+    <div className="space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -275,11 +275,12 @@ function EntityFormView({
 
       <form onSubmit={handleSubmit}>
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardContent className="p-8 space-y-6">
+          <CardContent className="p-4 sm:p-8 space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Nom *</Label>
               <Input
                 id="name"
+                className="bg-white border-2 border-slate-300"
                 value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
@@ -304,7 +305,7 @@ function EntityFormView({
                         size="sm"
                         variant={selected ? "default" : "outline"}
                         onClick={() => toggleService(serviceName)}
-                        className={selected ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white" : ""}
+                        className={`w-full sm:w-auto whitespace-normal h-auto py-2 ${selected ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white" : ""}`}
                       >
                         {serviceName}
                       </Button>
@@ -314,13 +315,13 @@ function EntityFormView({
               </div>
             )}
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onCancel}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-6 border-t">
+              <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
                 Annuler
               </Button>
               <Button 
                 type="submit"
-                className={`bg-gradient-to-r ${gradient}`}
+                className={`w-full sm:w-auto bg-gradient-to-r ${gradient} whitespace-normal text-center h-auto py-2`}
               >
                 {isEdit ? 'Enregistrer' : 'Créer'}
               </Button>

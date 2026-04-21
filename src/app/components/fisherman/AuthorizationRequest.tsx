@@ -164,7 +164,7 @@ export function AuthorizationRequest({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour aux zones
           </Button>
-          <div className="flex items-center gap-4 mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-2">
             <div className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
               <Fish className="h-8 w-8 text-white" />
             </div>
@@ -186,7 +186,7 @@ export function AuthorizationRequest({
         </Badge>
 
         {/* Progress Steps */}
-        <div className="flex justify-between items-center px-4">
+        <div className="hidden lg:flex justify-between items-center px-4">
           {steps.map((step, index) => {
             const StepIcon = step.icon;
             const isActive = currentStep === step.number;
@@ -237,7 +237,7 @@ export function AuthorizationRequest({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName" className="flex items-center gap-2">
                     <User className="h-4 w-4 text-blue-600" />
@@ -264,7 +264,7 @@ export function AuthorizationRequest({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="email" className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-blue-600" />
@@ -321,7 +321,7 @@ export function AuthorizationRequest({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="zipCode">
                     Code postal <Badge className="bg-red-500 ml-1">*</Badge>
@@ -346,10 +346,10 @@ export function AuthorizationRequest({
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex flex-col sm:flex-row sm:justify-end pt-4">
                 <Button
                   onClick={() => setCurrentStep(2)}
-                  className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
                   size="lg"
                 >
                   Continuer
@@ -370,7 +370,7 @@ export function AuthorizationRequest({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="boatName" className="flex items-center gap-2">
                     <Ship className="h-4 w-4 text-cyan-600" />
@@ -472,10 +472,11 @@ export function AuthorizationRequest({
                 </Label>
               </div>
 
-              <div className="flex justify-between pt-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between pt-4">
                 <Button
                   onClick={() => setCurrentStep(1)}
                   variant="outline"
+                  className="w-full sm:w-auto"
                   size="lg"
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
@@ -483,7 +484,7 @@ export function AuthorizationRequest({
                 </Button>
                 <Button
                   onClick={() => setCurrentStep(3)}
-                  className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white"
+                  className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white"
                   size="lg"
                 >
                   Continuer
@@ -534,10 +535,11 @@ export function AuthorizationRequest({
                 </Label>
               </div>
 
-              <div className="flex justify-between pt-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between pt-4">
                 <Button
                   onClick={() => setCurrentStep(2)}
                   variant="outline"
+                  className="w-full sm:w-auto"
                   size="lg"
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
@@ -546,7 +548,7 @@ export function AuthorizationRequest({
                 <Button
                   onClick={handleSubmit}
                   disabled={!regulationAccepted}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50"
+                  className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50"
                   size="lg"
                 >
                   <Save className="h-5 w-5 mr-2" />
@@ -584,19 +586,19 @@ export function AuthorizationRequest({
                 </CardContent>
               </Card>
 
-              <div className="flex gap-3 justify-center pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
                 <Button
                   onClick={onBack}
                   variant="outline"
+                  className="w-full sm:w-auto border-2"
                   size="lg"
-                  className="border-2"
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   Retour à l'accueil
                 </Button>
                 <Button
                   onClick={onGoToCapture}
-                  className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
                   size="lg"
                 >
                   <Fish className="h-5 w-5 mr-2" />

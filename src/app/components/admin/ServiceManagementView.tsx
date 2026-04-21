@@ -98,14 +98,14 @@ export function ServiceManagementView({
     return (
       <>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h3 className="text-2xl font-bold text-gray-900">Gestion des Services</h3>
               <p className="text-gray-600">Gérez les services de votre organisation</p>
             </div>
             <Button 
               onClick={handleCreate} 
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
+              className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               Nouveau Service
@@ -121,8 +121,8 @@ export function ServiceManagementView({
                       <div className={`h-12 w-12 rounded-xl ${service.active ? 'bg-gradient-to-br from-green-500 to-emerald-500' : 'bg-gray-400'} flex items-center justify-center shadow-lg`}>
                         <Building2 className="h-6 w-6 text-white" />
                       </div>
-                      <div>
-                        <CardTitle className="text-lg">{service.name}</CardTitle>
+                      <div className="min-w-0">
+                        <CardTitle className="text-lg break-words">{service.name}</CardTitle>
                         <Badge variant={service.active ? "default" : "secondary"} className={service.active ? "bg-green-500" : ""}>
                           {service.active ? <><Check className="h-3 w-3 mr-1" /> Actif</> : <><X className="h-3 w-3 mr-1" /> Inactif</>}
                         </Badge>
@@ -168,11 +168,11 @@ export function ServiceManagementView({
                     </div>
                   </div>
                   <Separator className="my-4" />
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button 
                       size="sm" 
                       onClick={() => handleEdit(service)} 
-                      className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Edit className="h-3.5 w-3.5 mr-1" /> 
                       Modifier
@@ -180,7 +180,7 @@ export function ServiceManagementView({
                     <Button 
                       size="sm" 
                       onClick={() => handleDelete(service.id)} 
-                      className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -267,9 +267,9 @@ function ServiceFormView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={onCancel}>
+    <div className="space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -285,7 +285,7 @@ function ServiceFormView({
 
       <form onSubmit={handleSubmit}>
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardContent className="p-8 space-y-6">
+          <CardContent className="p-4 sm:p-8 space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Nom du service *</Label>
               <Input
@@ -296,7 +296,7 @@ function ServiceFormView({
               />
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Switch
                 id="active"
                 checked={formData.active ?? true}
@@ -322,7 +322,7 @@ function ServiceFormView({
                       size="sm"
                       variant={selected ? "default" : "outline"}
                       onClick={() => toggleDomain(domain)}
-                      className={selected ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white" : ""}
+                      className={`w-full sm:w-auto whitespace-normal h-auto py-2 ${selected ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white" : ""}`}
                     >
                       {domain}
                     </Button>
@@ -348,7 +348,7 @@ function ServiceFormView({
                       size="sm"
                       variant={selected ? "default" : "outline"}
                       onClick={() => toggleLocation(location)}
-                      className={selected ? "bg-gradient-to-r from-cyan-500 to-teal-500 text-white" : ""}
+                      className={`w-full sm:w-auto whitespace-normal h-auto py-2 ${selected ? "bg-gradient-to-r from-cyan-500 to-teal-500 text-white" : ""}`}
                     >
                       {location}
                     </Button>
@@ -357,13 +357,13 @@ function ServiceFormView({
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onCancel}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-6 border-t">
+              <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
                 Annuler
               </Button>
               <Button 
                 type="submit"
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 whitespace-normal text-center h-auto py-2"
               >
                 {isEdit ? 'Enregistrer les modifications' : 'Créer le service'}
               </Button>

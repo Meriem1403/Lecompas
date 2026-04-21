@@ -275,15 +275,15 @@ export function SettingsView() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
+    <div className="space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <h3 className="text-2xl font-bold text-gray-900">Paramètres</h3>
           <p className="text-gray-600">Gérez les paramètres de votre application DUERP</p>
         </div>
         <Button 
           onClick={handleSaveSettings}
-          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
+          className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
         >
           <Save className="h-4 w-4 mr-2" />
           Enregistrer tout
@@ -293,7 +293,7 @@ export function SettingsView() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Menu de navigation */}
         <div className="lg:col-span-1">
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur sticky top-6">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur lg:sticky lg:top-6">
             <CardContent className="p-4">
               <nav className="space-y-2">
                 {sections.map((section) => {
@@ -303,7 +303,7 @@ export function SettingsView() {
                     <button
                       key={section.id}
                       onClick={() => setActiveSection(section.id)}
-                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
                         isActive 
                           ? `bg-gradient-to-r ${section.color} text-white shadow-lg` 
                           : 'hover:bg-gray-100 text-gray-700'
@@ -408,7 +408,7 @@ export function SettingsView() {
 
                 <div className="space-y-4">
                   <h4 className="font-semibold text-gray-900">Logo de l'administration</h4>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-0">
                     <div className="h-24 w-24 rounded-xl bg-gradient-to-br from-blue-100 to-cyan-100 flex items-center justify-center border-2 border-dashed border-blue-300 overflow-hidden">
                       {logoPreview ? (
                         <img src={logoPreview} alt="Logo" className="h-full w-full object-contain p-2" />
@@ -436,7 +436,7 @@ export function SettingsView() {
                     </div>
                   </div>
                   {logoPreview && (
-                    <Button size="sm" variant="outline" onClick={handleRemoveLogo} type="button">
+                    <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={handleRemoveLogo} type="button">
                       <Trash2 className="h-4 w-4 mr-2" />
                       Supprimer le logo
                     </Button>
@@ -667,18 +667,18 @@ export function SettingsView() {
 
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-900">Test et sauvegarde</h4>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
                     <Button 
                       variant="outline" 
                       onClick={handleTestEmail}
-                      className="border-blue-300 hover:bg-blue-50"
+                      className="w-full sm:w-auto border-blue-300 hover:bg-blue-50"
                     >
                       <Send className="h-4 w-4 mr-2" />
                       Envoyer un email de test
                     </Button>
                     <Button 
                       onClick={handleSaveSmtpConfig}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                      className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
                     >
                       <Save className="h-4 w-4 mr-2" />
                       Enregistrer la configuration SMTP
@@ -799,7 +799,7 @@ export function SettingsView() {
                         onChange={(e) => setConfirmPassword(e.target.value)}
                       />
                     </div>
-                    <Button className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700" onClick={handleChangePassword}>
+                    <Button className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700" onClick={handleChangePassword}>
                       <Lock className="h-4 w-4 mr-2" />
                       Modifier le mot de passe
                     </Button>
@@ -975,7 +975,7 @@ export function SettingsView() {
                     <p className="text-sm text-gray-700">
                       La suppression des données est irréversible. Assurez-vous d'avoir une sauvegarde avant de procéder.
                     </p>
-                    <Button variant="destructive" className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700" onClick={() => setDeleteDataDialogOpen(true)}>
+                    <Button variant="destructive" className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700" onClick={() => setDeleteDataDialogOpen(true)}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Supprimer toutes les données
                     </Button>
@@ -1051,17 +1051,17 @@ export function SettingsView() {
                   <h4 className="font-semibold text-gray-900">Modèles de documents DUERP</h4>
                   <div className="space-y-3">
                     {['Document Unique (DUERP)', 'Registre des accidents', 'Plan d\'action', 'Rapport d\'évaluation'].map((template, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
-                        <div className="flex items-center space-x-3">
+                      <div key={idx} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <div className="flex items-center gap-3 min-w-0">
                           <FileText className="h-5 w-5 text-pink-600" />
                           <span className="font-medium text-gray-900">{template}</span>
                         </div>
-                        <div className="flex space-x-2">
-                          <Button size="sm" variant="outline" onClick={() => handleDownloadTemplate(template)}>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => handleDownloadTemplate(template)}>
                             <Download className="h-3.5 w-3.5 mr-1" />
                             Télécharger
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template)}>
+                          <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => handleEditTemplate(template)}>
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -1084,9 +1084,9 @@ export function SettingsView() {
               Cette action est irréversible. Toutes les données seront supprimées définitivement.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAllData}>Supprimer</AlertDialogAction>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">Annuler</AlertDialogCancel>
+            <AlertDialogAction className="w-full sm:w-auto" onClick={handleDeleteAllData}>Supprimer</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

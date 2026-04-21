@@ -107,7 +107,7 @@ export function AccidentCreateView({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button 
           type="button"
           variant="ghost" 
@@ -116,18 +116,19 @@ export function AccidentCreateView({
         >
           ← Annuler et retour
         </Button>
-        <div className="flex space-x-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
           <Button 
             type="button"
             variant="outline"
             onClick={onCancel}
+            className="w-full sm:w-auto"
           >
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
           <Button 
             type="submit"
-            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+            className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
           >
             <Save className="h-4 w-4 mr-2" />
             Enregistrer
@@ -140,7 +141,7 @@ export function AccidentCreateView({
         <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
                 <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${severityGradient} flex items-center justify-center shadow-lg`}>
                   <TypeIcon className="h-8 w-8 text-white" />
                 </div>
@@ -251,7 +252,7 @@ export function AccidentCreateView({
 
             {/* Témoins */}
             <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-xl">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
                 <Label className="text-sm font-bold text-amber-900 flex items-center">
                   <Users className="h-4 w-4 mr-2" />
                   Témoins présents
@@ -269,7 +270,7 @@ export function AccidentCreateView({
               <div className="space-y-2">
                 {formData.witnesses && formData.witnesses.length > 0 ? (
                   formData.witnesses.map((witness, idx) => (
-                    <div key={idx} className="flex items-center space-x-2">
+                    <div key={idx} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
                       <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
                         {idx + 1}
                       </Badge>

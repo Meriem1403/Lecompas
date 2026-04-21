@@ -214,20 +214,20 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm">
-                <div className="flex items-start gap-2">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 mt-3 text-sm">
+                <div className="flex items-start gap-2 min-w-0">
                   <Building2 className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-gray-500">Service</p>
-                    <p className="font-semibold text-gray-900">{visit.service}</p>
-                    <p className="text-xs text-gray-600">{visit.libellePoste}</p>
+                    <p className="font-semibold text-gray-900 break-words leading-snug">{visit.service}</p>
+                    <p className="text-xs text-gray-600 break-words leading-snug">{visit.libellePoste}</p>
                   </div>
                 </div>
 
                 {visit.prochaineVisiteMedicale && (
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2 min-w-0">
                     <Calendar className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-gray-500">Prochaine visite</p>
                       <p className="font-semibold text-gray-900">
                         {new Date(visit.prochaineVisiteMedicale).toLocaleDateString('fr-FR')}
@@ -240,7 +240,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                           'text-green-600'
                         }`}>
                           {daysUntilNext < 0 
-                            ? `⚠️ En retard de ${Math.abs(daysUntilNext)} jours` 
+                            ? `En retard de ${Math.abs(daysUntilNext)} jours` 
                             : `Dans ${daysUntilNext} jours`
                           }
                         </p>
@@ -250,9 +250,9 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 )}
 
                 {visit.surveillanceMedicaleAnnee !== undefined && (
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2 min-w-0">
                     <TrendingUp className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs text-gray-500">Périodicité</p>
                       <p className="font-semibold text-gray-900">
                         {visit.surveillanceMedicaleAnnee === 0.5 
@@ -268,11 +268,12 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
               </div>
             </div>
 
-            <div className="flex gap-2 ml-4 shrink-0">
+            <div className="flex flex-col sm:flex-row gap-2 sm:ml-4 shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onViewDetail(visit)}
+                className="w-full sm:w-auto"
               >
                 <Eye className="h-4 w-4" />
               </Button>
@@ -280,14 +281,15 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 variant="outline"
                 size="sm"
                 onClick={() => onEdit(visit)}
+                className="w-full sm:w-auto"
               >
                 <Edit className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="text-red-600 hover:bg-red-50 hover:text-red-700"
                 onClick={() => handleDeleteClick(visit)}
+                className="w-full sm:w-auto text-red-600 hover:bg-red-50 hover:text-red-700"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -301,7 +303,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-xl">
             <Stethoscope className="h-8 w-8 text-white" />
@@ -315,7 +317,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg"
+          className="w-full lg:w-auto bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg"
           size="lg"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -324,19 +326,19 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-rose-50 cursor-pointer hover:shadow-xl transition-all"
           onClick={() => setShowUrgent(!showUrgent)}>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">🚨 URGENT</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-600">URGENT</p>
                 <p className="text-3xl font-bold text-red-600 mt-1">
                   {visitsByStatus.urgent.length}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">Date dépassée</p>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center">
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center">
                 <AlertTriangle className="h-6 w-6 text-white" />
               </div>
             </div>
@@ -346,15 +348,15 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
         <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-amber-50 cursor-pointer hover:shadow-xl transition-all"
           onClick={() => setShowEnRetard(!showEnRetard)}>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">⚠️ En retard</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-600">En retard</p>
                 <p className="text-3xl font-bold text-orange-600 mt-1">
                   {visitsByStatus.en_retard.length}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">Moins de 30 jours</p>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
                 <AlertCircle className="h-6 w-6 text-white" />
               </div>
             </div>
@@ -364,15 +366,15 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
         <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 cursor-pointer hover:shadow-xl transition-all"
           onClick={() => setShowAPlanifier(!showAPlanifier)}>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">📅 À planifier</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-600">À planifier</p>
                 <p className="text-3xl font-bold text-blue-600 mt-1">
                   {visitsByStatus.a_planifier.length}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">30 à 90 jours</p>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
                 <Clock className="h-6 w-6 text-white" />
               </div>
             </div>
@@ -382,15 +384,15 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
         <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 cursor-pointer hover:shadow-xl transition-all"
           onClick={() => setShowAJour(!showAJour)}>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">✅ À jour</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-600">À jour</p>
                 <p className="text-3xl font-bold text-green-600 mt-1">
                   {visitsByStatus.a_jour.length}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">Plus de 90 jours</p>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
                 <CheckCircle2 className="h-6 w-6 text-white" />
               </div>
             </div>
@@ -407,7 +409,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
               <span className="font-semibold text-gray-900">Filtres avancés</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -423,7 +425,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                   <SelectValue placeholder="Tous les services" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">🏢 Tous les services</SelectItem>
+                  <SelectItem value="all">Tous les services</SelectItem>
                   {services.map(service => (
                     <SelectItem key={service} value={service}>{service}</SelectItem>
                   ))}
@@ -435,9 +437,9 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">👥 Tous les statuts</SelectItem>
-                  <SelectItem value="Militaire">⚓ Militaires</SelectItem>
-                  <SelectItem value="Civil">👔 Civils</SelectItem>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="Militaire">Militaires</SelectItem>
+                  <SelectItem value="Civil">Civils</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -446,10 +448,10 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                   <SelectValue placeholder="Aménagement" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">🔧 Tous</SelectItem>
-                  <SelectItem value="avec_amenagement">✅ Avec aménagement</SelectItem>
-                  <SelectItem value="avec_surveillance">⚠️ Avec surveillance</SelectItem>
-                  <SelectItem value="sans_amenagement">❌ Sans aménagement</SelectItem>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="avec_amenagement">Avec aménagement</SelectItem>
+                  <SelectItem value="avec_surveillance">Avec surveillance</SelectItem>
+                  <SelectItem value="sans_amenagement">Sans aménagement</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -491,7 +493,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-red-900">
-                    🚨 URGENT - Date dépassée
+                    URGENT - Date dépassée
                   </h2>
                   <p className="text-sm text-red-700">
                     {visitsByStatus.urgent.length} agent{visitsByStatus.urgent.length > 1 ? 's' : ''} - Action immédiate requise
@@ -529,7 +531,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-orange-900">
-                    ⚠️ En retard - Moins de 30 jours
+                    En retard - Moins de 30 jours
                   </h2>
                   <p className="text-sm text-orange-700">
                     {visitsByStatus.en_retard.length} agent{visitsByStatus.en_retard.length > 1 ? 's' : ''} - Planifier rapidement
@@ -567,7 +569,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-blue-900">
-                    📅 À planifier - 30 à 90 jours
+                    À planifier - 30 à 90 jours
                   </h2>
                   <p className="text-sm text-blue-700">
                     {visitsByStatus.a_planifier.length} agent{visitsByStatus.a_planifier.length > 1 ? 's' : ''} - Anticiper les rendez-vous
@@ -605,7 +607,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-green-900">
-                    ✅ À jour - Plus de 90 jours
+                    À jour - Plus de 90 jours
                   </h2>
                   <p className="text-sm text-green-700">
                     {visitsByStatus.a_jour.length} agent{visitsByStatus.a_jour.length > 1 ? 's' : ''} - Situation normale

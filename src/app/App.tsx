@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -69,7 +69,12 @@ import { CategoriesView } from "./components/CategoriesView";
 import { DUERPModulesView } from "./components/DUERPModulesView";
 import { RHModulesView } from "./components/RHModulesView";
 import { EnvironnementModulesView } from "./components/EnvironnementModulesView";
+import { ApplicationsModulesView } from "./components/ApplicationsModulesView";
 import { AdministrationModulesView } from "./components/AdministrationModulesView";
+import { TeamView } from "./components/TeamView";
+import { AccessManagementView } from "./components/AccessManagementView";
+import { ACCESS_MODULES } from "./components/access-management/constants";
+import { EmployeeAccessProfile } from "./components/access-management/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,6 +135,8 @@ import {
   Stethoscope,
   Fish,
   ArrowLeft,
+  ChevronLeft,
+  Menu,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -623,6 +630,33 @@ export default function App() {
   const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
   const [adminUsers, setAdminUsers] =
     useState<AppUser[]>(FAKE_USERS);
+  const [accessProfiles, setAccessProfiles] = useState<
+    Record<string, EmployeeAccessProfile>
+  >(() => {
+    const defaultCrud = {
+      create: true,
+      read: true,
+      update: true,
+      delete: true,
+    };
+    return Object.fromEntries(
+      FAKE_USERS.map((employee) => [
+        employee.id,
+        {
+          employeeId: employee.id,
+          modulePermissions: Object.fromEntries(
+            ACCESS_MODULES.map((moduleItem) => [
+              moduleItem.id,
+              {
+                canView: true,
+                crud: defaultCrud,
+              },
+            ]),
+          ),
+        },
+      ]),
+    );
+  });
   const [riskReferences, setRiskReferences] = useState<
     RiskReference[]
   >(
@@ -1506,6 +1540,9 @@ export default function App() {
     },
   ];
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   const sidebarItems = [
     {
       section: "Applications",
@@ -1516,98 +1553,17 @@ export default function App() {
           icon: LayoutDashboard,
           color: "text-blue-500",
         },
-      ],
-    },
-    {
-      section: "DUERP Manager",
-      items: [
         {
-          id: "risks",
-          label: "Évaluation des risques",
-          icon: Shield,
-          color: "text-purple-500",
+          id: "team",
+          label: "Equipe",
+          icon: Users,
+          color: "text-sky-600",
         },
         {
-          id: "accidents",
-          label: "Accidentologie",
-          icon: AlertCircle,
-          color: "text-red-500",
-        },
-        {
-          id: "registre",
-          label: "Registre Accidents",
-          icon: ClipboardList,
-          color: "text-rose-500",
-        },
-        {
-          id: "actions",
-          label: "Plan d'actions",
-          icon: Calendar,
-          color: "text-green-500",
-        },
-        {
-          id: "documents",
-          label: "Documents DUERP",
-          icon: FileText,
-          color: "text-orange-500",
-        },
-        {
-          id: "archives",
-          label: "Archives (40 ans)",
-          icon: Archive,
-          color: "text-red-500",
-        },
-      ],
-    },
-    {
-      section: "Ressources humaines",
-      items: [
-        {
-          id: "medical-visits",
-          label: "Visites médicales",
-          icon: Stethoscope,
-          color: "text-pink-600",
-        },
-        {
-          id: "sst-registry",
-          label: "Registre SST",
-          icon: ClipboardList,
-          color: "text-rose-600",
-        },
-        {
-          id: "arrivees-departs",
-          label: "Arrivées & Départs",
-          icon: ClipboardList,
-          color: "text-teal-600",
-        },
-      ],
-    },
-    {
-      section: "Environnement",
-      items: [
-        {
-          id: "mercury",
-          label: "Campagnes mercure",
-          icon: Droplet,
-          color: "text-cyan-600",
-        },
-        {
-          id: "asbestos",
-          label: "Diagnostics amiante",
-          icon: Shield,
-          color: "text-purple-600",
-        },
-        {
-          id: "asbestos-attestations",
-          label: "Attestations Amiante",
-          icon: FileSignature,
-          color: "text-amber-600",
-        },
-        {
-          id: "fisherman",
-          label: "Gestion pêche",
-          icon: Fish,
-          color: "text-teal-600",
+          id: "access-management",
+          label: "Gestion des acces",
+          icon: Cog,
+          color: "text-violet-600",
         },
       ],
     },
@@ -1673,17 +1629,109 @@ export default function App() {
           icon: MapPin,
           color: "text-cyan-600",
         },
+      ],
+    },
+    {
+      section: "Ressources humaines",
+      items: [
         {
-          id: "categories",
-          label: "Catégories",
-          icon: Tag,
+          id: "medical-visits",
+          label: "Visites médicales",
+          icon: Stethoscope,
           color: "text-pink-600",
         },
+        {
+          id: "sst-registry",
+          label: "Registre SST",
+          icon: ClipboardList,
+          color: "text-rose-600",
+        },
+        {
+          id: "arrivees-departs",
+          label: "Arrivées & Départs",
+          icon: ClipboardList,
+          color: "text-teal-600",
+        },
+      ],
+    },
+    {
+      section: "Informatique",
+      items: [
         {
           id: "cerbere",
           label: "Applications Cerbère",
           icon: Shield,
           color: "text-indigo-600",
+        },
+      ],
+    },
+    {
+      section: "Prévention",
+      items: [
+        {
+          id: "risks",
+          label: "Évaluation des risques",
+          icon: Shield,
+          color: "text-purple-500",
+        },
+        {
+          id: "accidents",
+          label: "Accidentologie",
+          icon: AlertCircle,
+          color: "text-red-500",
+        },
+        {
+          id: "registre",
+          label: "Registre Accidents",
+          icon: ClipboardList,
+          color: "text-rose-500",
+        },
+        {
+          id: "actions",
+          label: "Plan d'actions",
+          icon: Calendar,
+          color: "text-green-500",
+        },
+        {
+          id: "documents",
+          label: "Documents DUERP",
+          icon: FileText,
+          color: "text-orange-500",
+        },
+        {
+          id: "archives",
+          label: "Archives (40 ans)",
+          icon: Archive,
+          color: "text-red-500",
+        },
+      ],
+    },
+    {
+      section: "Environnement",
+      items: [
+        {
+          id: "mercury",
+          label: "Campagnes mercure",
+          icon: Droplet,
+          color: "text-cyan-600",
+        },
+        {
+          id: "asbestos",
+          label: "Diagnostics amiante",
+          icon: Shield,
+          color: "text-purple-600",
+        },
+        {
+          id: "asbestos-attestations",
+          label: "Attestations Amiante",
+          icon: FileSignature,
+          color: "text-amber-600",
+        },
+        {
+          id: "fisherman",
+          label: "Gestion pêche",
+          icon: Fish,
+          color: "text-teal-600",
         },
       ],
     },
@@ -1710,6 +1758,53 @@ export default function App() {
       ],
     },
   ];
+
+  const currentAdminUser = useMemo(() => {
+    if (!user) return null;
+    return (
+      adminUsers.find(
+        (adminUser) =>
+          adminUser.email?.toLowerCase() === user.email?.toLowerCase(),
+      ) ||
+      adminUsers.find(
+        (adminUser) =>
+          `${adminUser.firstName} ${adminUser.lastName}`.toLowerCase() ===
+          user.name?.toLowerCase(),
+      ) ||
+      null
+    );
+  }, [adminUsers, user]);
+
+  const hasViewAccess = (viewId: string) => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+
+    const moduleExists = ACCESS_MODULES.some(
+      (moduleItem) => moduleItem.id === viewId,
+    );
+    if (!moduleExists) return true;
+
+    if (!currentAdminUser) return true;
+    const profile = accessProfiles[currentAdminUser.id];
+    if (!profile) return true;
+    return profile.modulePermissions[viewId]?.canView ?? true;
+  };
+
+  const filteredSidebarItems = sidebarItems
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => hasViewAccess(item.id)),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  useEffect(() => {
+    if (!user) return;
+    if (activeView === "categories" || activeView === "category-modules") return;
+    if (!hasViewAccess(activeView)) {
+      toast.error("Accès non autorisé pour cet onglet.");
+      setActiveView("dashboard");
+    }
+  }, [activeView, user, accessProfiles, currentAdminUser]);
 
   // Si l'utilisateur n'est pas authentifié, afficher la page de login
   if (!isAuthenticated) {
@@ -1785,6 +1880,20 @@ export default function App() {
       setActiveView("actualites");
       setCategoryView(null);
     }
+    if (categoryView === "applications") {
+      return (
+        <>
+          <Toaster position="top-right" />
+          <ApplicationsModulesView
+            onSelectModule={(moduleId) => {
+              setActiveView(moduleId);
+              setCategoryView(null);
+            }}
+            onGoBack={() => setActiveView("categories")}
+          />
+        </>
+      );
+    }
     if (categoryView === "administration") {
       return (
         <>
@@ -1803,6 +1912,10 @@ export default function App() {
       setActiveView("signature-duerp");
       setCategoryView(null);
     }
+    if (categoryView === "informatique") {
+      setActiveView("cerbere");
+      setCategoryView(null);
+    }
   }
 
   return (
@@ -1810,25 +1923,54 @@ export default function App() {
       <Toaster position="top-right" />
 
       {/* Sidebar */}
-      <aside className="w-72 bg-white/80 backdrop-blur-xl border-r border-purple-100 flex flex-col shadow-xl">
+      {isMobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fermer la sidebar"
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+        />
+      )}
+      <aside
+        className={`w-72 bg-white/80 backdrop-blur-xl border-r border-purple-100 flex flex-col shadow-xl fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 overflow-hidden lg:static lg:z-auto lg:translate-x-0 ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } ${isSidebarOpen ? "lg:flex" : "lg:hidden"}`}
+      >
         <div className="p-6 border-b border-purple-100">
-          <div className="flex items-center space-x-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/50">
-              <Shield className="h-7 w-7 text-white" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br from-blue-700 to-sky-600 flex items-center justify-center shadow-lg shadow-blue-500/40 shrink-0">
+                <Shield className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-bold text-lg sm:text-xl bg-gradient-to-r from-blue-800 to-sky-700 bg-clip-text text-transparent truncate">
+                  Le Compas
+                </h1>
+                <p className="text-xs text-slate-600 font-semibold tracking-wide truncate">
+                  DIRM
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-bold text-xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Plateforme DI-MED
-              </h1>
-              <p className="text-xs text-purple-600 font-medium">
-                Direction Interrégionale de la Mer
-              </p>
-            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              onClick={() => {
+                setIsSidebarOpen(false);
+                setIsMobileSidebarOpen(false);
+              }}
+              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
           </div>
 
           {/* Bouton retour aux catégories */}
           <button
-            onClick={() => setActiveView("categories")}
+            onClick={() => {
+              setActiveView("categories");
+              setIsMobileSidebarOpen(false);
+            }}
             className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg transition-all hover:scale-105"
           >
             <LayoutDashboard className="h-4 w-4" />
@@ -1912,9 +2054,9 @@ export default function App() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 p-4">
+        <div className="flex-1 overflow-y-auto p-4">
           <nav className="space-y-6">
-            {sidebarItems.map((section, index) => {
+            {filteredSidebarItems.map((section, index) => {
               return (
                 <div key={section.section}>
                   {index > 0 && <Separator className="mb-4" />}
@@ -1928,7 +2070,14 @@ export default function App() {
                       return (
                         <button
                           key={item.id}
-                          onClick={() => setActiveView(item.id)}
+                          onClick={() => {
+                            if (!hasViewAccess(item.id)) {
+                              toast.error("Accès non autorisé pour cet onglet.");
+                              return;
+                            }
+                            setActiveView(item.id);
+                            setIsMobileSidebarOpen(false);
+                          }}
                           className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                             isActive
                               ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg shadow-purple-500/50 scale-105"
@@ -1947,7 +2096,7 @@ export default function App() {
               );
             })}
           </nav>
-        </ScrollArea>
+        </div>
 
         <div className="p-4 border-t border-purple-100">
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 mb-3">
@@ -1981,11 +2130,23 @@ export default function App() {
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <header className="bg-white/80 backdrop-blur-xl border-b border-purple-100 sticky top-0 z-10 shadow-sm">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                  Bonjour {user?.name}
+          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                {!isSidebarOpen && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="mb-3 hidden lg:inline-flex border-purple-200 text-purple-700 hover:bg-purple-50"
+                  >
+                    <ChevronRight className="h-4 w-4 mr-2" />
+                    Ouvrir le menu
+                  </Button>
+                )}
+                <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-800 to-sky-700 bg-clip-text text-transparent">
+                  Bienvenue, {user?.name}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1 font-medium">
                   {new Date().toLocaleDateString("fr-FR", {
@@ -2023,6 +2184,15 @@ export default function App() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  type="button"
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="lg:hidden border-purple-200 text-purple-700 hover:bg-purple-50"
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
                 <NotificationBell
                   notifications={notifications}
                   onMarkAsRead={(id) => {
@@ -2083,6 +2253,23 @@ export default function App() {
               getCategoryColor={getCategoryColor}
               getRiskLevelColor={getRiskLevelColor}
               getRiskLevelLabel={getRiskLevelLabel}
+            />
+          )}
+          {activeView === "team" && (
+            <TeamView
+              users={adminUsers}
+              services={adminServices}
+              domains={adminDomains}
+              locations={adminLocations}
+              currentUserRole={user?.role}
+              currentUserService={user?.service}
+            />
+          )}
+          {activeView === "access-management" && (
+            <AccessManagementView
+              users={adminUsers}
+              profiles={accessProfiles}
+              onProfilesChange={setAccessProfiles}
             />
           )}
 
@@ -2174,7 +2361,7 @@ export default function App() {
               {!selectedRisk ? (
                 <>
                   {/* Header with Add Button */}
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex items-center gap-4">
                       <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-xl">
                         <Shield className="h-8 w-8 text-white" />
@@ -2192,7 +2379,7 @@ export default function App() {
                     {user?.role === 'admin' && (
                       <Button
                         onClick={handleAddRisk}
-                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg"
+                        className="w-full lg:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg"
                       >
                         <PlusCircle className="h-4 w-4 mr-2" />
                         Nouveau risque
@@ -2202,7 +2389,7 @@ export default function App() {
 
                   <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-7 gap-3">
                         <div className="xl:col-span-2">
                           <Input
                             placeholder="Rechercher (risque, service, domaine, lieux, responsable...)"
@@ -2338,7 +2525,7 @@ export default function App() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="mt-4 flex items-center justify-between">
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm text-gray-600">
                           {filteredVisibleRisks.length} risque(s)
                           affiché(s)
@@ -2419,7 +2606,7 @@ export default function App() {
 
                             {/* Action Buttons - Visible on hover */}
                             {user?.role === 'admin' && (
-                              <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+                              <div className="absolute left-4 right-4 top-4 z-10 flex flex-col gap-2 opacity-100 transition-opacity sm:left-auto sm:right-4 sm:flex-row sm:opacity-0 sm:group-hover:opacity-100">
                                 <Button
                                   size="sm"
                                   onClick={(e) =>
@@ -2447,7 +2634,7 @@ export default function App() {
                             )}
 
                             <CardHeader>
-                              <div className="flex items-start justify-between">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div
                                   className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform`}
                                 >
@@ -2542,7 +2729,7 @@ export default function App() {
 
                                 <Separator />
 
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div className="space-y-2">
                                     <Label className="text-xs text-gray-600 font-semibold">Gravité</Label>
                                     <div className={`w-full text-center py-3 rounded-lg font-bold text-base border-2 ${
@@ -2587,11 +2774,11 @@ export default function App() {
                     )}
                   </div>
                   {filteredVisibleRisks.length > 0 && (
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-gray-600">
                         Page {riskCurrentPage} / {totalRiskPages}
                       </p>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Button
                           variant="outline"
                           size="sm"
@@ -2654,7 +2841,7 @@ export default function App() {
               ) : selectedRisk ? (
                 /* Risk Detail View */
                 <div className="space-y-6">
-                  <div className="flex justify-end mb-4">
+                  <div className="flex justify-start sm:justify-end mb-4">
                     <Button
                       variant="outline"
                       onClick={() => {
@@ -2668,12 +2855,12 @@ export default function App() {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     {/* Main Info Card */}
                     <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
                       <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center space-x-4">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
                             <div
                               className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${getCategoryColor(selectedRisk.category)} flex items-center justify-center shadow-lg`}
                             >
@@ -2703,7 +2890,7 @@ export default function App() {
                               </Badge>
                             </div>
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
                             {user?.role === "chef_service" && (
                               <Button
                                 size="sm"
@@ -2753,7 +2940,7 @@ export default function App() {
                             <Building2 className="h-6 w-6 mr-3" />
                             Identification du risque
                           </h3>
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="bg-white/80 backdrop-blur p-4 rounded-xl border border-gray-200">
                               <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
                                 <FileText className="h-3 w-3 mr-1" />{" "}
@@ -2773,7 +2960,7 @@ export default function App() {
                               </p>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
                               <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
                                 <Users className="h-3 w-3 mr-1" />{" "}
@@ -2932,7 +3119,7 @@ export default function App() {
                                     className={`border-2 ${measure.status === "completed" ? "border-green-300 bg-green-50" : measure.status === "in_progress" ? "border-blue-300 bg-blue-50" : "border-gray-300 bg-gray-50"}`}
                                   >
                                     <CardContent className="p-4">
-                                      <div className="flex items-start justify-between mb-2">
+                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
                                         <div className="flex items-start space-x-3 flex-1">
                                           <Badge
                                             className={`${measure.status === "completed" ? "bg-green-500" : measure.status === "in_progress" ? "bg-blue-500" : "bg-gray-400"} text-white flex items-center gap-1`}
@@ -2962,7 +3149,7 @@ export default function App() {
                                                 measure.description
                                               }
                                             </p>
-                                            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                                               <div>
                                                 <span className="text-gray-500 font-medium">
                                                   Responsable:
@@ -3062,7 +3249,7 @@ export default function App() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="text-center p-4 rounded-xl bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200">
                               <p className="text-gray-600 text-xs font-semibold mb-1">
                                 Gravité

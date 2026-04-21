@@ -147,7 +147,7 @@ export function ArriveesDepartsNewDemandePage({
   return (
     <div className="space-y-6 p-6">
       {/* En-tête */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
@@ -169,7 +169,7 @@ export function ArriveesDepartsNewDemandePage({
                 <h3 className="font-semibold text-xl mb-4">Informations personnelles</h3>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="nom">Nom *</Label>
                   <Input
@@ -367,7 +367,7 @@ export function ArriveesDepartsNewDemandePage({
           )}
 
           {/* Boutons de navigation */}
-          <div className="flex justify-between mt-8 pt-6 border-t">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between mt-8 pt-6 border-t">
             {currentStep === 0 ? (
               <Button variant="outline" onClick={onBack}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -380,14 +380,14 @@ export function ArriveesDepartsNewDemandePage({
               </Button>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               {currentStep === 1 && (
                 <>
                   <Button variant="outline" onClick={() => handleSubmitDemande(true)}>
                     <Save className="h-4 w-4 mr-2" />
                     Sauvegarder brouillon
                   </Button>
-                  <Button onClick={() => handleSubmitDemande(false)} className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <Button onClick={() => handleSubmitDemande(false)} className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600">
                     <Send className="h-4 w-4 mr-2" />
                     Soumettre
                   </Button>

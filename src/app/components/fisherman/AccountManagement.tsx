@@ -99,7 +99,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-3 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div>
@@ -107,12 +107,12 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à l'accueil
           </Button>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
               <User className="h-9 w-9 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent break-words">
                 Mon compte
               </h1>
               <p className="text-gray-600 mt-1">
@@ -123,14 +123,14 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
         </div>
 
         {/* Account Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           <Card className="border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
                   <CheckCircle2 className="h-7 w-7 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-gray-600">Autorisations</p>
                   <p className="text-2xl font-bold text-green-900">3 actives</p>
                 </div>
@@ -140,11 +140,11 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
 
           <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
                   <Fish className="h-7 w-7 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-gray-600">Captures déclarées</p>
                   <p className="text-2xl font-bold text-blue-900">127</p>
                 </div>
@@ -154,11 +154,11 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
 
           <Card className="border-2 border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-4">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
                   <Ship className="h-7 w-7 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-gray-600">Sorties</p>
                   <p className="text-2xl font-bold text-purple-900">42 cette année</p>
                 </div>
@@ -170,7 +170,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
         {/* Personal Information */}
         <Card className="shadow-xl border-2 border-blue-200">
           <CardHeader className="bg-gradient-to-r from-blue-100 to-cyan-100 border-b-2 border-blue-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-3 text-blue-900">
                   <User className="h-7 w-7" />
@@ -192,7 +192,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
             </div>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="firstName" className="flex items-center gap-2">
                   <User className="h-4 w-4 text-blue-600" />
@@ -221,7 +221,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-blue-600" />
@@ -281,7 +281,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="zipCode">Code postal</Label>
                 <Input
@@ -305,7 +305,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
             </div>
 
             {isEditing && (
-              <div className="flex gap-3 justify-end pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
                 <Button
                   onClick={() => setIsEditing(false)}
                   variant="outline"
@@ -449,7 +449,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
         {/* Security */}
         <Card className="shadow-xl border-2 border-amber-200">
           <CardHeader className="bg-gradient-to-r from-amber-100 to-orange-100 border-b-2 border-amber-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-3 text-amber-900">
                   <Lock className="h-7 w-7" />
@@ -502,7 +502,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
                   className="mt-1.5 border-2 hover:border-amber-300"
                 />
               </div>
-              <div className="flex gap-3 justify-end pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
                 <Button
                   onClick={() => {
                     setIsChangingPassword(false);
@@ -538,7 +538,7 @@ export function AccountManagement({ currentUserName, onBack }: AccountManagement
             <p className="text-sm text-gray-600">
               Vos données personnelles sont protégées conformément au Règlement Général sur la Protection des Données (RGPD).
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button variant="outline" className="border-2">
                 <FileText className="h-4 w-4 mr-2" />
                 Télécharger mes données

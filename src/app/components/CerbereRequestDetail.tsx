@@ -76,29 +76,29 @@ export function CerbereRequestDetail({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-3 sm:p-6">
       {/* En-tête avec retour */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="outline"
           onClick={onBack}
-          className="hover:bg-blue-50"
+          className="w-full sm:w-auto hover:bg-blue-50"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour à la liste
         </Button>
-        {getStatusBadge(request.statut)}
+        <div className="w-full sm:w-auto">{getStatusBadge(request.statut)}</div>
       </div>
 
       {/* Carte principale */}
       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
         <CardHeader>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-0">
             <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
               <Shield className="h-8 w-8 text-white" />
             </div>
-            <div className="flex-1">
-              <CardTitle className="text-2xl">Demande d'habilitation Cerbère</CardTitle>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-2xl break-words">Demande d'habilitation Cerbère</CardTitle>
               <CardDescription className="text-base mt-1">
                 Référence: {request.id.toUpperCase()}
               </CardDescription>
@@ -118,7 +118,7 @@ export function CerbereRequestDetail({
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
                     {request.agentConcerne.split(' ').map((n) => n[0]).join('')}
                   </div>
-                  <p className="text-lg font-medium text-gray-900">{request.agentConcerne}</p>
+                  <p className="text-lg font-medium text-gray-900 break-words">{request.agentConcerne}</p>
                 </div>
               </div>
 
@@ -127,7 +127,7 @@ export function CerbereRequestDetail({
                   <User className="h-5 w-5 text-purple-600" />
                   <h4 className="font-semibold text-gray-900">Demandeur</h4>
                 </div>
-                <p className="text-lg text-gray-700 mt-2">{request.demandeur}</p>
+                <p className="text-lg text-gray-700 mt-2 break-words">{request.demandeur}</p>
               </div>
             </div>
 
@@ -231,12 +231,12 @@ export function CerbereRequestDetail({
           <Separator />
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
             {request.statut === 'en_attente' && userRole === 'admin' && (
               <>
                 <Button
                   onClick={onValidate}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 flex-1"
+                  className="w-full sm:flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Valider la demande
@@ -244,7 +244,7 @@ export function CerbereRequestDetail({
                 <Button
                   onClick={onReject}
                   variant="outline"
-                  className="text-red-600 hover:bg-red-50 border-red-300 flex-1"
+                  className="w-full sm:flex-1 text-red-600 hover:bg-red-50 border-red-300"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Refuser la demande
@@ -255,7 +255,7 @@ export function CerbereRequestDetail({
             {request.statut === 'validee' && (
               <Button
                 onClick={onDownloadAttestation}
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Télécharger l'attestation PDF

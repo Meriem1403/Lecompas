@@ -105,7 +105,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-xl">
             <Droplet className="h-8 w-8 text-white" />
@@ -119,7 +119,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg"
+          className="w-full lg:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg"
           size="lg"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -128,7 +128,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -204,13 +204,13 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                 placeholder="Rechercher par titre, référence, zone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-white border-slate-300 focus-visible:ring-2 focus-visible:ring-blue-500/30 focus-visible:border-blue-500"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <Filter className="h-5 w-5 text-gray-400" />
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full md:w-[220px] bg-white border-slate-300 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -257,14 +257,14 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
             return (
               <Card key={campaign.id} className={`border-2 ${config.borderColor} shadow-lg hover:shadow-xl transition-all`}>
                 <CardContent className="pt-6">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="flex flex-wrap items-center gap-3 mb-3">
                         <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${config.color} flex items-center justify-center`}>
                           <IconComponent className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex flex-wrap items-center gap-3">
                             <h3 className="text-xl font-bold text-gray-900">{campaign.titre}</h3>
                             <Badge className={`bg-gradient-to-r ${config.color} text-white border-0`}>
                               {config.label}
@@ -275,16 +275,20 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                        <div className="flex items-start gap-2">
-                          <ClipboardList className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <ClipboardList className="h-4 w-4 text-slate-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">Programme</p>
                             <p className="text-sm font-semibold text-gray-900">{campaign.programme}</p>
                           </div>
                         </div>
 
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <MapPin className="h-4 w-4 text-slate-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">Zones ({campaign.zones.length})</p>
                             <p className="text-sm font-semibold text-gray-900">
@@ -293,16 +297,20 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                           </div>
                         </div>
 
-                        <div className="flex items-start gap-2">
-                          <Users className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <Users className="h-4 w-4 text-slate-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">Prestataire</p>
                             <p className="text-sm font-semibold text-gray-900">{campaign.prestataire}</p>
                           </div>
                         </div>
 
-                        <div className="flex items-start gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <Calendar className="h-4 w-4 text-slate-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">Date prévue</p>
                             <p className="text-sm font-semibold text-gray-900">
@@ -312,8 +320,10 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                         </div>
 
                         {campaign.dateReelle && (
-                          <div className="flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                          <div className="flex items-start gap-3">
+                            <div className="h-8 w-8 shrink-0 rounded-lg bg-green-100 flex items-center justify-center">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500">Date réelle</p>
                               <p className="text-sm font-semibold text-gray-900">
@@ -324,8 +334,10 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                         )}
 
                         {campaign.dateReceptionRapport && (
-                          <div className="flex items-start gap-2">
-                            <FileText className="h-4 w-4 text-purple-500 mt-0.5" />
+                          <div className="flex items-start gap-3">
+                            <div className="h-8 w-8 shrink-0 rounded-lg bg-purple-100 flex items-center justify-center">
+                              <FileText className="h-4 w-4 text-purple-600" />
+                            </div>
                             <div>
                               <p className="text-xs text-gray-500">Rapport reçu le</p>
                               <p className="text-sm font-semibold text-gray-900">
@@ -349,10 +361,11 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                       )}
                     </div>
 
-                    <div className="flex gap-2 ml-4">
+                    <div className="flex flex-col sm:flex-row gap-2 xl:ml-4">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => onViewDetail(campaign)}
                       >
                         <Eye className="h-4 w-4 mr-2" />
@@ -361,6 +374,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => onEdit(campaign)}
                       >
                         <Edit className="h-4 w-4 mr-2" />
@@ -369,7 +383,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        className="w-full sm:w-auto text-red-600 hover:bg-red-50 hover:text-red-700"
                         onClick={() => handleDeleteClick(campaign)}
                       >
                         <Trash2 className="h-4 w-4" />

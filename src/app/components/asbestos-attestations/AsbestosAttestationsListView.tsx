@@ -157,7 +157,7 @@ export function AsbestosAttestationsListView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-xl">
             <FileSignature className="h-8 w-8 text-white" />
@@ -171,7 +171,7 @@ export function AsbestosAttestationsListView({
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg"
+          className="w-full lg:w-auto bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg"
           size="lg"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -187,14 +187,14 @@ export function AsbestosAttestationsListView({
               <Shield className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-lg text-amber-900 mb-1">ℹ️ Comment fonctionne le workflow de validation ?</h3>
+              <h3 className="font-bold text-lg text-amber-900 mb-1">Comment fonctionne le workflow de validation ?</h3>
               <p className="text-sm text-gray-700 mb-3">
                 Les attestations suivent un processus de validation en 3 étapes avant d'être délivrées à l'agent.
               </p>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div className="p-4 bg-white rounded-lg border-2 border-blue-200">
               <div className="flex items-center gap-2 mb-2">
                 <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">1</div>
@@ -209,7 +209,7 @@ export function AsbestosAttestationsListView({
                 <h4 className="font-semibold text-indigo-900">Admin</h4>
               </div>
               <p className="text-xs text-gray-600">
-                👉 <strong>Changez votre rôle</strong> en "Administrateur" dans la sidebar pour <strong>valider ou rejeter</strong>
+                <strong>Changez votre rôle</strong> en "Administrateur" dans la sidebar pour <strong>valider ou rejeter</strong>
               </p>
             </div>
             
@@ -219,7 +219,7 @@ export function AsbestosAttestationsListView({
                 <h4 className="font-semibold text-purple-900">Secrétaire Général</h4>
               </div>
               <p className="text-xs text-gray-600">
-                👉 <strong>Changez votre rôle</strong> en "Secrétaire Général (SG)" pour <strong>validation finale</strong>
+                <strong>Changez votre rôle</strong> en "Secrétaire Général (SG)" pour <strong>validation finale</strong>
               </p>
             </div>
             
@@ -235,7 +235,7 @@ export function AsbestosAttestationsListView({
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
         <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50">
           <CardContent className="pt-6">
             <div className="text-center">
@@ -307,33 +307,33 @@ export function AsbestosAttestationsListView({
                   placeholder="Rechercher par nom, prénom, service..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-white border-slate-300 focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:border-amber-500"
                 />
               </div>
 
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-300 focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
                   <SelectValue placeholder="Type d'attestation" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">📋 Tous les types</SelectItem>
-                  <SelectItem value="intermediaire">🔵 Attestation intermédiaire</SelectItem>
-                  <SelectItem value="presence">🟢 Attestation de présence</SelectItem>
+                  <SelectItem value="all">Tous les types</SelectItem>
+                  <SelectItem value="intermediaire">Attestation intermédiaire</SelectItem>
+                  <SelectItem value="presence">Attestation de présence</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-300 focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500">
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">⚪ Tous les statuts</SelectItem>
-                  <SelectItem value="brouillon">📝 Brouillon</SelectItem>
-                  <SelectItem value="en_attente_admin">🔵 En attente Admin</SelectItem>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="brouillon">Brouillon</SelectItem>
+                  <SelectItem value="en_attente_admin">En attente Admin</SelectItem>
                   <SelectItem value="en_attente_sg">🟠 En attente SG</SelectItem>
-                  <SelectItem value="validee">✅ Validée</SelectItem>
-                  <SelectItem value="rejetee_admin">❌ Rejetée Admin</SelectItem>
-                  <SelectItem value="rejetee_sg">❌ Rejetée SG</SelectItem>
+                  <SelectItem value="validee">Validée</SelectItem>
+                  <SelectItem value="rejetee_admin">Rejetée Admin</SelectItem>
+                  <SelectItem value="rejetee_sg">Rejetée SG</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -370,7 +370,7 @@ export function AsbestosAttestationsListView({
           return (
             <Card key={attestation.id} className="border-l-4 border-amber-500 shadow-md hover:shadow-lg transition-all">
               <CardContent className="pt-4 pb-4">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3 flex-wrap">
                       <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shrink-0">
@@ -389,16 +389,20 @@ export function AsbestosAttestationsListView({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="flex items-start gap-2">
-                        <Building2 className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-slate-600" />
+                        </div>
                         <div>
                           <p className="text-xs text-gray-500">Service</p>
                           <p className="font-semibold text-gray-900">{attestation.service}</p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-2">
-                        <FileText className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-slate-600" />
+                        </div>
                         <div>
                           <p className="text-xs text-gray-500">Date de création</p>
                           <p className="font-semibold text-gray-900">
@@ -408,8 +412,10 @@ export function AsbestosAttestationsListView({
                       </div>
 
                       {attestation.dateLivraison && (
-                        <div className="flex items-start gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-lg bg-green-100 flex items-center justify-center">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          </div>
                           <div>
                             <p className="text-xs text-gray-500">Date de livraison</p>
                             <p className="font-semibold text-green-900">
@@ -456,7 +462,7 @@ export function AsbestosAttestationsListView({
                     </div>
                   </div>
 
-                  <div className="flex gap-2 ml-4 shrink-0">
+                  <div className="flex flex-col sm:flex-row gap-2 xl:ml-4 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"

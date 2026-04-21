@@ -149,14 +149,14 @@ export function UserManagementView({
     return (
       <>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h3 className="text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h3>
               <p className="text-gray-600">Gérez les utilisateurs et leurs accès</p>
             </div>
             <Button 
               onClick={handleCreate} 
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
+              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               Nouvel Utilisateur
@@ -166,7 +166,7 @@ export function UserManagementView({
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[1450px]">
                   <thead className="bg-gradient-to-r from-blue-50 to-cyan-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Prénom</th>
@@ -204,7 +204,7 @@ export function UserManagementView({
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.createdBy}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex space-x-2">
+                          <div className="flex gap-2">
                             <Button 
                               size="sm" 
                               onClick={() => handleView(user)} 
@@ -267,9 +267,9 @@ export function UserManagementView({
   if (viewMode === 'view' && selectedUser) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={handleBack}>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
             </Button>
@@ -280,7 +280,7 @@ export function UserManagementView({
           </div>
           <Button 
             onClick={() => handleEdit(selectedUser)}
-            className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
           >
             <Edit className="h-4 w-4 mr-2" />
             Modifier
@@ -393,9 +393,9 @@ function UserFormView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={onCancel}>
+    <div className="space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -411,7 +411,7 @@ function UserFormView({
 
       <form onSubmit={handleSubmit}>
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardContent className="p-8 space-y-6">
+          <CardContent className="p-4 sm:p-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prénom *</Label>
@@ -461,7 +461,7 @@ function UserFormView({
                   onValueChange={(value) => setFormData({ ...formData, service: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-2 border-slate-300">
                     <SelectValue placeholder="Sélectionnez un service" />
                   </SelectTrigger>
                   <SelectContent>
@@ -479,7 +479,7 @@ function UserFormView({
                   onValueChange={(value) => setFormData({ ...formData, domain: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-2 border-slate-300">
                     <SelectValue placeholder="Sélectionnez un domaine" />
                   </SelectTrigger>
                   <SelectContent>
@@ -497,7 +497,7 @@ function UserFormView({
                   onValueChange={(value) => setFormData({ ...formData, location: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-2 border-slate-300">
                     <SelectValue placeholder="Sélectionnez un lieu" />
                   </SelectTrigger>
                   <SelectContent>
@@ -515,7 +515,7 @@ function UserFormView({
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-2 border-slate-300">
                     <SelectValue placeholder="Sélectionnez une catégorie" />
                   </SelectTrigger>
                   <SelectContent>
@@ -533,7 +533,7 @@ function UserFormView({
                   onValueChange={(value) => setFormData({ ...formData, role: value })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-2 border-slate-300">
                     <SelectValue placeholder="Sélectionnez un rôle" />
                   </SelectTrigger>
                   <SelectContent>
@@ -545,13 +545,13 @@ function UserFormView({
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onCancel}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-6 border-t">
+              <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
                 Annuler
               </Button>
               <Button 
                 type="submit"
-                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 whitespace-normal text-center h-auto py-2"
               >
                 {isEdit ? 'Enregistrer les modifications' : 'Créer l\'utilisateur'}
               </Button>

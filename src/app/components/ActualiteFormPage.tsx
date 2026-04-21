@@ -208,9 +208,9 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-3 sm:p-6">
       {/* En-tête */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
@@ -238,12 +238,12 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="info">ℹ️ Information</SelectItem>
-                  <SelectItem value="alerte">⚠️ Alerte</SelectItem>
-                  <SelectItem value="urgent">🚨 Urgent</SelectItem>
-                  <SelectItem value="maintenance">🔧 Maintenance</SelectItem>
-                  <SelectItem value="evenement">📅 Événement</SelectItem>
-                  <SelectItem value="document">📄 Document</SelectItem>
+                  <SelectItem value="info">Information</SelectItem>
+                  <SelectItem value="alerte">Alerte</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="evenement">Événement</SelectItem>
+                  <SelectItem value="document">Document</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -257,7 +257,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                 Informations générales
               </h4>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="titre">Titre *</Label>
                   <Input
@@ -316,7 +316,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                     Informations de l'événement
                   </h4>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="dateEvenement">Date de l'événement</Label>
                       <Input
@@ -382,7 +382,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                   {liens.map((lien) => (
                     <div
                       key={lien.id}
-                      className="flex items-center justify-between p-3 bg-blue-50 border-2 border-blue-200 rounded-lg"
+                      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-blue-50 border-2 border-blue-200 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         <LinkIcon className="h-5 w-5 text-blue-600" />
@@ -408,7 +408,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <Input
                   placeholder="Titre du lien"
                   value={newLien.titre}
@@ -448,7 +448,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 bg-cyan-50 border-2 border-cyan-200 rounded-lg"
+                      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-cyan-50 border-2 border-cyan-200 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-cyan-600" />
@@ -472,8 +472,8 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                 </div>
               )}
 
-              <div className="grid grid-cols-4 gap-3">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="md:col-span-2">
                   <Input
                     placeholder="Nom du document"
                     value={newDocument.nom}
@@ -586,12 +586,12 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
             </div>
 
             {/* Boutons d'action */}
-            <div className="flex justify-between pt-6 border-t">
-              <Button variant="outline" onClick={onBack}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between pt-6 border-t">
+              <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Annuler
               </Button>
-              <Button onClick={handleSubmit} className="bg-gradient-to-r from-blue-600 to-indigo-600">
+              <Button onClick={handleSubmit} className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600">
                 <CheckCircle className="h-4 w-4 mr-2" />
                 {isEdit ? 'Enregistrer' : 'Publier'}
               </Button>

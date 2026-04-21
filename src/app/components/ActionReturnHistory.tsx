@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { CheckCircle, XCircle, Clock, User, Calendar, MessageSquare, ArrowLeftRight, Plus, Eye } from 'lucide-react';
-import { ScrollArea } from './ui/scroll-area';
 
 interface ActionReturn {
   id: string;
@@ -97,7 +96,7 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
   return (
     <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-purple-600" />
             Historique des retours d'action ({actionReturns.length})
@@ -106,7 +105,7 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
             <Button
               size="sm"
               onClick={onManageActionReturns}
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+              className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
             >
               <Eye className="h-4 w-4 mr-1" />
               Gérer ({pendingCount})
@@ -115,8 +114,7 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-[600px] pr-4">
-          <div className="space-y-4">
+        <div className="space-y-4">
             {actionReturns.map((actionReturn) => (
               <Card 
                 key={actionReturn.id} 
@@ -130,8 +128,8 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
               >
                 <CardContent className="p-4 space-y-3">
                   {/* En-tête */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {getStatusBadge(actionReturn.status)}
                       {getTypeBadge(actionReturn.status)}
                     </div>
@@ -222,8 +220,7 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
                 </CardContent>
               </Card>
             ))}
-          </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );

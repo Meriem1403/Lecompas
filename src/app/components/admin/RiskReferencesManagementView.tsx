@@ -127,8 +127,8 @@ export function RiskReferencesManagementView({
     return (
       <>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h3 className="text-2xl font-bold text-gray-900">
                 Référentiel des risques
               </h3>
@@ -139,7 +139,7 @@ export function RiskReferencesManagementView({
             </div>
             <Button
               onClick={handleCreate}
-              className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
+              className="w-full lg:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               Nouvelle référence
@@ -149,7 +149,7 @@ export function RiskReferencesManagementView({
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[720px]">
                   <thead className="bg-gradient-to-r from-red-50 to-orange-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -172,15 +172,15 @@ export function RiskReferencesManagementView({
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                           {reference.numeroRisque}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-700">
+                        <td className="px-6 py-4 text-sm text-gray-700 break-words">
                           {reference.title}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <Button
                               size="sm"
                               onClick={() => handleEdit(reference)}
-                              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
+                              className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
                             >
                               <Edit className="h-3.5 w-3.5 mr-1" />
                               Modifier
@@ -190,7 +190,7 @@ export function RiskReferencesManagementView({
                               onClick={() =>
                                 handleDelete(reference.id)
                               }
-                              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
+                              className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
                             >
                               <Trash2 className="h-3.5 w-3.5 mr-1" />
                               Supprimer
@@ -245,9 +245,9 @@ export function RiskReferencesManagementView({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={() => setViewMode("list")}>
+    <div className="space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <Button variant="outline" onClick={() => setViewMode("list")} className="w-full sm:w-auto">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -264,7 +264,7 @@ export function RiskReferencesManagementView({
       </div>
 
       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-        <CardContent className="p-8 space-y-6">
+        <CardContent className="p-4 sm:p-8 space-y-6">
           <div className="space-y-2">
             <Label htmlFor="numeroRisque">Numéro de risque *</Label>
             <Input
@@ -277,6 +277,7 @@ export function RiskReferencesManagementView({
                 }))
               }
               placeholder="Ex: RISK-2026-010"
+              className="bg-white border-2 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
             />
           </div>
 
@@ -292,21 +293,23 @@ export function RiskReferencesManagementView({
                 }))
               }
               placeholder="Ex: Risque de chute de hauteur"
+              className="bg-white border-2 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-4 border-t">
             <Button
               type="button"
               variant="outline"
               onClick={() => setViewMode("list")}
+              className="w-full sm:w-auto"
             >
               Annuler
             </Button>
             <Button
               type="button"
               onClick={handleSave}
-              className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+              className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
             >
               Enregistrer
             </Button>

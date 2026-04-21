@@ -156,14 +156,14 @@ export function CerbereRequestForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-3 sm:p-6">
       {/* En-tête */}
-      <div className="flex justify-between items-center">
-        <Button variant="outline" onClick={onBack} className="hover:bg-blue-50">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto hover:bg-blue-50">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
-        <Badge className="bg-blue-100 text-blue-800 border-blue-300 px-4 py-2">
+        <Badge className="w-full sm:w-auto justify-center bg-blue-100 text-blue-800 border-blue-300 px-4 py-2">
           Nouvelle demande d'habilitation
         </Badge>
       </div>
@@ -171,11 +171,11 @@ export function CerbereRequestForm({
       {/* Formulaire */}
       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
         <CardHeader>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-0">
             <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
               <Shield className="h-7 w-7 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <CardTitle className="text-2xl">Demande d'habilitation Cerbère</CardTitle>
               <CardDescription className="text-base mt-1">
                 Formulaire de demande d'accès aux applications
@@ -239,21 +239,21 @@ export function CerbereRequestForm({
                 }`}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
+                  <div className="flex items-start gap-3">
                     <Checkbox
                       id={`app-${app.id}`}
                       checked={selectedApplications.includes(app.id)}
                       onCheckedChange={() => handleApplicationToggle(app.id)}
                       className="mt-1"
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <label
                         htmlFor={`app-${app.id}`}
-                        className="font-semibold text-gray-900 cursor-pointer"
+                        className="font-semibold text-gray-900 cursor-pointer break-words"
                       >
                         {app.nom}
                       </label>
-                      <Badge variant="outline" className="ml-2">
+                      <Badge variant="outline" className="mt-2 sm:mt-0 sm:ml-2">
                         {app.code}
                       </Badge>
                       <p className="text-sm text-gray-600 mt-1">{app.description}</p>
@@ -311,7 +311,7 @@ export function CerbereRequestForm({
             <div className="space-y-2">
               <Label htmlFor="reglePortee">Règle de portée *</Label>
               <Select value={reglePortee} onValueChange={setReglePortee}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white border-slate-300">
                   <SelectValue placeholder="Sélectionnez la portée des droits" />
                 </SelectTrigger>
                 <SelectContent>
@@ -397,17 +397,17 @@ export function CerbereRequestForm({
           )}
 
           {/* Actions */}
-          <div className="flex space-x-3 pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row pt-4">
             <Button
               variant="outline"
               onClick={onBack}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               Annuler
             </Button>
             <Button
               onClick={handleSubmit}
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 flex-1"
+              className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
             >
               <Send className="h-4 w-4 mr-2" />
               Soumettre la demande

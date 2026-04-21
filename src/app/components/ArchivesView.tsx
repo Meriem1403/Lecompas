@@ -449,7 +449,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Archives DUERP</h3>
           <p className="text-gray-600">Conservation réglementaire de 40 ans selon l'article R.4121-4 du Code du travail</p>
@@ -457,53 +457,61 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-red-500 to-rose-500 text-white">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-red-500 to-rose-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-red-100 text-sm font-medium">Total Archives</p>
                 <p className="text-3xl font-bold">{archives.length}</p>
               </div>
-              <Archive className="h-12 w-12 text-red-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <Archive className="h-6 w-6 text-red-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-purple-100 text-sm font-medium">DUERP Archivés</p>
                 <p className="text-3xl font-bold">{archives.filter(a => a.type === 'DUERP').length}</p>
               </div>
-              <FileText className="h-12 w-12 text-purple-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-purple-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-blue-100 text-sm font-medium">Cette année</p>
                 <p className="text-3xl font-bold">
                   {archives.filter(a => new Date(a.archivedAt).getFullYear() === new Date().getFullYear()).length}
                 </p>
               </div>
-              <Calendar className="h-12 w-12 text-blue-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-blue-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-amber-100 text-sm font-medium">Conservation</p>
                 <p className="text-xl font-bold">40 ans</p>
               </div>
-              <Clock className="h-12 w-12 text-amber-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-amber-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -512,11 +520,14 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
       {/* Filters */}
       <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
         <CardContent className="p-4">
-          <div className="flex items-center space-x-4">
-            <Filter className="h-5 w-5 text-gray-500" />
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-semibold text-gray-700">Type:</span>
-              <div className="flex gap-2">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-gray-700">
+              <Filter className="h-5 w-5 text-gray-500" />
+              <span className="text-sm font-semibold">Filtres</span>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-max pb-1">
+                <span className="text-sm font-semibold text-gray-700">Type:</span>
                 <Badge 
                   className={`cursor-pointer ${filterType === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
                   onClick={() => setFilterType('all')}
@@ -534,9 +545,9 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
                 ))}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-semibold text-gray-700">Année:</span>
-              <div className="flex gap-2">
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-2 min-w-max pb-1">
+                <span className="text-sm font-semibold text-gray-700">Année:</span>
                 <Badge 
                   className={`cursor-pointer ${filterYear === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
                   onClick={() => setFilterYear('all')}
@@ -566,14 +577,14 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
           return (
             <Card key={archive.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group border-l-4 border-l-red-500">
               <CardContent className="p-6">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex-1">
-                    <div className="flex items-start space-x-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4">
                       <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center flex-shrink-0 shadow-lg">
                         <Archive className="h-7 w-7 text-white" />
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="mb-2">
                           <div>
                             <h4 className="font-bold text-xl text-gray-900 mb-1">{archive.title}</h4>
                             <p className="text-sm text-gray-600 mb-2">{archive.description}</p>
@@ -587,7 +598,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
                         </div>
 
                         {/* Meta Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-5 gap-4 mb-4">
                           <div className="flex items-center space-x-2">
                             <FileText className="h-4 w-4 text-purple-500" />
                             <div>
@@ -655,11 +666,11 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center space-x-2 ml-4">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 xl:ml-4">
                     <Button 
                       size="sm" 
                       onClick={() => handleView(archive)}
-                      className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Eye className="h-3.5 w-3.5 mr-1" />
                       Consulter
@@ -667,7 +678,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
                     <Button 
                       size="sm" 
                       onClick={() => handleDownload(archive)}
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Download className="h-3.5 w-3.5 mr-1" />
                       Télécharger
@@ -675,7 +686,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
                     <Button 
                       size="sm" 
                       onClick={() => handleRestoreClick(archive.id)}
-                      className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <RotateCcw className="h-3.5 w-3.5 mr-1" />
                       Restaurer
@@ -683,7 +694,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
                     <Button 
                       size="sm" 
                       onClick={() => handleDeleteClick(archive.id)}
-                      className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
+                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />
                       Supprimer

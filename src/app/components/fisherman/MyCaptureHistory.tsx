@@ -259,7 +259,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
@@ -267,13 +267,13 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à l'accueil
           </Button>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
                 <Fish className="h-9 w-9 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent break-words">
                   Mes déclarations de capture
                 </h1>
                 <p className="text-gray-600 mt-1">
@@ -282,7 +282,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
               </div>
             </div>
             <Button
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
+              className="w-full xl:w-auto bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
               size="lg"
             >
               <PlusCircle className="h-5 w-5 mr-2" />
@@ -292,7 +292,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
           <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg">
             <CardContent className="pt-6">
               <div className="text-center">
@@ -359,15 +359,15 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Rechercher par lieu ou espèce..."
-                    className="pl-10 border-2 hover:border-blue-300"
+                    className="pl-10 bg-white border-2 border-slate-300 hover:border-blue-300"
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 w-full md:w-auto">
                 <Button
                   onClick={() => setFilterStatus('all')}
                   variant={filterStatus === 'all' ? 'default' : 'outline'}
-                  className={filterStatus === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white' : ''}
+                  className={`${filterStatus === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white' : ''} w-full`}
                 >
                   <Filter className="h-4 w-4 mr-2" />
                   Toutes
@@ -375,21 +375,21 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                 <Button
                   onClick={() => setFilterStatus('validated')}
                   variant={filterStatus === 'validated' ? 'default' : 'outline'}
-                  className={filterStatus === 'validated' ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' : ''}
+                  className={`${filterStatus === 'validated' ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' : ''} w-full`}
                 >
                   Validées
                 </Button>
                 <Button
                   onClick={() => setFilterStatus('submitted')}
                   variant={filterStatus === 'submitted' ? 'default' : 'outline'}
-                  className={filterStatus === 'submitted' ? 'bg-gradient-to-r from-cyan-500 to-teal-600 text-white' : ''}
+                  className={`${filterStatus === 'submitted' ? 'bg-gradient-to-r from-cyan-500 to-teal-600 text-white' : ''} w-full`}
                 >
                   En attente
                 </Button>
                 <Button
                   onClick={() => setFilterStatus('draft')}
                   variant={filterStatus === 'draft' ? 'default' : 'outline'}
-                  className={filterStatus === 'draft' ? 'bg-gradient-to-r from-gray-400 to-slate-500 text-white' : ''}
+                  className={`${filterStatus === 'draft' ? 'bg-gradient-to-r from-gray-400 to-slate-500 text-white' : ''} w-full`}
                 >
                   Brouillons
                 </Button>
@@ -420,8 +420,8 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                 }`}
               >
                 <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4 flex-1">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
                       <div className={`h-14 w-14 rounded-full bg-gradient-to-br ${zoneColors[capture.zone]} flex items-center justify-center shadow-lg shrink-0`}>
                         {capture.isNoCatch ? (
                           <XCircle className="h-8 w-8 text-white" />
@@ -429,15 +429,15 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                           <Fish className="h-8 w-8 text-white" />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <CardTitle className="text-xl">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-3 mb-2">
+                          <CardTitle className="text-xl break-words">
                             {capture.isNoCatch ? 'Aucune capture' : `${capture.captures.reduce((sum, c) => sum + c.quantity, 0)} poisson(s)`}
                           </CardTitle>
                           {getStatusBadge(capture.status)}
                         </div>
-                        <CardDescription className="flex items-center gap-4 text-sm flex-wrap">
-                          <span className="flex items-center gap-1">
+                        <CardDescription className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-sm">
+                          <span className="flex items-center gap-1 break-words">
                             <MapPin className="h-3 w-3" />
                             {capture.location} - {zoneNames[capture.zone]}
                           </span>
@@ -448,12 +448,12 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto xl:shrink-0">
                       <Button
                         onClick={() => setSelectedCapture(capture)}
                         size="sm"
                         variant="outline"
-                        className="border-2 hover:bg-blue-50"
+                        className="w-full sm:w-auto border-2 hover:bg-blue-50"
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         Détails
@@ -463,7 +463,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                           <Button
                             onClick={() => onEdit(capture)}
                             size="sm"
-                            className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
+                            className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
                           >
                             <Edit className="h-4 w-4 mr-2" />
                             Modifier
@@ -472,7 +472,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                             onClick={() => handleDelete(capture.id)}
                             size="sm"
                             variant="outline"
-                            className="border-2 border-red-300 hover:bg-red-50"
+                            className="w-full sm:w-auto border-2 border-red-300 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -487,7 +487,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                       {capture.captures.map((fish) => (
                         <div
                           key={fish.id}
-                          className="flex items-center justify-between p-3 bg-white/80 rounded-lg border border-gray-200"
+                          className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between p-3 bg-white/80 rounded-lg border border-gray-200"
                         >
                           <div className="flex items-center gap-4 flex-1">
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center shadow-md">
@@ -498,7 +498,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                               <p className="text-xs text-gray-600">{fish.technique}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-6 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                             <div className="text-center">
                               <p className="text-gray-500 text-xs">Quantité</p>
                               <p className="font-bold text-blue-900">{fish.quantity}</p>
@@ -553,7 +553,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
 
         {/* Detail Modal */}
         {selectedCapture && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50" onClick={() => setSelectedCapture(null)}>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-6 z-50" onClick={() => setSelectedCapture(null)}>
             <Card className="max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <CardHeader className={`bg-gradient-to-r ${
                 selectedCapture.status === 'validated'
@@ -562,12 +562,12 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                   ? 'from-cyan-100 to-teal-100 border-b-2 border-cyan-200'
                   : 'from-gray-100 to-slate-100 border-b-2 border-gray-200'
               }`}>
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <CardTitle className="text-2xl mb-2">
                       Détails de la déclaration
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="break-words">
                       {selectedCapture.location} - {zoneNames[selectedCapture.zone]}
                     </CardDescription>
                   </div>
@@ -581,7 +581,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                     <Calendar className="h-5 w-5 text-blue-600" />
                     Date et lieu
                   </h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-gray-500">Date de pêche</p>
                       <p className="font-semibold">{formatDate(selectedCapture.captureDate)}</p>
@@ -622,7 +622,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                           key={fish.id}
                           className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border-2 border-blue-200"
                         >
-                          <div className="flex items-start justify-between mb-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3">
                             <div>
                               <h4 className="font-bold text-lg text-blue-900">{fish.species}</h4>
                               <p className="text-sm text-gray-600">{fish.technique}</p>
@@ -634,7 +634,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                               </Badge>
                             )}
                           </div>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                             <div className="text-center p-3 bg-white rounded-lg border border-blue-200">
                               <p className="text-gray-500 mb-1">Quantité</p>
                               <p className="text-2xl font-bold text-blue-900">{fish.quantity}</p>
@@ -685,7 +685,7 @@ export function MyCaptureHistory({ captures: propsCaptures, onEdit, onDelete, on
                   </div>
                 )}
 
-                <div className="flex gap-3 justify-end pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
                   <Button onClick={() => setSelectedCapture(null)} variant="outline">
                     Fermer
                   </Button>

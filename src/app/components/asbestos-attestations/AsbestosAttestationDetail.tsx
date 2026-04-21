@@ -155,7 +155,7 @@ export function AsbestosAttestationDetail({
       <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg">
         <CardContent className="pt-4 pb-4">
           <div className="space-y-2 text-sm">
-            <h3 className="font-bold text-purple-900 mb-2">🔍 Informations de débogage</h3>
+            <h3 className="font-bold text-purple-900 mb-2">Informations de débogage</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-gray-600">Votre rôle actuel :</p>
@@ -168,7 +168,7 @@ export function AsbestosAttestationDetail({
               <div>
                 <p className="text-gray-600">canValidateAdmin :</p>
                 <p className={`font-bold ${canValidateAdmin ? 'text-green-600' : 'text-red-600'}`}>
-                  {canValidateAdmin ? '✅ OUI' : '❌ NON'}
+                  {canValidateAdmin ? 'OUI' : 'NON'}
                 </p>
                 <p className="text-xs text-gray-600 mt-1">
                   Condition : role=admin ET status=en_attente_admin
@@ -177,7 +177,7 @@ export function AsbestosAttestationDetail({
               <div>
                 <p className="text-gray-600">canValidateSG :</p>
                 <p className={`font-bold ${canValidateSG ? 'text-green-600' : 'text-red-600'}`}>
-                  {canValidateSG ? '✅ OUI' : '❌ NON'}
+                  {canValidateSG ? 'OUI' : 'NON'}
                 </p>
                 <p className="text-xs text-gray-600 mt-1">
                   Condition : role=chef_service ET status=en_attente_sg
@@ -189,8 +189,8 @@ export function AsbestosAttestationDetail({
       </Card>
 
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
@@ -208,7 +208,7 @@ export function AsbestosAttestationDetail({
             <p className="text-gray-600">{typeInfo.label}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           {canSubmit && (
             <Button
               onClick={handleSubmit}
@@ -302,7 +302,7 @@ export function AsbestosAttestationDetail({
                 <AlertTriangle className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-blue-900 mb-1">💡 Comment valider cette attestation ?</h3>
+                <h3 className="font-bold text-blue-900 mb-1">Comment valider cette attestation ?</h3>
                 <p className="text-sm text-gray-700">
                   {attestation.status === 'brouillon' && (
                     <><strong>Cette attestation est en brouillon.</strong> Cliquez sur "Soumettre" pour l'envoyer à l'Admin.</>
@@ -314,10 +314,10 @@ export function AsbestosAttestationDetail({
                     <><strong>Changez votre rôle</strong> en "Secrétaire Général (SG)" dans la sidebar pour voir les boutons de validation.</>
                   )}
                   {attestation.status === 'validee' && (
-                    <>✅ Cette attestation a été <strong>entièrement validée</strong> et est prête à être délivrée.</>
+                    <>Cette attestation a été <strong>entièrement validée</strong> et est prête à être délivrée.</>
                   )}
                   {(attestation.status === 'rejetee_admin' || attestation.status === 'rejetee_sg') && (
-                    <>❌ Cette attestation a été <strong>rejetée</strong>. Vous pouvez la modifier et la soumettre à nouveau.</>
+                    <>Cette attestation a été <strong>rejetée</strong>. Vous pouvez la modifier et la soumettre à nouveau.</>
                   )}
                 </p>
               </div>
@@ -332,7 +332,7 @@ export function AsbestosAttestationDetail({
           <CardTitle className="text-amber-900">Workflow de validation</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
+          <div className="hidden lg:flex items-center justify-between">
             <div className={`flex-1 text-center ${attestation.status !== 'brouillon' ? 'opacity-100' : 'opacity-40'}`}>
               <div className={`h-12 w-12 rounded-full mx-auto flex items-center justify-center ${
                 attestation.status !== 'brouillon' ? 'bg-blue-500' : 'bg-gray-300'
@@ -454,7 +454,7 @@ export function AsbestosAttestationDetail({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
             <div>
               <p className="text-sm text-gray-500">Nom</p>
               <p className="text-base font-semibold text-gray-900">{attestation.nom}</p>
@@ -598,7 +598,7 @@ export function AsbestosAttestationDetail({
       {/* Métadonnées */}
       <Card className="border-0 shadow-lg bg-gray-50">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-3 gap-6 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 text-sm">
             <div>
               <p className="text-gray-500 mb-1">Créé par</p>
               <p className="font-semibold text-gray-900">{attestation.createdBy}</p>

@@ -4,14 +4,12 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Separator } from '@/app/components/ui/separator';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 import {
   ArrowLeft,
   Send,
   CheckCircle,
   XCircle,
   Clock,
-  User,
   Calendar,
   AlertCircle,
   FileText,
@@ -179,30 +177,30 @@ export function RetourActionView({
   return (
     <div className="space-y-6">
       {/* Header avec bouton retour */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           onClick={onBack}
           variant="outline"
-          className="gap-2"
+          className="w-full sm:w-auto gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
           Retour
         </Button>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+        <h1 className="text-2xl sm:text-3xl text-center sm:text-left font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
           Retours d'action
         </h1>
-        <div className="w-24"></div>
+        <div className="hidden sm:block w-24"></div>
       </div>
 
       {/* Informations sur le risque */}
       <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-50 to-pink-50">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex-1 min-w-0">
               <CardTitle className="text-2xl mb-2">{risk.title}</CardTitle>
               <CardDescription className="text-base">{risk.site}</CardDescription>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col md:items-end gap-2">
               <Badge className={`bg-gradient-to-r ${getRiskLevelColor(risk.riskLevel)} text-white border-0 shadow-md text-lg px-4 py-1`}>
                 {getRiskLevelLabel(risk.riskLevel)}
               </Badge>
@@ -238,7 +236,7 @@ export function RetourActionView({
           
           <Separator />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="text-xs font-semibold text-gray-500">Date de détection</p>
               <p className="text-sm font-bold text-gray-800">
@@ -336,14 +334,13 @@ export function RetourActionView({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[800px] pr-4">
-              <div className="space-y-6">
-                {pendingReturns.map((actionReturn) => (
+            <div className="space-y-6">
+              {pendingReturns.map((actionReturn) => (
                   <Card key={actionReturn.id} className="border-2 border-amber-300 bg-white">
                     <CardContent className="pt-6 space-y-4">
                       {/* En-tête */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
                             {actionReturn.proposedBy.charAt(0)}
                           </div>
@@ -434,10 +431,10 @@ export function RetourActionView({
                       </div>
 
                       {/* Boutons d'action */}
-                      <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
                         <Button
                           onClick={() => handleValidate(actionReturn.id, 'replace')}
-                          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold"
+                          className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold whitespace-normal text-center h-auto py-2"
                           disabled={selectedMeasureForReplace[actionReturn.id] === undefined || selectedMeasureForReplace[actionReturn.id] === -1}
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
@@ -445,7 +442,7 @@ export function RetourActionView({
                         </Button>
                         <Button
                           onClick={() => handleValidate(actionReturn.id, 'add')}
-                          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold"
+                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold whitespace-normal text-center h-auto py-2"
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           Compléter la mesure
@@ -453,7 +450,7 @@ export function RetourActionView({
                         <Button
                           onClick={() => handleValidate(actionReturn.id, 'reject')}
                           variant="destructive"
-                          className="font-bold"
+                          className="w-full font-bold whitespace-normal text-center h-auto py-2"
                         >
                           <Ban className="h-4 w-4 mr-2" />
                           Refuser
@@ -461,9 +458,8 @@ export function RetourActionView({
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </ScrollArea>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -478,9 +474,8 @@ export function RetourActionView({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="max-h-[600px] pr-4">
-              <div className="space-y-4">
-                {historyReturns.map((actionReturn) => (
+            <div className="space-y-4">
+              {historyReturns.map((actionReturn) => (
                   <Card
                     key={actionReturn.id}
                     className={`border-2 ${
@@ -491,8 +486,8 @@ export function RetourActionView({
                   >
                     <CardContent className="pt-4 space-y-3">
                       {/* En-tête */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold">
                             {actionReturn.proposedBy.charAt(0)}
                           </div>
@@ -562,9 +557,8 @@ export function RetourActionView({
                       )}
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </ScrollArea>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

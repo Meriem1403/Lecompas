@@ -111,12 +111,15 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
   return (
     <>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">Liste des Accidents</h3>
             <p className="text-gray-600">Gérez les déclarations d'accidents du travail</p>
           </div>
-          <Button onClick={handleAdd} className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg">
+          <Button
+            onClick={handleAdd}
+            className="w-full lg:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
+          >
             <PlusCircle className="h-4 w-4 mr-2" />
             Déclarer un Accident
           </Button>
@@ -150,14 +153,14 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
                 <Card key={accident.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur overflow-hidden group">
                   <div className={`h-2 bg-gradient-to-r ${severityGradient}`}></div>
                   <CardContent className="pt-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start space-x-4 flex-1">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-4">
+                      <div className="flex items-start gap-4 flex-1">
                         <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${severityGradient} flex items-center justify-center flex-shrink-0 shadow-lg`}>
                           <TypeIcon className="h-7 w-7 text-white" />
                         </div>
                         <div className="flex-1">
                           <h3 className="font-bold text-xl text-gray-900">{accident.title}</h3>
-                          <div className="flex items-center space-x-4 mt-2 text-sm">
+                          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 text-sm">
                             <div className="flex items-center space-x-2">
                               <Calendar className="h-4 w-4 text-purple-500" />
                               <span className="font-semibold text-gray-700">
@@ -175,15 +178,15 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                         <Badge className={`bg-gradient-to-r ${severityGradient} text-white border-0 shadow-lg text-base px-4 py-2 capitalize`}>
                           {accident.severity}
                         </Badge>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <Button 
                             size="sm" 
                             onClick={() => handleEdit(accident)} 
-                            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
+                            className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Modifier
@@ -191,7 +194,7 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
                           <Button 
                             size="sm" 
                             onClick={() => handleDeleteClick(accident.id)} 
-                            className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
+                            className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
                             Supprimer

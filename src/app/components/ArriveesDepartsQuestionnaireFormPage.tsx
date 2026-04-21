@@ -140,7 +140,7 @@ export function ArriveesDepartsQuestionnaireFormPage({
   return (
     <div className="space-y-6 p-6">
       {/* En-tête */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
@@ -210,14 +210,14 @@ export function ArriveesDepartsQuestionnaireFormPage({
       {/* Questions */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <div>
               <CardTitle>Questions</CardTitle>
               <CardDescription>
                 Ajoutez et configurez les questions du questionnaire
               </CardDescription>
             </div>
-            <Button onClick={handleAddQuestion} className="bg-gradient-to-r from-green-600 to-emerald-600">
+              <Button onClick={handleAddQuestion} className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600">
               <Plus className="h-4 w-4 mr-2" />
               Ajouter une question
             </Button>
@@ -236,7 +236,7 @@ export function ArriveesDepartsQuestionnaireFormPage({
                 <Card key={question.id} className="border-2">
                   <CardContent className="pt-6">
                     <div className="space-y-4">
-                      <div className="flex justify-between items-start">
+                      <div className="flex justify-between items-start gap-2">
                         <Badge variant="outline" className="text-sm">
                           Question {index + 1}
                         </Badge>
@@ -250,7 +250,7 @@ export function ArriveesDepartsQuestionnaireFormPage({
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Type de question *</Label>
                           <Select
@@ -371,7 +371,7 @@ export function ArriveesDepartsQuestionnaireFormPage({
                           </div>
 
                           {question.conditionalLogic && (
-                            <div className="grid grid-cols-2 gap-3 mt-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                               <div className="space-y-2">
                                 <Label className="text-xs">Dépend de la question</Label>
                                 <Select
@@ -426,7 +426,7 @@ export function ArriveesDepartsQuestionnaireFormPage({
       </Card>
 
       {/* Boutons d'action */}
-      <div className="flex justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Annuler

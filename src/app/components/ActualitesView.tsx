@@ -418,23 +418,23 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <Card className="border-0 shadow-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white overflow-hidden relative">
+      <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800 via-indigo-800 to-blue-800 text-white overflow-hidden relative">
         <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
-        <CardHeader className="relative">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
+        <CardHeader className="relative py-8 sm:py-10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
               <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
                 <Bell className="h-8 w-8" />
               </div>
               <div>
-                <CardTitle className="text-4xl font-bold text-white mb-1">Actualités & Notifications</CardTitle>
-                <CardDescription className="text-indigo-100 text-lg">
+                <CardTitle className="text-3xl sm:text-4xl font-bold text-white mb-1">Actualités & Notifications</CardTitle>
+                <CardDescription className="text-slate-100 text-lg">
                   Informations, événements, documents et liens utiles
                 </CardDescription>
               </div>
             </div>
             {unreadCount > 0 && (
-              <Badge className="bg-red-500 text-white text-xl px-6 py-3 shadow-xl">
+              <Badge className="w-full lg:w-auto justify-center bg-white text-slate-900 border border-slate-200 text-xl px-6 py-3 shadow-xl">
                 {unreadCount} non {unreadCount > 1 ? 'lues' : 'lue'}
               </Badge>
             )}
@@ -445,21 +445,21 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
       {/* Filtres et actions */}
       <Card className="border-2">
         <CardContent className="pt-6">
-          <div className="flex justify-between items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
               <Filter className="h-5 w-5 text-gray-600" />
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-56 border-2">
+                <SelectTrigger className="w-full md:w-56 bg-white border-2 border-slate-300">
                   <SelectValue placeholder="Type d'actualité" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">📋 Tous les types</SelectItem>
-                  <SelectItem value="info">ℹ️ Info</SelectItem>
-                  <SelectItem value="alerte">⚠️ Alerte</SelectItem>
-                  <SelectItem value="urgent">🚨 Urgent</SelectItem>
-                  <SelectItem value="maintenance">🔧 Maintenance</SelectItem>
-                  <SelectItem value="evenement">📅 Événement</SelectItem>
-                  <SelectItem value="document">📄 Document</SelectItem>
+                  <SelectItem value="all">Tous les types</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
+                  <SelectItem value="alerte">Alerte</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="evenement">Événement</SelectItem>
+                  <SelectItem value="document">Document</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -479,7 +479,7 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
               <Button
                 size="lg"
                 onClick={handleNewActualite}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-xl"
+                className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-xl"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Nouvelle actualité
@@ -540,8 +540,8 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
 
                     {/* Contenu */}
                     <div className="flex-1 p-6">
-                      <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="flex items-start space-x-4 flex-1">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between mb-4">
+                        <div className="flex items-start gap-4 flex-1 min-w-0">
                           {!actualite.imageUrl && (
                             <div
                               className={`h-14 w-14 rounded-xl bg-gradient-to-br ${getTypeColor(
@@ -552,9 +552,9 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
                             </div>
                           )}
 
-                          <div className="flex-1 space-y-3">
+                          <div className="flex-1 min-w-0 space-y-3">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-2xl font-bold text-gray-900">
+                              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                                 {actualite.titre}
                               </h3>
                               {getTypeBadge(actualite.type)}
@@ -662,10 +662,11 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
                         </div>
 
                         {userRole === 'admin' && (
-                          <div className="flex items-center space-x-2 flex-shrink-0">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 xl:shrink-0 w-full xl:w-auto">
                             <Button
                               size="sm"
                               variant="outline"
+                              className="w-full sm:w-auto"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditActualite(actualite);
@@ -677,7 +678,7 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:bg-red-50 border-red-300"
+                              className="w-full sm:w-auto text-red-600 hover:bg-red-50 border-red-300"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedActualite(actualite);

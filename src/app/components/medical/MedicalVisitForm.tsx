@@ -138,8 +138,8 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
@@ -153,7 +153,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={onCancel}>
             <X className="h-4 w-4 mr-2" />
             Annuler
@@ -180,7 +180,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <div>
               <Label htmlFor="sexe" className="text-base">Sexe *</Label>
               <Select value={sexe} onValueChange={(value) => setSexe(value as 'M' | 'F')}>
@@ -194,7 +194,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
               </Select>
             </div>
 
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label htmlFor="nom" className="text-base">Nom *</Label>
               <Input
                 id="nom"
@@ -226,7 +226,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
               value={nombreEnfants}
               onChange={(e) => setNombreEnfants(e.target.value)}
               placeholder="0"
-              className="mt-1 w-40"
+              className="mt-1 w-full sm:w-40"
             />
             <p className="text-xs text-gray-500 mt-1">Nombre d'enfants à charge</p>
           </div>
@@ -259,7 +259,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="departement" className="text-base">Département *</Label>
               <Select value={departement} onValueChange={setDepartement}>
@@ -304,7 +304,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
             <p className="text-xs text-gray-500 mt-1">Libellé complet du grade selon nomenclature NNE</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="libellePoste" className="text-base">Libellé de poste *</Label>
               <Input
@@ -330,7 +330,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
 
           <Separator />
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="inm" className="text-base">INM</Label>
               <Input
@@ -400,7 +400,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="derniereVisite" className="text-base">Dernière visite médicale</Label>
               <Input
@@ -524,7 +524,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-2 gap-4 max-h-[400px] overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto">
             {risks.map((risk) => (
               <div key={risk.id} className="flex items-start gap-2 p-3 bg-white border rounded-lg hover:bg-gray-50">
                 <Checkbox
@@ -560,7 +560,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
       {/* Footer Actions */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <Button variant="outline" onClick={onCancel}>
               <X className="h-4 w-4 mr-2" />
               Annuler

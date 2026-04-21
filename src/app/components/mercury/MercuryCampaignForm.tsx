@@ -220,8 +220,8 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
@@ -235,7 +235,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={onCancel}>
             <X className="h-4 w-4 mr-2" />
             Annuler
@@ -253,7 +253,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
       {/* Phase Stepper */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
+          <div className="hidden md:flex items-center justify-between">
             {[
               { num: 1, label: 'Planification', icon: Calendar },
               { num: 2, label: 'Suivi Terrain', icon: MapPin },
@@ -322,7 +322,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="titre" className="text-base">Titre de la campagne *</Label>
                 <Input
@@ -379,7 +379,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="datePrevue" className="text-base">Date de début prévue *</Label>
                 <Input
@@ -405,7 +405,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             <Separator />
 
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                 <Label className="text-base font-semibold">Types de prélèvements prévus *</Label>
                 <Button type="button" variant="outline" size="sm" onClick={addPrelevement}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -414,8 +414,8 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
               </div>
               <div className="space-y-3">
                 {typesPrelevements.map((prelevement, idx) => (
-                  <div key={prelevement.id} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border">
-                    <div className="flex-1 grid grid-cols-3 gap-3">
+                  <div key={prelevement.id} className="flex flex-col sm:flex-row sm:items-start gap-3 p-4 bg-gray-50 rounded-lg border">
+                    <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3">
                       <Input
                         placeholder="Type (ex: Eau de surface)"
                         value={prelevement.type}
@@ -451,7 +451,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
 
             <Separator />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="prestataire" className="text-base">Prestataire *</Label>
                 <Input
@@ -502,7 +502,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="dateReelle" className="text-base">Date de début réelle</Label>
                 <Input
@@ -528,9 +528,9 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             <Separator />
 
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                 <Label className="text-base font-semibold">Prélèvements réellement effectués</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button type="button" variant="outline" size="sm" onClick={copyPrelevementsPrevus}>
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Copier les prévus
@@ -551,8 +551,8 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
                 ) : (
                   prelevementsRealises.map((prelevement) => (
                     <div key={prelevement.id} className="p-4 bg-gray-50 rounded-lg border space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 grid grid-cols-3 gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3">
                           <Input
                             placeholder="Type"
                             value={prelevement.type}
@@ -655,8 +655,8 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             <div>
               <Label className="text-base">Fichier du rapport prestataire</Label>
               {fichierRapport ? (
-                <div className="mt-2 p-4 bg-white border-2 border-purple-300 rounded-lg flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="mt-2 p-4 bg-white border-2 border-purple-300 rounded-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
                     <FileText className="h-10 w-10 text-purple-600" />
                     <div>
                       <p className="font-semibold text-gray-900">{fichierRapport}</p>
@@ -695,7 +695,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
             <div className="space-y-4">
               <Label className="text-base font-semibold">Vérifications</Label>
               
-              <div className="flex items-center justify-between p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-green-300 transition-colors">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-green-300 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${
                     verificationAdministrative ? 'bg-green-100' : 'bg-gray-100'
@@ -719,7 +719,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-green-300 transition-colors">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-green-300 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className={`h-12 w-12 rounded-lg flex items-center justify-center ${
                     verificationCoherence === true
@@ -832,7 +832,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
 
             <div>
               <Label htmlFor="resultats" className="text-base font-semibold text-amber-900">
-                Résultats marquants concernant le mercure ⭐
+                Résultats marquants concernant le mercure
               </Label>
               <Textarea
                 id="resultats"
@@ -872,7 +872,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
 
             <div>
               <Label htmlFor="conclusion" className="text-base font-semibold text-green-900">
-                Conclusion simple ✓
+                Conclusion simple
               </Label>
               <Textarea
                 id="conclusion"
@@ -886,7 +886,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
 
             <div>
               <Label htmlFor="suites" className="text-base font-semibold text-blue-900">
-                Suites à donner →
+                Suites à donner
               </Label>
               <Textarea
                 id="suites"
@@ -904,19 +904,21 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
       {/* Navigation Footer */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
             <Button
               variant="outline"
               onClick={onCancel}
+              className="w-full md:w-auto"
             >
               <X className="h-4 w-4 mr-2" />
               Annuler
             </Button>
-            <div className="flex gap-2">
+            <div className="flex w-full md:w-auto flex-col sm:flex-row sm:flex-wrap gap-2">
               {activePhase > 1 && (
                 <Button
                   variant="outline"
                   onClick={() => setActivePhase(activePhase - 1)}
+                  className="w-full sm:w-auto"
                 >
                   <ChevronLeft className="h-4 w-4 mr-2" />
                   Phase précédente
@@ -925,7 +927,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
               {activePhase < 4 ? (
                 <Button
                   onClick={() => setActivePhase(activePhase + 1)}
-                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white"
+                  className="w-full sm:w-auto whitespace-normal text-center h-auto py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white"
                 >
                   Phase suivante
                   <ChevronRight className="h-4 w-4 ml-2" />
@@ -933,7 +935,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
               ) : (
                 <Button
                   onClick={handleSave}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+                  className="w-full sm:w-auto whitespace-normal text-center h-auto py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
                 >
                   <Save className="h-4 w-4 mr-2" />
                   Enregistrer la campagne

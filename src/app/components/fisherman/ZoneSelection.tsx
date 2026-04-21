@@ -91,11 +91,11 @@ export function ZoneSelection({
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-4">
             <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
               <Fish className="h-9 w-9 text-white" />
             </div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent text-center sm:text-left">
               CatchMachine
             </h1>
           </div>
@@ -157,14 +157,14 @@ export function ZoneSelection({
         </Card>
 
         {/* Zones Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {zones.map((zone) => {
             const ZoneIcon = zone.icon;
             
             return (
               <Card
                 key={zone.id}
-                className={`border-3 ${zone.borderColor} shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer bg-white overflow-hidden group`}
+                className={`border-3 ${zone.borderColor} shadow-xl hover:shadow-2xl transition-all duration-300 xl:hover:scale-105 cursor-pointer bg-white overflow-hidden group h-full`}
                 onClick={() => onZoneSelect(zone.id)}
               >
                 <div className={`h-3 bg-gradient-to-r ${zone.color}`} />
@@ -173,8 +173,8 @@ export function ZoneSelection({
                     <div className={`h-14 w-14 rounded-full bg-gradient-to-br ${zone.color} flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform`}>
                       <ZoneIcon className="h-8 w-8 text-white" />
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg leading-tight mb-2">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg leading-tight mb-2 break-words">
                         {zone.name}
                       </CardTitle>
                       <Badge variant="outline" className="text-xs bg-blue-50 border-blue-300">
@@ -184,14 +184,14 @@ export function ZoneSelection({
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                <CardContent className="space-y-4 flex flex-col h-full">
+                  <p className="text-sm text-gray-600 leading-relaxed break-words">
                     {zone.description}
                   </p>
                   
                   <Button
                     onClick={() => onZoneSelect(zone.id)}
-                    className={`w-full bg-gradient-to-r ${zone.color} hover:opacity-90 text-white shadow-lg`}
+                    className={`w-full mt-auto bg-gradient-to-r ${zone.color} hover:opacity-90 text-white shadow-lg`}
                   >
                     Sélectionner cette zone
                     <ChevronRight className="h-4 w-4 ml-2" />

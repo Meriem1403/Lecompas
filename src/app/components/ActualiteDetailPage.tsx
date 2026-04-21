@@ -101,17 +101,17 @@ export function ActualiteDetailPage({
   const getTypeBadge = (type: string) => {
     switch (type) {
       case 'info':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-base px-4 py-1">ℹ️ Information</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-base px-4 py-1">Information</Badge>;
       case 'alerte':
-        return <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-base px-4 py-1">⚠️ Alerte</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-base px-4 py-1">Alerte</Badge>;
       case 'urgent':
-        return <Badge className="bg-red-100 text-red-800 border-red-300 text-base px-4 py-1">🚨 Urgent</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-300 text-base px-4 py-1">Urgent</Badge>;
       case 'maintenance':
-        return <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-base px-4 py-1">🔧 Maintenance</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-base px-4 py-1">Maintenance</Badge>;
       case 'evenement':
-        return <Badge className="bg-green-100 text-green-800 border-green-300 text-base px-4 py-1">📅 Événement</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-300 text-base px-4 py-1">Événement</Badge>;
       case 'document':
-        return <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300 text-base px-4 py-1">📄 Document</Badge>;
+        return <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300 text-base px-4 py-1">Document</Badge>;
       default:
         return null;
     }
@@ -137,10 +137,10 @@ export function ActualiteDetailPage({
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-3 sm:p-6">
       {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Button variant="outline" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
@@ -154,7 +154,7 @@ export function ActualiteDetailPage({
         </div>
 
         {userRole === 'admin' && (
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             {onEdit && (
               <Button onClick={onEdit} className="bg-gradient-to-r from-blue-600 to-indigo-600">
                 <Edit className="h-4 w-4 mr-2" />
@@ -171,24 +171,24 @@ export function ActualiteDetailPage({
         )}
       </div>
 
-      {/* En-tête de l'actualité */}
-      <Card className="border-2">
-        <CardHeader className={`bg-gradient-to-r ${getTypeColor(actualite.type)} text-white`}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <div className="h-16 w-16 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
-                {getTypeIcon(actualite.type)}
-              </div>
-              <div>
-                <CardTitle className="text-3xl mb-3 text-white">{actualite.titre}</CardTitle>
-                <div className="flex gap-2">
-                  {getTypeBadge(actualite.type)}
-                </div>
+      {/* En-tête de l'actualité sans contenant */}
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+          <div className={`mt-0.5 h-9 w-9 rounded-lg bg-gradient-to-br ${getTypeColor(actualite.type)} text-white flex shrink-0 items-center justify-center`}>
+            {getTypeIcon(actualite.type)}
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 break-words">
+                {actualite.titre}
+              </h2>
+              <div className="w-fit md:shrink-0">
+                {getTypeBadge(actualite.type)}
               </div>
             </div>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+      </section>
 
       {/* Image (si disponible) */}
       {actualite.imageUrl && (
@@ -277,7 +277,7 @@ export function ActualiteDetailPage({
                       href={lien.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between group"
+                      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between group"
                     >
                       <div className="flex items-center gap-3">
                         <LinkIcon className="h-5 w-5 text-blue-600" />
@@ -314,17 +314,16 @@ export function ActualiteDetailPage({
               {actualite.documents.map((doc) => (
                 <Card key={doc.id} className="border-2 border-cyan-200 bg-cyan-50">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-8 w-8 text-cyan-600" />
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
                         <div>
-                          <p className="font-semibold text-gray-900 text-lg">{doc.nom}</p>
+                          <p className="font-semibold text-gray-900 text-lg break-words">{doc.nom}</p>
                           <p className="text-sm text-gray-500">
                             {doc.type.toUpperCase()} • {doc.taille}
                           </p>
                         </div>
                       </div>
-                      <Button className="bg-cyan-600 hover:bg-cyan-700">
+                      <Button className="w-full sm:w-auto sm:shrink-0 bg-cyan-600 hover:bg-cyan-700">
                         <Download className="h-4 w-4 mr-2" />
                         Télécharger
                       </Button>
@@ -343,7 +342,7 @@ export function ActualiteDetailPage({
           <CardTitle>Informations</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center">
                 <Users className="h-6 w-6 text-blue-600" />

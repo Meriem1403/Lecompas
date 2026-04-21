@@ -449,51 +449,59 @@ export function ActionsView({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-blue-100 text-sm font-medium">En cours</p>
                 <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'En cours').length}</p>
               </div>
-              <Clock className="h-12 w-12 text-blue-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-blue-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-500 to-slate-500 text-white">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-gray-500 to-slate-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-gray-100 text-sm font-medium">À faire</p>
                 <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'À faire').length}</p>
               </div>
-              <Calendar className="h-12 w-12 text-gray-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-gray-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-red-500 to-rose-500 text-white">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-red-500 to-rose-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-red-100 text-sm font-medium">En retard</p>
                 <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'En retard').length}</p>
               </div>
-              <AlertCircle className="h-12 w-12 text-red-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-red-50" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white">
+        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-green-100 text-sm font-medium">Terminées</p>
                 <p className="text-3xl font-bold">{allActions.filter(a => a.status === 'Terminée').length}</p>
               </div>
-              <CheckCircle2 className="h-12 w-12 text-green-100" />
+              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-green-50" />
+              </div>
             </div>
           </CardContent>
         </Card>

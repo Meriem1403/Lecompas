@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Shield, PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export interface Role {
@@ -91,14 +91,14 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
     return (
       <>
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
               <h3 className="text-2xl font-bold text-gray-900">Gestion des Rôles</h3>
               <p className="text-gray-600">Gérez les rôles et permissions</p>
             </div>
             <Button 
               onClick={handleCreate} 
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg"
+              className="w-full lg:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg"
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               Nouveau Rôle
@@ -108,7 +108,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[760px]">
                   <thead className="bg-gradient-to-r from-purple-50 to-indigo-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">ID</th>
@@ -126,7 +126,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">{role.displayName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex space-x-2">
+                          <div className="flex gap-2">
                             <Button 
                               size="sm" 
                               onClick={() => handleView(role)} 
@@ -189,9 +189,9 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
   if (viewMode === 'view' && selectedRole) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={handleBack}>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <Button variant="outline" onClick={handleBack} className="w-full sm:w-auto">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Retour
             </Button>
@@ -202,7 +202,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
           </div>
           <Button 
             onClick={() => handleEdit(selectedRole)}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+            className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
           >
             <Edit className="h-4 w-4 mr-2" />
             Modifier
@@ -266,9 +266,9 @@ function RoleFormView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={onCancel}>
+    <div className="space-y-6 p-3 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -284,13 +284,13 @@ function RoleFormView({
 
       <form onSubmit={handleSubmit}>
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardContent className="p-8 space-y-6">
+          <CardContent className="p-4 sm:p-8 space-y-6">
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="code">Code du rôle *</Label>
                 <Input
                   id="code"
-                  className="font-mono"
+                  className="font-mono bg-white border-2 border-slate-300"
                   placeholder="ROLE_EXEMPLE"
                   value={formData.code || ''}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
@@ -303,6 +303,7 @@ function RoleFormView({
                 <Label htmlFor="displayName">Nom affiché *</Label>
                 <Input
                   id="displayName"
+                  className="bg-white border-2 border-slate-300"
                   placeholder="Exemple"
                   value={formData.displayName || ''}
                   onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
@@ -312,13 +313,13 @@ function RoleFormView({
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onCancel}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-6 border-t">
+              <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
                 Annuler
               </Button>
               <Button 
                 type="submit"
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 whitespace-normal text-center h-auto py-2"
               >
                 {isEdit ? 'Enregistrer les modifications' : 'Créer le rôle'}
               </Button>

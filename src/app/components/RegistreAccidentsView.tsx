@@ -354,22 +354,22 @@ export function RegistreAccidentsView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Registre des Accidents du Travail</h3>
           <p className="text-gray-600">Accidents bénins sans arrêt (Article D.4711-3)</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
           <Button 
             onClick={handleExportPDF}
             variant="outline"
-            className="border-red-600 text-red-600 hover:bg-red-50"
+            className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
           >
             <Download className="h-4 w-4 mr-2" />
             Exporter PDF
           </Button>
           <Button 
-            className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-lg" 
+            className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-lg" 
             onClick={handleAdd}
           >
             <PlusCircle className="h-4 w-4 mr-2" />
@@ -380,7 +380,7 @@ export function RegistreAccidentsView() {
 
       {/* Info réglementaire */}
       <Card className="bg-amber-50 border-amber-200 p-4">
-        <div className="flex items-start space-x-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
           <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
           <div>
             <h4 className="font-semibold text-amber-900 mb-1">Informations réglementaires</h4>
@@ -395,20 +395,22 @@ export function RegistreAccidentsView() {
       </Card>
 
       {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-red-50 to-rose-50 border-red-200">
-          <div className="flex items-center justify-between">
-            <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <Card className="h-full p-4 bg-gradient-to-br from-red-50 to-rose-50 border-red-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm text-red-600 font-medium">Total accidents 2026</p>
               <p className="text-3xl font-bold text-red-700">{accidents.filter(a => a.annee === 2026).length}</p>
             </div>
-            <ActivitySquare className="h-10 w-10 text-red-600 opacity-50" />
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-red-100/80 flex items-center justify-center">
+              <ActivitySquare className="h-6 w-6 text-red-600" />
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
+        <Card className="h-full p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm text-blue-600 font-medium">Ce mois-ci</p>
               <p className="text-3xl font-bold text-blue-700">
                 {accidents.filter(a => {
@@ -418,41 +420,47 @@ export function RegistreAccidentsView() {
                 }).length}
               </p>
             </div>
-            <Calendar className="h-10 w-10 text-blue-600 opacity-50" />
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-blue-100/80 flex items-center justify-center">
+              <Calendar className="h-6 w-6 text-blue-600" />
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-          <div className="flex items-center justify-between">
-            <div>
+        <Card className="h-full p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm text-green-600 font-medium">Signés complets</p>
               <p className="text-3xl font-bold text-green-700">
                 {accidents.filter(a => a.signatureSoignant && a.signatureVictime).length}
               </p>
             </div>
-            <CheckCircle2 className="h-10 w-10 text-green-600 opacity-50" />
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-green-100/80 flex items-center justify-center">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            </div>
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-          <div className="flex items-center justify-between">
-            <div>
+        <Card className="h-full p-4 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm text-purple-600 font-medium">Délai moyen inscription</p>
               <p className="text-3xl font-bold text-purple-700">&lt; 24h</p>
             </div>
-            <Clock className="h-10 w-10 text-purple-600 opacity-50" />
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-purple-100/80 flex items-center justify-center">
+              <Clock className="h-6 w-6 text-purple-600" />
+            </div>
           </div>
         </Card>
       </div>
 
       {/* Filtres */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-500" />
           <span className="text-sm font-medium text-gray-700">Filtres:</span>
         </div>
         <Select value={filterAnnee} onValueChange={setFilterAnnee}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Toutes les années" />
           </SelectTrigger>
           <SelectContent>
@@ -479,9 +487,9 @@ export function RegistreAccidentsView() {
         ) : (
           filteredAccidents.map(accident => (
             <Card key={accident.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 mb-3">
                     <Badge className="bg-red-600 text-white">
                       N° {accident.numero}/{accident.annee}
                     </Badge>
@@ -531,21 +539,23 @@ export function RegistreAccidentsView() {
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Soignant:</span> {accident.soignant}
-                      <span className="ml-4 text-gray-500">
+                    <div className="text-sm text-gray-600 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+                      <p>
+                        <span className="font-medium">Soignant:</span> {accident.soignant}
+                      </p>
+                      <p className="text-gray-500">
                         Inscrit le {new Date(accident.dateInscription).toLocaleDateString('fr-FR')}
-                      </span>
-                    </p>
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col space-y-2 ml-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2 lg:ml-4">
                   <Button 
                     size="sm" 
                     variant="outline" 
                     onClick={() => handleView(accident)}
-                    className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                    className="w-full sm:w-auto border-blue-600 text-blue-600 hover:bg-blue-50"
                   >
                     <Eye className="h-4 w-4 mr-1" />
                     Voir
@@ -554,7 +564,7 @@ export function RegistreAccidentsView() {
                     size="sm" 
                     variant="outline" 
                     onClick={() => handleEdit(accident)}
-                    className="border-orange-600 text-orange-600 hover:bg-orange-50"
+                    className="w-full sm:w-auto border-orange-600 text-orange-600 hover:bg-orange-50"
                   >
                     <Edit2 className="h-4 w-4 mr-1" />
                     Modifier
@@ -563,7 +573,7 @@ export function RegistreAccidentsView() {
                     size="sm" 
                     variant="outline" 
                     onClick={() => handleDelete(accident.id)}
-                    className="border-red-600 text-red-600 hover:bg-red-50"
+                    className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4 mr-1" />
                     Supprimer
@@ -627,12 +637,12 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Nouvel Accident Bénin</h3>
           <p className="text-gray-600">Inscription au registre des accidents du travail</p>
         </div>
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
           Retour
         </Button>
       </div>
@@ -777,7 +787,7 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
                 />
               </div>
 
-              <div className="flex items-center space-x-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -816,11 +826,11 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onBack}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onBack} className="w-full sm:w-auto">
               Annuler
             </Button>
-            <Button type="submit" className="bg-red-600 hover:bg-red-700">
+            <Button type="submit" className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
               Enregistrer l'accident
             </Button>
           </div>
@@ -834,19 +844,19 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
 function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onBack: () => void }) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Détail de l'accident N° {accident.numero}/{accident.annee}</h3>
           <p className="text-gray-600">Enregistré le {new Date(accident.dateInscription).toLocaleDateString('fr-FR')}</p>
         </div>
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
           Retour
         </Button>
       </div>
 
       <Card className="p-6 space-y-6">
         {/* Status */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <Badge className="bg-red-600 text-white">
             Accident N° {accident.numero}/{accident.annee}
           </Badge>
@@ -914,7 +924,7 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
           </h4>
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <p><span className="font-medium">Soignant:</span> {accident.soignant}</p>
-            <div className="flex items-center space-x-6 pt-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6 pt-2">
               <div className="flex items-center space-x-2">
                 {accident.signatureSoignant ? (
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -967,12 +977,12 @@ function EditAccidentView({ accident, onBack, onSave }: { accident: AccidentBeni
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Modifier l'accident N° {accident.numero}/{accident.annee}</h3>
           <p className="text-gray-600">Mise à jour de l'enregistrement</p>
         </div>
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
           Retour
         </Button>
       </div>
@@ -1109,7 +1119,7 @@ function EditAccidentView({ accident, onBack, onSave }: { accident: AccidentBeni
                 />
               </div>
 
-              <div className="flex items-center space-x-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1145,11 +1155,11 @@ function EditAccidentView({ accident, onBack, onSave }: { accident: AccidentBeni
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onBack}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={onBack} className="w-full sm:w-auto">
               Annuler
             </Button>
-            <Button type="submit" className="bg-red-600 hover:bg-red-700">
+            <Button type="submit" className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
               Enregistrer les modifications
             </Button>
           </div>

@@ -90,8 +90,8 @@ export function AsbestosInterventionDetail({ intervention, onBack, onEdit, onDel
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
@@ -122,7 +122,7 @@ export function AsbestosInterventionDetail({ intervention, onBack, onEdit, onDel
             <p className="text-gray-600">Référence : {intervention.reference}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={onEdit}>
             <Edit className="h-4 w-4 mr-2" />
             Modifier
@@ -393,8 +393,8 @@ export function AsbestosInterventionDetail({ intervention, onBack, onEdit, onDel
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <div className="p-4 bg-white border-2 border-purple-300 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="p-4 bg-white border-2 border-purple-300 rounded-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3 min-w-0">
                 <FileText className="h-10 w-10 text-purple-600" />
                 <div>
                   <p className="font-semibold text-gray-900">{intervention.fichierDiagnostic}</p>
@@ -413,7 +413,7 @@ export function AsbestosInterventionDetail({ intervention, onBack, onEdit, onDel
       {/* Métadonnées */}
       <Card className="border-0 shadow-lg bg-gray-50">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-4 gap-6 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 text-sm">
             <div>
               <p className="text-gray-500 mb-1">Responsable du suivi</p>
               <p className="font-semibold text-gray-900">{intervention.responsable}</p>

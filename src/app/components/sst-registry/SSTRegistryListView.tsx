@@ -136,7 +136,7 @@ export function SSTRegistryListView({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-rose-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
             Registre SST
@@ -148,7 +148,7 @@ export function SSTRegistryListView({
         </div>
         <Button
           onClick={onCreate}
-          className="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg"
+          className="w-full lg:w-auto bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-lg"
           size="lg"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -157,7 +157,7 @@ export function SSTRegistryListView({
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <Card className="border-2 border-gray-300 shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-white to-gray-50">
           <CardContent className="pt-6">
             <div className="text-center">
@@ -228,7 +228,7 @@ export function SSTRegistryListView({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-semibold text-gray-700 mb-2 block">
-                🔍 Recherche
+                Recherche
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -242,7 +242,7 @@ export function SSTRegistryListView({
             </div>
             <div>
               <label className="text-sm font-semibold text-gray-700 mb-2 block">
-                📊 Statut
+                Statut
               </label>
               <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
                 <SelectTrigger className="border-2 hover:border-purple-300 transition-colors">
@@ -259,7 +259,7 @@ export function SSTRegistryListView({
             </div>
             <div>
               <label className="text-sm font-semibold text-gray-700 mb-2 block">
-                🏢 Service
+                Service
               </label>
               <Select value={serviceFilter} onValueChange={setServiceFilter}>
                 <SelectTrigger className="border-2 hover:border-purple-300 transition-colors">
@@ -401,7 +401,7 @@ export function SSTRegistryListView({
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-2 pt-2 border-t">
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
                       <Button
                         variant="outline"
                         size="sm"
@@ -409,7 +409,7 @@ export function SSTRegistryListView({
                           e.stopPropagation();
                           onView(remark);
                         }}
-                        className="flex-1 border-2 hover:bg-blue-50 hover:border-blue-300"
+                        className="w-full sm:flex-1 border-2 hover:bg-blue-50 hover:border-blue-300"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         Voir
@@ -421,7 +421,7 @@ export function SSTRegistryListView({
                           e.stopPropagation();
                           onEdit(remark);
                         }}
-                        className="flex-1 border-2 hover:bg-purple-50 hover:border-purple-300"
+                        className="w-full sm:flex-1 border-2 hover:bg-purple-50 hover:border-purple-300"
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Modifier

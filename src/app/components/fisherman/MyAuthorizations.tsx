@@ -204,7 +204,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div>
@@ -212,12 +212,12 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à l'accueil
           </Button>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="h-16 w-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
               <FileText className="h-9 w-9 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent break-words">
                 Mes autorisations
               </h1>
               <p className="text-gray-600 mt-1">
@@ -228,7 +228,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <Card className="border-2 border-blue-300 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg">
             <CardContent className="pt-6">
               <div className="text-center">
@@ -277,15 +277,15 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Rechercher par zone..."
-                    className="pl-10 border-2 hover:border-blue-300"
+                    className="pl-10 bg-white border-2 border-slate-300 hover:border-blue-300"
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 w-full md:w-auto">
                 <Button
                   onClick={() => setFilterStatus('all')}
                   variant={filterStatus === 'all' ? 'default' : 'outline'}
-                  className={filterStatus === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white' : ''}
+                  className={`${filterStatus === 'all' ? 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white' : ''} w-full`}
                 >
                   <Filter className="h-4 w-4 mr-2" />
                   Toutes
@@ -293,21 +293,21 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                 <Button
                   onClick={() => setFilterStatus('approved')}
                   variant={filterStatus === 'approved' ? 'default' : 'outline'}
-                  className={filterStatus === 'approved' ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' : ''}
+                  className={`${filterStatus === 'approved' ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white' : ''} w-full`}
                 >
                   Approuvées
                 </Button>
                 <Button
                   onClick={() => setFilterStatus('pending')}
                   variant={filterStatus === 'pending' ? 'default' : 'outline'}
-                  className={filterStatus === 'pending' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : ''}
+                  className={`${filterStatus === 'pending' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white' : ''} w-full`}
                 >
                   En attente
                 </Button>
                 <Button
                   onClick={() => setFilterStatus('rejected')}
                   variant={filterStatus === 'rejected' ? 'default' : 'outline'}
-                  className={filterStatus === 'rejected' ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white' : ''}
+                  className={`${filterStatus === 'rejected' ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white' : ''} w-full`}
                 >
                   Refusées
                 </Button>
@@ -338,23 +338,23 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                 }`}
               >
                 <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-4 flex-1">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
                       <div className={`h-14 w-14 rounded-full bg-gradient-to-br ${zoneColors[auth.zone]} flex items-center justify-center shadow-lg shrink-0`}>
                         <Fish className="h-8 w-8 text-white" />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <CardTitle className="text-xl">{zoneNames[auth.zone]}</CardTitle>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-3 mb-2">
+                          <CardTitle className="text-xl break-words">{zoneNames[auth.zone]}</CardTitle>
                           {getStatusBadge(auth.status)}
                         </div>
-                        <CardDescription className="flex items-center gap-4 text-sm">
-                          <span className="flex items-center gap-1">
+                        <CardDescription className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-sm">
+                          <span className="flex items-center gap-1 break-words">
                             <Calendar className="h-3 w-3" />
                             Demandée le {formatDate(auth.submittedDate)}
                           </span>
                           {auth.validatedDate && (
-                            <span className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 break-words">
                               <CheckCircle2 className="h-3 w-3" />
                               Traitée le {formatDate(auth.validatedDate)}
                             </span>
@@ -362,12 +362,12 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto xl:shrink-0">
                       <Button
                         onClick={() => setSelectedAuthorization(auth)}
                         size="sm"
                         variant="outline"
-                        className="border-2 hover:bg-blue-50"
+                        className="w-full sm:w-auto border-2 hover:bg-blue-50"
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         Détails
@@ -375,7 +375,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                       {auth.status === 'approved' && (
                         <Button
                           size="sm"
-                          className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
+                          className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white"
                         >
                           <Download className="h-4 w-4 mr-2" />
                           Télécharger
@@ -385,7 +385,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500 mb-1">Sorties estimées</p>
                       <p className="font-semibold">{auth.estimatedTrips} / an</p>
@@ -404,7 +404,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                     )}
                     <div>
                       <p className="text-gray-500 mb-1">N° dossier</p>
-                      <p className="font-semibold font-mono text-xs">{auth.id}</p>
+                      <p className="font-semibold font-mono text-xs break-all">{auth.id}</p>
                     </div>
                   </div>
 
@@ -434,7 +434,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
 
         {/* Detail Modal */}
         {selectedAuthorization && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50" onClick={() => setSelectedAuthorization(null)}>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-6 z-50" onClick={() => setSelectedAuthorization(null)}>
             <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <CardHeader className={`bg-gradient-to-r ${
                 selectedAuthorization.status === 'approved'
@@ -443,12 +443,12 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                   ? 'from-amber-100 to-orange-100 border-b-2 border-amber-200'
                   : 'from-red-100 to-rose-100 border-b-2 border-red-200'
               }`}>
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <CardTitle className="text-2xl mb-2">
                       Détails de l'autorisation
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="break-words">
                       {zoneNames[selectedAuthorization.zone]}
                     </CardDescription>
                   </div>
@@ -462,7 +462,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                     <User className="h-5 w-5 text-blue-600" />
                     Informations personnelles
                   </h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-gray-500">Nom complet</p>
                       <p className="font-semibold">{selectedAuthorization.firstName} {selectedAuthorization.lastName}</p>
@@ -488,7 +488,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                     <Ship className="h-5 w-5 text-cyan-600" />
                     Informations de pêche
                   </h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-gray-500">Sorties estimées</p>
                       <p className="font-semibold">{selectedAuthorization.estimatedTrips} / an</p>
@@ -518,7 +518,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                     <Calendar className="h-5 w-5 text-purple-600" />
                     Dates importantes
                   </h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-gray-500">Date de soumission</p>
                       <p className="font-semibold">{formatDate(selectedAuthorization.submittedDate)}</p>
@@ -550,7 +550,7 @@ export function MyAuthorizations({ authorizations: propsAuthorizations, onBack }
                   </div>
                 )}
 
-                <div className="flex gap-3 justify-end pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4">
                   <Button onClick={() => setSelectedAuthorization(null)} variant="outline">
                     Fermer
                   </Button>

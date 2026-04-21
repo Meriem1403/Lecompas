@@ -210,7 +210,7 @@ export function AsbestosAttestationForm({ attestation, currentUserName, onSave, 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -422,7 +422,7 @@ export function AsbestosAttestationForm({ attestation, currentUserName, onSave, 
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Du *</Label>
                       <Input
@@ -605,7 +605,7 @@ export function AsbestosAttestationForm({ attestation, currentUserName, onSave, 
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Du *</Label>
                       <Input
@@ -658,21 +658,21 @@ export function AsbestosAttestationForm({ attestation, currentUserName, onSave, 
       {/* Actions */}
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={onCancel}>
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end md:gap-4">
+            <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
               Annuler
             </Button>
             <Button
               variant="outline"
               onClick={() => handleSave(true)}
-              className="border-gray-400"
+              className="w-full md:w-auto whitespace-normal text-center h-auto py-2 border-gray-400"
             >
               <Save className="h-4 w-4 mr-2" />
               Enregistrer brouillon
             </Button>
             <Button
               onClick={() => handleSave(false)}
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+              className="w-full md:w-auto whitespace-normal text-center h-auto py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
             >
               <Send className="h-4 w-4 mr-2" />
               Soumettre pour validation

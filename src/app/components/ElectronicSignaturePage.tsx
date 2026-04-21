@@ -133,7 +133,7 @@ export function ElectronicSignaturePage({
 
   if (showRejectDialog) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-3 sm:p-6">
         <div className="max-w-2xl mx-auto">
           <Card className="border-0 shadow-2xl">
             <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50">
@@ -158,18 +158,18 @@ export function ElectronicSignaturePage({
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   variant="outline"
                   onClick={() => setShowRejectDialog(false)}
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                 >
                   Annuler
                 </Button>
                 <Button
                   onClick={handleReject}
                   disabled={!rejectReason.trim()}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+                  className="w-full sm:flex-1 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
                 >
                   Confirmer le refus
                 </Button>
@@ -189,7 +189,7 @@ export function ElectronicSignaturePage({
           <div className="inline-flex h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 items-center justify-center shadow-xl mb-4">
             <FileSignature className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Signature Électronique</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Signature Électronique</h1>
           <p className="text-gray-600">{documentTitle}</p>
         </div>
 
@@ -217,7 +217,7 @@ export function ElectronicSignaturePage({
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
                 <Building2 className="h-5 w-5 text-gray-600 flex-shrink-0 mt-0.5" />
                 <div>
@@ -378,11 +378,11 @@ export function ElectronicSignaturePage({
               </div>
             </div>
 
-            <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 variant="outline"
                 onClick={() => setShowRejectDialog(true)}
-                className="flex-1 border-red-300 hover:bg-red-50"
+                  className="w-full sm:flex-1 border-red-300 hover:bg-red-50"
                 size="lg"
               >
                 Refuser
@@ -390,7 +390,7 @@ export function ElectronicSignaturePage({
               <Button
                 onClick={handleSign}
                 disabled={!canSign}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+                  className="w-full sm:flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
                 size="lg"
               >
                 {isSigning ? (

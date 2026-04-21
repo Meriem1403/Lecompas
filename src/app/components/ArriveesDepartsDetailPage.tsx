@@ -138,7 +138,7 @@ export function ArriveesDepartsDetailPage({
   return (
     <div className="space-y-6 p-6">
       {/* En-tête */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
@@ -154,7 +154,7 @@ export function ArriveesDepartsDetailPage({
       {/* Informations principales */}
       <Card className="border-2">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
             <div>
               <CardTitle className="text-2xl mb-2">
                 {demande.prenom} {demande.nom}
@@ -167,7 +167,7 @@ export function ArriveesDepartsDetailPage({
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="flex items-center gap-3">
               <User className="h-5 w-5 text-gray-400" />
               <div>
@@ -295,7 +295,7 @@ export function ArriveesDepartsDetailPage({
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 onClick={() => handleValidate(true)}
                 className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"

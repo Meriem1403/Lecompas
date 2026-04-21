@@ -8,7 +8,6 @@ import {
   Building2,
   Layers,
   MapPin,
-  Tag,
   Shield,
   Settings as SettingsIcon,
   ArrowLeft,
@@ -86,14 +85,6 @@ export function AdministrationModulesView({ onSelectModule, onGoBack }: Administ
       icon: MapPin,
       color: "text-cyan-600",
       gradient: "from-cyan-600 via-blue-500 to-teal-500",
-    },
-    {
-      id: "categories",
-      title: "Catégories",
-      description: "Configuration des catégories de risques",
-      icon: Tag,
-      color: "text-pink-600",
-      gradient: "from-pink-600 via-rose-500 to-red-500",
     },
     {
       id: "cerbere",

@@ -75,14 +75,14 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
           </Button>
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-gray-900">{campaign.titre}</h1>
               <Badge className={`bg-gradient-to-r ${config.color} text-white border-0 text-sm px-3 py-1`}>
                 {config.label}
@@ -91,7 +91,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
             <p className="text-gray-600">Référence : {campaign.reference}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={onEdit}>
             <Edit className="h-4 w-4 mr-2" />
             Modifier
@@ -130,7 +130,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
       {/* Phase 1: Planification */}
       <Card className="border-2 border-blue-200 shadow-lg">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-blue-900">
                 <Calendar className="h-6 w-6" />
@@ -207,7 +207,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
             <p className="text-sm text-gray-500 mb-3">Types de prélèvements prévus</p>
             <div className="space-y-2">
               {campaign.typesPrelevements.map((prelevement, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div key={idx} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center gap-3">
                     <ClipboardList className="h-5 w-5 text-blue-600" />
                     <span className="font-semibold text-gray-900">{prelevement.type}</span>
@@ -226,7 +226,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
       {(campaign.dateReelle || campaign.prelevementsRealises) && (
         <Card className="border-2 border-orange-200 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2 text-orange-900">
                   <MapPin className="h-6 w-6" />
@@ -263,7 +263,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
                   <div className="space-y-2">
                     {campaign.prelevementsRealises.map((prelevement, idx) => (
                       <div key={idx} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
                           <div className="flex items-center gap-3">
                             <CheckCircle2 className="h-5 w-5 text-orange-600" />
                             <span className="font-semibold text-gray-900">{prelevement.type}</span>
@@ -308,7 +308,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
       {campaign.rapportRecu && (
         <Card className="border-2 border-purple-200 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2 text-purple-900">
                   <FileText className="h-6 w-6" />
@@ -335,8 +335,8 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
             )}
 
             {campaign.fichierRapport && (
-              <div className="p-4 bg-white border-2 border-purple-300 rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="p-4 bg-white border-2 border-purple-300 rounded-lg flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
                   <FileText className="h-10 w-10 text-purple-600" />
                   <div>
                     <p className="font-semibold text-gray-900">{campaign.fichierRapport}</p>
@@ -355,7 +355,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
             <div className="space-y-3">
               <p className="text-sm text-gray-500 mb-3">État des vérifications</p>
               
-              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${
+              <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border-2 ${
                 campaign.verificationAdministrative ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200'
               }`}>
                 <div className="flex items-center gap-3">
@@ -374,7 +374,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
                 </Badge>
               </div>
 
-              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${
+              <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border-2 ${
                 campaign.verificationCoherence === true
                   ? 'bg-green-50 border-green-300'
                   : campaign.verificationCoherence === false
@@ -424,7 +424,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
       {campaign.syntheseProduite && (
         <Card className="border-2 border-green-200 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2 text-green-900">
                   <Sparkles className="h-6 w-6" />
@@ -452,7 +452,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.contexteIntervention && (
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-2">📋 Contexte de l'intervention</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-gray-500" />
+                  Contexte de l'intervention
+                </p>
                 <p className="text-base text-gray-900 bg-white p-4 rounded-lg border-2 border-gray-200">
                   {campaign.contexteIntervention}
                 </p>
@@ -461,7 +464,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.lieuEtDate && (
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-2">📍 Lieu et dates</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-gray-500" />
+                  Lieu et dates
+                </p>
                 <p className="text-base text-gray-900 bg-white p-4 rounded-lg border-2 border-gray-200">
                   {campaign.lieuEtDate}
                 </p>
@@ -470,7 +476,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.prelevementsEffectues && (
               <div>
-                <p className="text-sm font-semibold text-gray-700 mb-2">🔬 Prélèvements effectués</p>
+                <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  Prélèvements effectués
+                </p>
                 <p className="text-base text-gray-900 bg-white p-4 rounded-lg border-2 border-gray-200">
                   {campaign.prelevementsEffectues}
                 </p>
@@ -481,7 +490,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.resultatsMarquants && (
               <div>
-                <p className="text-sm font-semibold text-amber-900 mb-2">⭐ Résultats marquants (Mercure)</p>
+                <p className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-amber-700" />
+                  Résultats marquants (Mercure)
+                </p>
                 <p className="text-base text-gray-900 bg-amber-50 p-4 rounded-lg border-2 border-amber-300 font-semibold">
                   {campaign.resultatsMarquants}
                 </p>
@@ -490,7 +502,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.pointsAttention && (
               <div>
-                <p className="text-sm font-semibold text-orange-900 mb-2">⚠️ Points d'attention</p>
+                <p className="text-sm font-semibold text-orange-900 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-orange-700" />
+                  Points d'attention
+                </p>
                 <p className="text-base text-gray-900 bg-orange-50 p-4 rounded-lg border-2 border-orange-300">
                   {campaign.pointsAttention}
                 </p>
@@ -499,7 +514,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.anomalies && (
               <div>
-                <p className="text-sm font-semibold text-red-900 mb-2">🚨 Anomalies détectées</p>
+                <p className="text-sm font-semibold text-red-900 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-700" />
+                  Anomalies détectées
+                </p>
                 <p className="text-base text-gray-900 bg-red-50 p-4 rounded-lg border-2 border-red-300">
                   {campaign.anomalies}
                 </p>
@@ -510,7 +528,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.conclusion && (
               <div>
-                <p className="text-sm font-semibold text-green-900 mb-2">✅ Conclusion</p>
+                <p className="text-sm font-semibold text-green-900 mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-700" />
+                  Conclusion
+                </p>
                 <p className="text-base text-gray-900 bg-green-50 p-4 rounded-lg border-2 border-green-400 font-bold">
                   {campaign.conclusion}
                 </p>
@@ -519,7 +540,10 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
 
             {campaign.suitesADonner && (
               <div>
-                <p className="text-sm font-semibold text-blue-900 mb-2">→ Suites à donner</p>
+                <p className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-700" />
+                  Suites à donner
+                </p>
                 <p className="text-base text-gray-900 bg-blue-50 p-4 rounded-lg border-2 border-blue-400 font-bold">
                   {campaign.suitesADonner}
                 </p>
@@ -542,7 +566,7 @@ export function MercuryCampaignDetail({ campaign, onBack, onEdit, onDelete }: Me
       {/* Métadonnées */}
       <Card className="border-0 shadow-lg bg-gray-50">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-3 gap-6 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 text-sm">
             <div>
               <p className="text-gray-500 mb-1">Créé par</p>
               <p className="font-semibold text-gray-900">{campaign.createdBy}</p>

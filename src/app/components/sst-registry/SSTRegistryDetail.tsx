@@ -208,8 +208,8 @@ export function SSTRegistryDetail({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-4">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
@@ -229,7 +229,7 @@ export function SSTRegistryDetail({
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           {remark.status !== 'cloturee' && (
             <>
               {remark.status === 'nouvelle' && (
@@ -312,7 +312,7 @@ export function SSTRegistryDetail({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
             <div>
               <p className="text-sm text-gray-500">Service</p>
               <p className="text-base font-semibold text-gray-900">{remark.service}</p>
@@ -421,7 +421,7 @@ export function SSTRegistryDetail({
                     <DialogTitle>Ajouter une observation du responsable</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="managerName">Nom *</Label>
                         <Input
@@ -538,7 +538,7 @@ export function SSTRegistryDetail({
                       className="mt-1.5"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="actionEntity">Entité/agent chargé(e) *</Label>
                       <Input

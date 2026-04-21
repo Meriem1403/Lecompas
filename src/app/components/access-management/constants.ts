@@ -1,0 +1,179 @@
+import { AccessModule, CrudAction } from "./types";
+
+export const CRUD_LABELS: Record<CrudAction, string> = {
+  create: "Creer",
+  read: "Lire",
+  update: "Modifier",
+  delete: "Supprimer",
+};
+
+export const ACCESS_MODULES: AccessModule[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    section: "Applications",
+    description: "Vue generale et indicateurs globaux.",
+  },
+  {
+    id: "team",
+    label: "Equipe",
+    section: "Applications",
+    description: "Cartes membres et fiches collaborateurs.",
+  },
+  {
+    id: "access-management",
+    label: "Gestion des acces",
+    section: "Applications",
+    description: "Configuration des droits d'affichage et CRUD par agent.",
+  },
+  {
+    id: "actualites",
+    label: "Actualites",
+    section: "Communication",
+    description: "Flux d'actualites et notifications internes.",
+  },
+  {
+    id: "risks",
+    label: "Evaluation des risques",
+    section: "Prevention",
+    description: "Risque, niveaux, mesures et responsables.",
+  },
+  {
+    id: "actions",
+    label: "Plan d'actions",
+    section: "Prevention",
+    description: "Pilotage des actions et suivi des delais.",
+  },
+  {
+    id: "documents",
+    label: "Documents DUERP",
+    section: "Prevention",
+    description: "Generation, edition et exports documentaires.",
+  },
+  {
+    id: "cerbere",
+    label: "Applications Cerbere",
+    section: "Informatique",
+    description: "Demandes d'habilitation et validations.",
+  },
+  {
+    id: "users",
+    label: "Utilisateurs",
+    section: "Administration",
+    description: "Gestion des utilisateurs et profils.",
+  },
+  {
+    id: "risks-management",
+    label: "Gestion des risques",
+    section: "Administration",
+    description: "Administration des risques et de leurs caracteristiques.",
+  },
+  {
+    id: "risk-references",
+    label: "Referentiel risques",
+    section: "Administration",
+    description: "Parametrage des references de risques.",
+  },
+  {
+    id: "action-returns",
+    label: "Retours d'action",
+    section: "Administration",
+    description: "Suivi et validation des retours d'action.",
+  },
+  {
+    id: "roles",
+    label: "Roles",
+    section: "Administration",
+    description: "Gestion des roles et habilitations globales.",
+  },
+  {
+    id: "services",
+    label: "Services",
+    section: "Administration",
+    description: "Referentiel des services et rattachements.",
+  },
+  {
+    id: "domains",
+    label: "Domaines",
+    section: "Administration",
+    description: "Referentiel des domaines metier.",
+  },
+  {
+    id: "locations",
+    label: "Lieux",
+    section: "Administration",
+    description: "Referentiel des lieux et sites.",
+  },
+  {
+    id: "medical-visits",
+    label: "Visites medicales",
+    section: "Ressources humaines",
+    description: "Planification et suivi des visites medicales.",
+  },
+  {
+    id: "sst-registry",
+    label: "Registre SST",
+    section: "Ressources humaines",
+    description: "Registre sante et securite au travail.",
+  },
+  {
+    id: "arrivees-departs",
+    label: "Arrivees & Departs",
+    section: "Ressources humaines",
+    description: "Gestion des demandes et questionnaires RH.",
+  },
+  {
+    id: "accidents",
+    label: "Accidentologie",
+    section: "Prevention",
+    description: "Suivi des accidents de travail et de trajet.",
+  },
+  {
+    id: "registre",
+    label: "Registre Accidents",
+    section: "Prevention",
+    description: "Registre detaille des declarations d'accidents.",
+  },
+  {
+    id: "archives",
+    label: "Archives",
+    section: "Prevention",
+    description: "Archivage historique des donnees DUERP.",
+  },
+  {
+    id: "mercury",
+    label: "Campagnes mercure",
+    section: "Environnement",
+    description: "Pilotage des campagnes et suivis mercure.",
+  },
+  {
+    id: "asbestos",
+    label: "Diagnostics amiante",
+    section: "Environnement",
+    description: "Gestion des diagnostics et interventions amiante.",
+  },
+  {
+    id: "asbestos-attestations",
+    label: "Attestations amiante",
+    section: "Environnement",
+    description: "Edition et suivi des attestations amiante.",
+  },
+  {
+    id: "fisherman",
+    label: "Gestion peche",
+    section: "Environnement",
+    description: "Suivi des autorisations et activites peche.",
+  },
+  {
+    id: "signature-duerp",
+    label: "Signature DUERP",
+    section: "Validation",
+    description: "Processus de signature electronique DUERP.",
+  },
+  {
+    id: "settings",
+    label: "Parametres",
+    section: "Systeme",
+    description: "Configuration applicative et preferences.",
+  },
+];
