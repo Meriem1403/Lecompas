@@ -51,6 +51,15 @@ interface CerbereRequestFormProps {
   currentUserDomain?: string;
   currentUserLocation?: string;
   usersData: AppUser[];
+  initialData?: {
+    agentConcerne: string;
+    applications: string[];
+    profils: string[];
+    reglePortee: string;
+    restrictions: string;
+    justification?: string;
+  } | null;
+  submitLabel?: string;
 }
 
 export function CerbereRequestForm({
@@ -64,6 +73,8 @@ export function CerbereRequestForm({
   currentUserDomain,
   currentUserLocation,
   usersData,
+  initialData = null,
+  submitLabel = 'Soumettre la demande',
 }: CerbereRequestFormProps) {
   const [agentConcerne, setAgentConcerne] = useState('');
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
@@ -171,6 +182,32 @@ export function CerbereRequestForm({
     }
   }, [agentConcerne, currentUserData, currentUserName, eligibleAgents, userRole]);
 
+  useEffect(() => {
+    if (!initialData) return;
+
+    setAgentConcerne(initialData.agentConcerne || '');
+    setReglePortee(initialData.reglePortee || '');
+    setRestrictions(initialData.restrictions === 'Aucune' ? '' : initialData.restrictions || '');
+    setJustification(initialData.justification || '');
+
+    const appIds = applications
+      .filter((app) => initialData.applications.includes(app.code))
+      .map((app) => app.id);
+    setSelectedApplications(appIds);
+
+    const profilsByApp: { [key: string]: string[] } = {};
+    applications.forEach((app) => {
+      if (!appIds.includes(app.id)) return;
+      const selectedProfilIds = app.profils
+        .filter((profil) => initialData.profils.includes(profil.identifiant))
+        .map((profil) => profil.id);
+      if (selectedProfilIds.length > 0) {
+        profilsByApp[app.id] = selectedProfilIds;
+      }
+    });
+    setSelectedProfils(profilsByApp);
+  }, [applications, initialData]);
+
   const handleApplicationToggle = (appId: string) => {
     if (selectedApplications.includes(appId)) {
       setSelectedApplications(selectedApplications.filter((id) => id !== appId));
@@ -255,7 +292,6 @@ export function CerbereRequestForm({
       restrictions: restrictions || 'Aucune',
       justification,
       soumiseLe: new Date().toISOString().split('T')[0],
-      statut: 'en_attente',
     };
 
     onSubmit(requestData);
@@ -270,7 +306,7 @@ export function CerbereRequestForm({
           Retour
         </Button>
         <Badge className="w-full sm:w-auto justify-center bg-blue-100 text-blue-800 border-blue-300 px-4 py-2">
-          Nouvelle demande d'habilitation
+          {initialData ? "Modification de la demande d'habilitation" : "Nouvelle demande d'habilitation"}
         </Badge>
       </div>
 
@@ -590,7 +626,7 @@ export function CerbereRequestForm({
               className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
             >
               <Send className="h-4 w-4 mr-2" />
-              Soumettre la demande
+              {submitLabel}
             </Button>
           </div>
         </CardContent>

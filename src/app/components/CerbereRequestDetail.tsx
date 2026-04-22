@@ -25,9 +25,11 @@ interface CerbereRequest {
   reglePortee: string;
   restrictions: string;
   soumiseLe: string;
-  statut: 'en_attente' | 'validee' | 'refusee';
+  statut: 'en_attente_chef' | 'en_attente_admin' | 'validee' | 'refusee';
   valideePar?: string;
   dateValidation?: string;
+  chefValidationPar?: string;
+  chefValidationLe?: string;
 }
 
 interface CerbereRequestDetailProps {
@@ -37,6 +39,7 @@ interface CerbereRequestDetailProps {
   onReject: () => void;
   onDownloadAttestation: () => void;
   userRole: 'admin' | 'chef_service' | 'agent';
+  currentUserName: string;
 }
 
 export function CerbereRequestDetail({
@@ -46,9 +49,24 @@ export function CerbereRequestDetail({
   onReject,
   onDownloadAttestation,
   userRole,
+  currentUserName,
 }: CerbereRequestDetailProps) {
   const getStatusBadge = (statut: string) => {
     switch (statut) {
+      case 'en_attente_chef':
+        return (
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-base px-4 py-2">
+            <Clock className="h-4 w-4 mr-2" />
+            En attente de validation du chef de service
+          </Badge>
+        );
+      case 'en_attente_admin':
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-base px-4 py-2">
+            <Clock className="h-4 w-4 mr-2" />
+            En attente de validation administrateur
+          </Badge>
+        );
       case 'validee':
         return (
           <Badge className="bg-green-100 text-green-800 border-green-300 text-base px-4 py-2">
@@ -61,13 +79,6 @@ export function CerbereRequestDetail({
           <Badge className="bg-red-100 text-red-800 border-red-300 text-base px-4 py-2">
             <XCircle className="h-4 w-4 mr-2" />
             Refusée
-          </Badge>
-        );
-      case 'en_attente':
-        return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-base px-4 py-2">
-            <Clock className="h-4 w-4 mr-2" />
-            En attente de validation
           </Badge>
         );
       default:
@@ -162,6 +173,17 @@ export function CerbereRequestDetail({
                   </p>
                 </div>
               )}
+
+              {request.statut === 'validee' && (
+                <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                  <p className="text-sm text-green-900">
+                    Cette demande a été validée par votre chef de service
+                    {request.chefValidationPar ? ` (${request.chefValidationPar})` : ''} puis par
+                    l'administrateur
+                    {request.valideePar ? ` (${request.valideePar})` : ''}.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -232,7 +254,7 @@ export function CerbereRequestDetail({
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-            {request.statut === 'en_attente' && userRole === 'admin' && (
+            {request.statut === 'en_attente_admin' && userRole === 'admin' && (
               <>
                 <Button
                   onClick={onValidate}
@@ -262,11 +284,36 @@ export function CerbereRequestDetail({
               </Button>
             )}
 
-            {request.statut === 'en_attente' && userRole !== 'admin' && (
+            {request.statut === 'en_attente_chef' &&
+              userRole === 'chef_service' &&
+              request.agentConcerne !== currentUserName && (
+                <>
+                  <Button
+                    onClick={onValidate}
+                    className="w-full sm:flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Valider
+                  </Button>
+                  <Button
+                    onClick={onReject}
+                    variant="outline"
+                    className="w-full sm:flex-1 text-red-600 hover:bg-red-50 border-red-300"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Refuser
+                  </Button>
+                </>
+              )}
+
+            {(request.statut === 'en_attente_chef' || request.statut === 'en_attente_admin') &&
+              userRole !== 'admin' && (
               <div className="w-full p-4 rounded-lg bg-orange-50 border border-orange-200">
                 <p className="text-center text-gray-700">
                   <Clock className="h-5 w-5 inline mr-2 text-orange-600" />
-                  Votre demande est en cours de traitement par l'administrateur
+                  {request.statut === 'en_attente_chef'
+                    ? "Demande en attente de validation du chef de service"
+                    : "Demande en attente de validation par l'administrateur"}
                 </p>
               </div>
             )}

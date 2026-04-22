@@ -73,6 +73,8 @@ import { ApplicationsModulesView } from "./components/ApplicationsModulesView";
 import { AdministrationModulesView } from "./components/AdministrationModulesView";
 import { TeamView } from "./components/TeamView";
 import { AccessManagementView } from "./components/AccessManagementView";
+import { RiskAwarenessView } from "./components/RiskAwarenessView";
+import { RiskAwarenessRecord } from "./components/RiskAwarenessView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
 import { EmployeeAccessProfile } from "./components/access-management/types";
 import {
@@ -134,6 +136,7 @@ import {
   Database,
   Stethoscope,
   Fish,
+  Info,
   ArrowLeft,
   ChevronLeft,
   Menu,
@@ -676,6 +679,9 @@ export default function App() {
   const previousRiskReferencesRef = React.useRef<RiskReference[]>(
     riskReferences,
   );
+  const [riskAwarenessRecords, setRiskAwarenessRecords] = useState<
+    RiskAwarenessRecord[]
+  >([]);
   const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
   const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
@@ -958,6 +964,59 @@ export default function App() {
 
     previousRiskReferencesRef.current = riskReferences;
   }, [riskReferences]);
+
+  React.useEffect(() => {
+    const sourceByKey = new Map<
+      string,
+      { riskNumber: string; riskTitle: string }
+    >();
+
+    riskReferences.forEach((reference) => {
+      const key = `${reference.numeroRisque}::${reference.title}`;
+      sourceByKey.set(key, {
+        riskNumber: reference.numeroRisque,
+        riskTitle: reference.title,
+      });
+    });
+
+    risks.forEach((risk) => {
+      const key = `${risk.numeroRisque}::${risk.title}`;
+      sourceByKey.set(key, {
+        riskNumber: risk.numeroRisque,
+        riskTitle: risk.title,
+      });
+    });
+
+    setRiskAwarenessRecords((previous) => {
+      const previousByKey = new Map(
+        previous.map((record) => [record.riskKey, record]),
+      );
+
+      return Array.from(sourceByKey.entries()).map(
+        ([riskKey, source]) => {
+          const existing = previousByKey.get(riskKey);
+          if (existing) {
+            return {
+              ...existing,
+              riskNumber: source.riskNumber,
+              riskTitle: source.riskTitle,
+            };
+          }
+          return {
+            id: crypto.randomUUID(),
+            riskKey,
+            riskNumber: source.riskNumber,
+            riskTitle: source.riskTitle,
+            summary: "",
+            content: "",
+            links: [],
+            documents: [],
+            status: "a_completer",
+          };
+        },
+      );
+    });
+  }, [riskReferences, risks]);
 
   // Notifications state (actualités non lues)
   const [notifications, setNotifications] = useState<any[]>([
@@ -1673,6 +1732,12 @@ export default function App() {
           label: "Évaluation des risques",
           icon: Shield,
           color: "text-purple-500",
+        },
+        {
+          id: "risk-awareness",
+          label: "Prévention & Exposition",
+          icon: Info,
+          color: "text-indigo-500",
         },
         {
           id: "accidents",
@@ -3374,6 +3439,18 @@ export default function App() {
               onAdd={handleAddAccident}
               onUpdate={handleUpdateAccident}
               onDelete={handleDeleteAccident}
+            />
+          )}
+
+          {activeView === "risk-awareness" && (
+            <RiskAwarenessView
+              userRole={user?.role || "agent"}
+              currentUserName={user?.name || "Utilisateur"}
+              records={riskAwarenessRecords}
+              setRecords={setRiskAwarenessRecords}
+              exposedRiskKeys={visibleRisks.map(
+                (risk) => `${risk.numeroRisque}::${risk.title}`,
+              )}
             />
           )}
 

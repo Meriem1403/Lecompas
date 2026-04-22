@@ -18,151 +18,157 @@ export function generateCerbereAttestation(data: AttestationData) {
       // @ts-ignore
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 20;
-      let yPosition = 20;
+      const footerReserved = 32;
+      const usableBottom = pageHeight - footerReserved;
+      const contentWidth = pageWidth - margin * 2;
+      let y = 20;
 
-      // En-tête - République Française
+      const ensureSpace = (neededHeight: number) => {
+        if (y + neededHeight <= usableBottom) return;
+        doc.addPage();
+        y = 20;
+      };
+
+      const drawFooter = () => {
+        let footerY = pageHeight - 30;
+        doc.setLineWidth(0.3);
+        doc.line(margin, footerY, pageWidth - margin, footerY);
+        footerY += 5;
+        doc.setFontSize(8);
+        doc.text('Direction Interrégionale de la Mer Méditerranée', pageWidth / 2, footerY, {
+          align: 'center',
+        });
+        footerY += 4;
+        doc.text('16 Quai de Rive Neuve, 13007 Marseille', pageWidth / 2, footerY, {
+          align: 'center',
+        });
+        footerY += 4;
+        doc.text('Tél : +33 4 91 32 85 00', pageWidth / 2, footerY, { align: 'center' });
+        footerY += 4;
+        doc.setFontSize(7);
+        doc.text(
+          `Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`,
+          pageWidth / 2,
+          footerY,
+          { align: 'center' },
+        );
+      };
+
+      const writeParagraph = (text: string, size = 11, lineHeight = 5.5) => {
+        doc.setFontSize(size);
+        const lines = doc.splitTextToSize(text, contentWidth);
+        ensureSpace(lines.length * lineHeight + 2);
+        doc.text(lines, margin, y);
+        y += lines.length * lineHeight + 2;
+      };
+
+      const writeSectionTitle = (title: string) => {
+        ensureSpace(8);
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(title, margin, y);
+        doc.setFont(undefined, 'normal');
+        y += 7;
+      };
+
+      const writeBullets = (items: string[]) => {
+        items.forEach((item) => {
+          const bulletText = `• ${item}`;
+          const lines = doc.splitTextToSize(bulletText, contentWidth - 4);
+          ensureSpace(lines.length * 5.5 + 1);
+          doc.setFontSize(11);
+          doc.text(lines, margin + 2, y);
+          y += lines.length * 5.5 + 1;
+        });
+      };
+
+      // En-tête officiel
+      doc.setFont(undefined, 'bold');
       doc.setFontSize(12);
-      doc.text('RÉPUBLIQUE FRANÇAISE', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 8;
+      doc.text('RÉPUBLIQUE FRANÇAISE', pageWidth / 2, y, { align: 'center' });
+      y += 8;
+      doc.setFont(undefined, 'normal');
       doc.setFontSize(10);
-      doc.text('Ministère de la Transition écologique', pageWidth / 2, yPosition, {
-        align: 'center',
-      });
-      yPosition += 6;
-      doc.text('Direction Interrégionale de la Mer Méditerranée', pageWidth / 2, yPosition, {
-        align: 'center',
-      });
-      yPosition += 15;
-
-      // Ligne de séparation
+      doc.text('Ministère de la Transition écologique', pageWidth / 2, y, { align: 'center' });
+      y += 6;
+      doc.text('Direction Interrégionale de la Mer Méditerranée', pageWidth / 2, y, { align: 'center' });
+      y += 10;
       doc.setLineWidth(0.5);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 15;
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 12;
 
-      // Titre
-      doc.setFontSize(18);
-      doc.text('ATTESTATION D\'HABILITATION', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 8;
-      doc.setFontSize(14);
-      doc.text('Système Cerbère', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 20;
-
-      // Référence
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(17);
+      doc.text("ATTESTATION D'HABILITATION CERBÈRE", pageWidth / 2, y, { align: 'center' });
+      y += 10;
+      doc.setFont(undefined, 'normal');
       doc.setFontSize(10);
-      doc.text(`Référence: ${data.id.toUpperCase()}`, margin, yPosition);
-      yPosition += 10;
+      doc.text(`Référence : ${data.id.toUpperCase()}`, margin, y);
+      y += 10;
 
-      // Ligne de séparation
-      doc.setLineWidth(0.3);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 15;
+      writeParagraph(
+        "La Direction Interrégionale de la Mer Méditerranée atteste que l'agent ci-dessous dispose des habilitations mentionnées dans le présent document pour l'accès aux applications du système Cerbère.",
+      );
+      y += 2;
 
-      // Corps du document
-      doc.setFontSize(11);
+      writeSectionTitle('1. Identification de l’agent');
+      writeParagraph(`Agent concerné : ${data.agentConcerne}`);
+      y += 2;
 
-      // Paragraphe d'introduction
-      const introText =
-        'La Direction Interrégionale de la Mer Méditerranée atteste que l\'agent suivant dispose des habilitations ci-après pour accéder aux applications du système Cerbère :';
-      const introLines = doc.splitTextToSize(introText, pageWidth - 2 * margin);
-      doc.text(introLines, margin, yPosition);
-      yPosition += introLines.length * 6 + 10;
+      writeSectionTitle('2. Applications autorisées');
+      writeBullets(data.applications);
+      y += 2;
 
-      // Agent concerné
-      doc.text('Agent concerné : ' + data.agentConcerne, margin, yPosition);
-      yPosition += 10;
+      writeSectionTitle('3. Profils attribués');
+      writeBullets(data.profils);
+      y += 2;
 
-      // Applications
-      doc.text('Applications autorisées :', margin, yPosition);
-      yPosition += 7;
-      data.applications.forEach((app) => {
-        doc.text(`- ${app}`, margin + 10, yPosition);
-        yPosition += 6;
-      });
-      yPosition += 5;
-
-      // Profils
-      doc.text('Profils attribués :', margin, yPosition);
-      yPosition += 7;
-      data.profils.forEach((profil) => {
-        const profilLines = doc.splitTextToSize(`- ${profil}`, pageWidth - 2 * margin - 10);
-        doc.text(profilLines, margin + 10, yPosition);
-        yPosition += profilLines.length * 6;
-      });
-      yPosition += 5;
-
-      // Règle de portée
-      doc.text('Règle de portée : ' + data.reglePortee, margin, yPosition);
-      yPosition += 10;
-
-      // Restrictions
+      writeSectionTitle('4. Portée et restrictions');
+      writeParagraph(`Règle de portée : ${data.reglePortee}`);
       if (data.restrictions && data.restrictions !== 'Aucune') {
-        doc.text('Restrictions :', margin, yPosition);
-        yPosition += 7;
-        const restrictionLines = doc.splitTextToSize(data.restrictions, pageWidth - 2 * margin - 10);
-        doc.text(restrictionLines, margin + 10, yPosition);
-        yPosition += restrictionLines.length * 6 + 5;
+        writeParagraph(`Restrictions : ${data.restrictions}`);
+      } else {
+        writeParagraph('Restrictions : Aucune');
       }
+      y += 2;
 
-      yPosition += 10;
-
-      // Cadre d'avertissement
-      doc.setDrawColor(200, 100, 100);
-      doc.setFillColor(255, 240, 240);
-      doc.rect(margin, yPosition, pageWidth - 2 * margin, 25, 'FD');
-      yPosition += 7;
-      doc.setFontSize(9);
-      doc.text('IMPORTANT :', margin + 5, yPosition);
-      const warningText =
-        'Les accès Cerbère sont personnels et confidentiels. Toute utilisation frauduleuse ou non conforme au règlement intérieur peut entraîner des sanctions disciplinaires.';
-      const warningLines = doc.splitTextToSize(warningText, pageWidth - 2 * margin - 10);
-      doc.text(warningLines, margin + 5, yPosition + 5);
-      yPosition += 30;
-
-      // Validation
-      yPosition += 10;
-      doc.setFontSize(11);
-      doc.text('Validation :', margin, yPosition);
-      yPosition += 8;
-      doc.text(`Validée par : ${data.valideePar}`, margin + 5, yPosition);
-      yPosition += 7;
-      doc.text(
+      writeSectionTitle('5. Validation');
+      writeParagraph(`Validée par : ${data.valideePar}`);
+      writeParagraph(
         `Date de validation : ${new Date(data.dateValidation).toLocaleDateString('fr-FR', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         })}`,
-        margin + 5,
-        yPosition
       );
+      y += 2;
 
-      // Pied de page
-      yPosition = doc.internal.pageSize.getHeight() - 30;
-      doc.setLineWidth(0.3);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 5;
-      doc.setFontSize(8);
-      doc.text(
-        'Direction Interrégionale de la Mer Méditerranée',
-        pageWidth / 2,
-        yPosition,
-        { align: 'center' }
-      );
-      yPosition += 4;
-      doc.text('16 Quai de Rive Neuve, 13007 Marseille', pageWidth / 2, yPosition, {
-        align: 'center',
-      });
-      yPosition += 4;
-      doc.text('Tél : +33 4 91 32 85 00', pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 4;
-      doc.setFontSize(7);
-      doc.text(
-        `Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`,
-        pageWidth / 2,
-        yPosition,
-        { align: 'center' }
-      );
+      // Bloc réglementaire d'avertissement
+      const warningTitle = 'IMPORTANT';
+      const warningBody =
+        'Les accès Cerbère sont personnels et confidentiels. Toute utilisation frauduleuse ou non conforme au règlement intérieur peut entraîner des sanctions disciplinaires.';
+      const warningLines = doc.splitTextToSize(warningBody, contentWidth - 10);
+      const warningHeight = 10 + warningLines.length * 5 + 4;
+      ensureSpace(warningHeight + 4);
+      doc.setDrawColor(200, 100, 100);
+      doc.setFillColor(255, 240, 240);
+      doc.rect(margin, y, contentWidth, warningHeight, 'FD');
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(9);
+      doc.text(warningTitle, margin + 5, y + 6);
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(9);
+      doc.text(warningLines, margin + 5, y + 12);
+
+      // Footer sur chaque page
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i += 1) {
+        doc.setPage(i);
+        drawFooter();
+      }
 
       // Télécharger le PDF
       const fileName = `Attestation_Cerbere_${data.agentConcerne.replace(/\s+/g, '_')}_${

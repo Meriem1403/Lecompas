@@ -76,9 +76,16 @@ interface CerbereRequest {
   reglePortee: string;
   restrictions: string;
   soumiseLe: string;
-  statut: 'en_attente' | 'validee' | 'refusee';
+  statut:
+    | 'en_attente_chef'
+    | 'en_attente_admin'
+    | 'validee'
+    | 'refusee';
   valideePar?: string;
   dateValidation?: string;
+  chefValidationPar?: string;
+  chefValidationLe?: string;
+  justification?: string;
 }
 
 const mockApplications: CerbereApplication[] = [
@@ -165,7 +172,7 @@ export function CerbereView({
           reglePortee: currentUserService || 'Mon service',
           restrictions: 'Aucune',
           soumiseLe: new Date().toISOString().split('T')[0],
-          statut: 'en_attente',
+          statut: currentUserRole === 'agent' ? 'en_attente_chef' : 'en_attente_admin',
         },
       ];
     }
@@ -184,7 +191,12 @@ export function CerbereView({
       );
       const demandeurName = sameServiceChef ? fullName(sameServiceChef) : fullName(target);
       const selectedSet = appSets[idx % appSets.length];
-      const statusCycle: CerbereRequest['statut'][] = ['en_attente', 'validee', 'refusee'];
+      const statusCycle: CerbereRequest['statut'][] = [
+        'en_attente_chef',
+        'en_attente_admin',
+        'validee',
+        'refusee',
+      ];
       const statut = statusCycle[idx % statusCycle.length];
       const day = String((idx % 9) + 1).padStart(2, '0');
 
@@ -198,8 +210,19 @@ export function CerbereView({
         restrictions: idx % 2 === 0 ? 'Aucune' : 'Accès en lecture seule',
         soumiseLe: `2026-02-${day}`,
         statut,
+        chefValidationPar:
+          statut === 'en_attente_admin' || statut === 'validee' || statut === 'refusee'
+            ? 'Sophie Bernard'
+            : undefined,
+        chefValidationLe:
+          statut === 'en_attente_admin' || statut === 'validee' || statut === 'refusee'
+            ? `2026-02-${String((idx % 9) + 8).padStart(2, '0')}`
+            : undefined,
         valideePar: statut === 'validee' || statut === 'refusee' ? 'Admin Système' : undefined,
-        dateValidation: statut === 'validee' || statut === 'refusee' ? `2026-02-${String((idx % 9) + 10).padStart(2, '0')}` : undefined,
+        dateValidation:
+          statut === 'validee' || statut === 'refusee'
+            ? `2026-02-${String((idx % 9) + 10).padStart(2, '0')}`
+            : undefined,
       } satisfies CerbereRequest;
     });
 
@@ -217,7 +240,7 @@ export function CerbereView({
         reglePortee: currentUserData?.service || currentUserService || 'Mon service',
         restrictions: 'Aucune',
         soumiseLe: new Date().toISOString().split('T')[0],
-        statut: 'en_attente',
+        statut: currentUserRole === 'agent' ? 'en_attente_chef' : 'en_attente_admin',
       });
     }
 
@@ -247,7 +270,7 @@ export function CerbereView({
             reglePortee: sophie.service || member.service || 'Mon service',
             restrictions: 'Aucune',
             soumiseLe: `2026-03-${String(index + 1).padStart(2, '0')}`,
-            statut: 'en_attente',
+            statut: 'en_attente_admin',
           });
         }
       });
@@ -273,6 +296,7 @@ export function CerbereView({
   // États pour les formulaires
   const [selectedApp, setSelectedApp] = useState<CerbereApplication | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<CerbereRequest | null>(null);
+  const [editingRequest, setEditingRequest] = useState<CerbereRequest | null>(null);
   const [formData, setFormData] = useState({
     code: '',
     nom: '',
@@ -378,6 +402,25 @@ export function CerbereView({
   const handleValidateRequest = () => {
     if (!selectedRequest) return;
 
+    if (userRole === 'chef_service' && selectedRequest.statut === 'en_attente_chef') {
+      setRequests(
+        requests.map((req) =>
+          req.id === selectedRequest.id
+            ? {
+                ...req,
+                statut: 'en_attente_admin',
+                chefValidationPar: currentUserName,
+                chefValidationLe: new Date().toISOString().split('T')[0],
+              }
+            : req,
+        ),
+      );
+      setIsValidateDialogOpen(false);
+      setSelectedRequest(null);
+      toast.success("Demande validée par le chef, en attente de validation administrateur");
+      return;
+    }
+
     setRequests(
       requests.map((req) =>
         req.id === selectedRequest.id
@@ -408,12 +451,18 @@ export function CerbereView({
           ? {
               ...req,
               statut: 'refusee',
-              valideePar: currentUserName,
+              chefValidationPar:
+                userRole === 'chef_service' ? currentUserName : req.chefValidationPar,
+              chefValidationLe:
+                userRole === 'chef_service'
+                  ? new Date().toISOString().split('T')[0]
+                  : req.chefValidationLe,
+              valideePar: userRole === 'admin' ? currentUserName : req.valideePar,
               dateValidation: new Date().toISOString().split('T')[0],
               restrictions: `${req.restrictions} | Refusé: ${rejectionReason}`,
             }
-          : req
-      )
+          : req,
+      ),
     );
 
     setIsRejectDialogOpen(false);
@@ -468,15 +517,7 @@ export function CerbereView({
     [adminDomainFilter, adminServiceFilter, usersData],
   );
 
-  // Filtrage par rôle + filtres UI
-  const filteredRequests = requests.filter((req) => {
-    const matchesSearch =
-      req.agentConcerne.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.demandeur.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.applications.some((app) => app.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || req.statut === statusFilter;
-    if (!matchesSearch || !matchesStatus) return false;
-
+  const matchesRoleScope = (req: CerbereRequest) => {
     if (userRole === 'agent') {
       return (
         normalize(req.demandeur) === normalize(currentUserName) ||
@@ -485,17 +526,17 @@ export function CerbereView({
     }
 
     if (userRole === 'chef_service') {
-      const madeByChef = normalize(req.demandeur) === normalize(currentUserName);
-      if (!madeByChef) return false;
+      const isMe = normalize(req.agentConcerne) === normalize(currentUserName);
+      const isMyAgent = teamMemberNames.some(
+        (name) => normalize(name) === normalize(req.agentConcerne),
+      );
+      if (!isMe && !isMyAgent) return false;
 
       if (chefScopeFilter === 'moi') {
-        return normalize(req.agentConcerne) === normalize(currentUserName);
+        return isMe;
       }
       if (chefScopeFilter === 'mes_agents') {
-        return (
-          normalize(req.agentConcerne) !== normalize(currentUserName) &&
-          teamMemberNames.some((name) => normalize(name) === normalize(req.agentConcerne))
-        );
+        return !isMe && isMyAgent;
       }
       return true;
     }
@@ -512,10 +553,36 @@ export function CerbereView({
     }
 
     return true;
+  };
+
+  // Filtrage par rôle + filtres UI
+  const filteredRequests = requests.filter((req) => {
+    const matchesSearch =
+      req.agentConcerne.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.demandeur.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      req.applications.some((app) => app.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || req.statut === statusFilter;
+    if (!matchesSearch || !matchesStatus) return false;
+
+    return matchesRoleScope(req);
   });
 
   const getStatusBadge = (statut: string) => {
     switch (statut) {
+      case 'en_attente_chef':
+        return (
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+            <Clock className="h-3 w-3 mr-1" />
+            En attente de validation du chef de service
+          </Badge>
+        );
+      case 'en_attente_admin':
+        return (
+          <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+            <Clock className="h-3 w-3 mr-1" />
+            En attente de validation administrateur
+          </Badge>
+        );
       case 'validee':
         return (
           <Badge className="bg-green-100 text-green-800 border-green-300">
@@ -530,29 +597,46 @@ export function CerbereView({
             Refusée
           </Badge>
         );
-      case 'en_attente':
-        return (
-          <Badge className="bg-orange-100 text-orange-800 border-orange-300">
-            <Clock className="h-3 w-3 mr-1" />
-            En attente
-          </Badge>
-        );
       default:
         return null;
     }
   };
 
-  const pendingRequestsCount = requests.filter((r) => r.statut === 'en_attente').length;
+  const pendingRequestsCount = requests.filter(
+    (r) =>
+      (userRole === 'admin'
+        ? r.statut === 'en_attente_admin'
+        : r.statut === 'en_attente_chef' || r.statut === 'en_attente_admin') &&
+      matchesRoleScope(r),
+  ).length;
 
   // Handlers pour la nouvelle demande
   const handleSubmitNewRequest = (data: any) => {
-    const newRequest: CerbereRequest = {
-      id: `r${Date.now()}`,
-      ...data,
-    };
-    setRequests([...requests, newRequest]);
+    if (editingRequest) {
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.id === editingRequest.id
+            ? {
+                ...req,
+                ...data,
+              }
+            : req,
+        ),
+      );
+      setEditingRequest(null);
+      toast.success('Demande modifiée avec succès');
+    } else {
+      const initialStatus: CerbereRequest['statut'] =
+        userRole === 'agent' ? 'en_attente_chef' : 'en_attente_admin';
+      const newRequest: CerbereRequest = {
+        id: `r${Date.now()}`,
+        ...data,
+        statut: initialStatus,
+      };
+      setRequests([...requests, newRequest]);
+      toast.success('Demande soumise avec succès');
+    }
     setCurrentView('list');
-    toast.success('Demande soumise avec succès');
   };
 
   // Handler pour télécharger l'attestation
@@ -593,6 +677,7 @@ export function CerbereView({
         }}
         onDownloadAttestation={() => handleDownloadAttestation(selectedRequest)}
         userRole={userRole}
+        currentUserName={currentUserName}
       />
     );
   }
@@ -601,7 +686,10 @@ export function CerbereView({
   if (currentView === 'form') {
     return (
       <CerbereRequestForm
-        onBack={() => setCurrentView('list')}
+        onBack={() => {
+          setCurrentView('list');
+          setEditingRequest(null);
+        }}
         onSubmit={handleSubmitNewRequest}
         applications={applications}
         userRole={userRole}
@@ -611,6 +699,19 @@ export function CerbereView({
         currentUserDomain={currentUserDomain}
         currentUserLocation={currentUserLocation}
         usersData={usersData}
+        initialData={
+          editingRequest
+            ? {
+                agentConcerne: editingRequest.agentConcerne,
+                applications: editingRequest.applications,
+                profils: editingRequest.profils,
+                reglePortee: editingRequest.reglePortee,
+                restrictions: editingRequest.restrictions,
+                justification: editingRequest.justification,
+              }
+            : null
+        }
+        submitLabel={editingRequest ? 'Enregistrer les modifications' : 'Soumettre la demande'}
       />
     );
   }
@@ -725,34 +826,36 @@ export function CerbereView({
                       </div>
                       <CardDescription className="mt-2">{app.description}</CardDescription>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedApp(app);
-                          setFormData({
-                            code: app.code,
-                            nom: app.nom,
-                            description: app.description,
-                          });
-                          setIsEditAppDialogOpen(true);
-                        }}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 hover:bg-red-50"
-                        onClick={() => {
-                          setSelectedApp(app);
-                          setIsDeleteAppDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {userRole === 'admin' ? (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedApp(app);
+                            setFormData({
+                              code: app.code,
+                              nom: app.nom,
+                              description: app.description,
+                            });
+                            setIsEditAppDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            setSelectedApp(app);
+                            setIsDeleteAppDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -761,21 +864,23 @@ export function CerbereView({
                       <h4 className="font-semibold text-gray-900">
                         Profils ({app.profils.length})
                       </h4>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setProfilFormData({
-                            applicationId: app.id,
-                            identifiant: '',
-                            description: '',
-                          });
-                          setIsAddProfilDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Ajouter un profil
-                      </Button>
+                      {userRole === 'admin' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setProfilFormData({
+                              applicationId: app.id,
+                              identifiant: '',
+                              description: '',
+                            });
+                            setIsAddProfilDialogOpen(true);
+                          }}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Ajouter un profil
+                        </Button>
+                      ) : null}
                     </div>
 
                     {app.profils.length > 0 ? (
@@ -791,14 +896,16 @@ export function CerbereView({
                               </p>
                               <p className="text-sm text-gray-600">{profil.description}</p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600 hover:bg-red-50"
-                              onClick={() => handleDeleteProfil(app.id, profil.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            {userRole === 'admin' ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteProfil(app.id, profil.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -838,7 +945,8 @@ export function CerbereView({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="en_attente">En attente</SelectItem>
+                  <SelectItem value="en_attente_chef">En attente chef</SelectItem>
+                  <SelectItem value="en_attente_admin">En attente admin</SelectItem>
                   <SelectItem value="validee">Validées</SelectItem>
                   <SelectItem value="refusee">Refusées</SelectItem>
                 </SelectContent>
@@ -974,7 +1082,18 @@ export function CerbereView({
                     </p>
                   )}
 
-                  {request.statut === 'en_attente' ? (
+                  {request.statut === 'validee' ? (
+                    <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+                      <p className="text-xs text-green-900">
+                        Demande validée par le chef de service
+                        {request.chefValidationPar ? ` (${request.chefValidationPar})` : ''} et par
+                        l'administrateur
+                        {request.valideePar ? ` (${request.valideePar})` : ''}.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {request.statut === 'en_attente_admin' && userRole === 'admin' ? (
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <Button
                         size="sm"
@@ -1013,11 +1132,11 @@ export function CerbereView({
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="w-full sm:w-auto"
+                        className="w-full sm:flex-1"
                         onClick={() => {
                           setSelectedRequest(request);
                           setCurrentView('detail');
@@ -1026,6 +1145,50 @@ export function CerbereView({
                         <Eye className="h-3 w-3 mr-1" />
                         Voir
                       </Button>
+                      {userRole === 'chef_service' &&
+                      request.statut === 'en_attente_chef' &&
+                      normalize(request.agentConcerne) !== normalize(currentUserName) ? (
+                        <>
+                          <Button
+                            size="sm"
+                            className="w-full sm:flex-1 bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsValidateDialogOpen(true);
+                            }}
+                          >
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Valider
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full sm:flex-1 text-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setIsRejectDialogOpen(true);
+                            }}
+                          >
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Refuser
+                          </Button>
+                        </>
+                      ) : null}
+                      {userRole !== 'admin' &&
+                      (request.statut === 'en_attente_chef' ||
+                        request.statut === 'en_attente_admin') ? (
+                        <Button
+                          size="sm"
+                          className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={() => {
+                            setEditingRequest(request);
+                            setCurrentView('form');
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Modifier
+                        </Button>
+                      ) : null}
                     </div>
                   )}
                 </CardContent>
@@ -1186,7 +1349,9 @@ export function CerbereView({
           <DialogHeader>
             <DialogTitle>Valider la demande</DialogTitle>
             <DialogDescription>
-              Confirmez la validation de cette demande d'habilitation
+              {userRole === 'chef_service'
+                ? "En validant cette demande, elle passera en attente de validation administrateur."
+                : "Confirmez la validation de cette demande d'habilitation."}
             </DialogDescription>
           </DialogHeader>
           {selectedRequest && (
@@ -1202,6 +1367,15 @@ export function CerbereView({
                   <strong>Profils :</strong> {selectedRequest.profils.join(', ')}
                 </p>
               </div>
+              {userRole === 'chef_service' ? (
+                <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-900">
+                    Cette demande n'est pas encore validée définitivement. Elle devra être validée par
+                    l'administrateur. L'attestation sera disponible uniquement après validation
+                    administrateur.
+                  </p>
+                </div>
+              ) : null}
             </div>
           )}
           <DialogFooter className="flex-col gap-2 sm:flex-row">

@@ -39,6 +39,12 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Risque, niveaux, mesures et responsables.",
   },
   {
+    id: "risk-awareness",
+    label: "Prevention & Exposition",
+    section: "Prevention",
+    description: "Informations de prevention ciblees selon les risques d'exposition.",
+  },
+  {
     id: "actions",
     label: "Plan d'actions",
     section: "Prevention",
