@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -50,6 +50,7 @@ import { toast } from 'sonner';
 import { CerbereRequestDetail } from '@/app/components/CerbereRequestDetail';
 import { CerbereRequestForm } from '@/app/components/CerbereRequestForm';
 import { generateCerbereAttestation } from '@/utils/generateCerbereAttestation';
+import { AppUser } from '@/app/components/admin/UserManagementView';
 
 interface CerbereApplication {
   id: string;
@@ -125,77 +126,141 @@ const mockApplications: CerbereApplication[] = [
   },
 ];
 
-const mockRequests: CerbereRequest[] = [
-  {
-    id: 'r1',
-    agentConcerne: 'Sophie Martin',
-    demandeur: 'Jean Dupont',
-    applications: ['CHORUS', 'SIRHIUS'],
-    profils: ['CHORUS_GESTIONNAIRE', 'SIRHIUS_GESTIONNAIRE'],
-    reglePortee: 'Service Affaires Maritimes',
-    restrictions: 'Accès limité aux dossiers du service',
-    soumiseLe: '2025-01-25',
-    statut: 'en_attente',
-  },
-  {
-    id: 'r2',
-    agentConcerne: 'Marc Dubois',
-    demandeur: 'Marie Leroy',
-    applications: ['SAFIR'],
-    profils: ['SAFIR_INSTRUCTEUR'],
-    reglePortee: 'Tous les services',
-    restrictions: 'Aucune',
-    soumiseLe: '2025-01-28',
-    statut: 'validee',
-    valideePar: 'Admin Système',
-    dateValidation: '2025-01-29',
-  },
-  {
-    id: 'r3',
-    agentConcerne: 'Claire Bernard',
-    demandeur: 'Pierre Lambert',
-    applications: ['CHORUS'],
-    profils: ['CHORUS_ADMIN'],
-    reglePortee: 'Direction',
-    restrictions: 'Droits d\'administration temporaires (3 mois)',
-    soumiseLe: '2025-01-20',
-    statut: 'refusee',
-    valideePar: 'Admin Système',
-    dateValidation: '2025-01-22',
-  },
-  {
-    id: 'r4',
-    agentConcerne: 'Thomas Petit',
-    demandeur: 'Jean Dupont',
-    applications: ['REGLISSE'],
-    profils: ['REGLISSE_LECTEUR'],
-    reglePortee: 'Service juridique',
-    restrictions: 'Consultation uniquement',
-    soumiseLe: '2025-01-30',
-    statut: 'en_attente',
-  },
-  {
-    id: 'r5',
-    agentConcerne: 'Isabelle Moreau',
-    demandeur: 'Marie Leroy',
-    applications: ['SAFIR', 'CHORUS'],
-    profils: ['SAFIR_CONSULTANT', 'CHORUS_LECTEUR'],
-    reglePortee: 'Service Formation',
-    restrictions: 'Accès en lecture seule',
-    soumiseLe: '2025-01-29',
-    statut: 'validee',
-    valideePar: 'Admin Système',
-    dateValidation: '2025-01-30',
-  },
-];
+interface CerbereViewProps {
+  usersData: AppUser[];
+  currentUserRole: 'admin' | 'chef_service' | 'agent';
+  currentUserName: string;
+  currentUserEmail?: string;
+  currentUserService?: string;
+  currentUserDomain?: string;
+  currentUserLocation?: string;
+}
 
-export function CerbereView() {
+export function CerbereView({
+  usersData,
+  currentUserRole,
+  currentUserName,
+  currentUserEmail,
+  currentUserService,
+  currentUserDomain,
+  currentUserLocation,
+}: CerbereViewProps) {
   const [activeTab, setActiveTab] = useState<'applications' | 'requests'>('applications');
   const [currentView, setCurrentView] = useState<'list' | 'detail' | 'form'>('list');
   const [applications, setApplications] = useState<CerbereApplication[]>(mockApplications);
-  const [requests, setRequests] = useState<CerbereRequest[]>(mockRequests);
+  const [requests, setRequests] = useState<CerbereRequest[]>(() => {
+    const normalize = (value?: string) => (value || '').trim().toLowerCase();
+    const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
+    const currentUserData =
+      usersData.find((u) => normalize(fullName(u)) === normalize(currentUserName)) || null;
+    const users = usersData.length > 0 ? usersData : [];
+    if (users.length === 0) {
+      return [
+        {
+          id: 'fx-fallback',
+          agentConcerne: currentUserName,
+          demandeur: currentUserName,
+          applications: ['CHORUS'],
+          profils: ['CHORUS_LECTEUR'],
+          reglePortee: currentUserService || 'Mon service',
+          restrictions: 'Aucune',
+          soumiseLe: new Date().toISOString().split('T')[0],
+          statut: 'en_attente',
+        },
+      ];
+    }
+
+    const serviceChefs = users.filter((u) => normalize(u.role) === 'role_chef');
+    const appSets = [
+      { apps: ['CHORUS'], profils: ['CHORUS_LECTEUR'] },
+      { apps: ['SAFIR'], profils: ['SAFIR_CONSULTANT'] },
+      { apps: ['SIRHIUS'], profils: ['SIRHIUS_GESTIONNAIRE'] },
+      { apps: ['REGLISSE'], profils: ['REGLISSE_LECTEUR'] },
+    ];
+
+    const generated = users.slice(0, 10).map((target, idx) => {
+      const sameServiceChef = serviceChefs.find(
+        (chef) => normalize(chef.service) === normalize(target.service),
+      );
+      const demandeurName = sameServiceChef ? fullName(sameServiceChef) : fullName(target);
+      const selectedSet = appSets[idx % appSets.length];
+      const statusCycle: CerbereRequest['statut'][] = ['en_attente', 'validee', 'refusee'];
+      const statut = statusCycle[idx % statusCycle.length];
+      const day = String((idx % 9) + 1).padStart(2, '0');
+
+      return {
+        id: `fx-${target.id}`,
+        agentConcerne: fullName(target),
+        demandeur: demandeurName,
+        applications: selectedSet.apps,
+        profils: selectedSet.profils,
+        reglePortee: target.service || 'Mon service',
+        restrictions: idx % 2 === 0 ? 'Aucune' : 'Accès en lecture seule',
+        soumiseLe: `2026-02-${day}`,
+        statut,
+        valideePar: statut === 'validee' || statut === 'refusee' ? 'Admin Système' : undefined,
+        dateValidation: statut === 'validee' || statut === 'refusee' ? `2026-02-${String((idx % 9) + 10).padStart(2, '0')}` : undefined,
+      } satisfies CerbereRequest;
+    });
+
+    const currentName = currentUserData ? fullName(currentUserData) : currentUserName;
+    const hasCurrentUserRequest = generated.some(
+      (r) => normalize(r.demandeur) === normalize(currentName),
+    );
+    if (!hasCurrentUserRequest) {
+      generated.unshift({
+        id: `fx-self-${Date.now()}`,
+        agentConcerne: currentName,
+        demandeur: currentName,
+        applications: ['CHORUS'],
+        profils: ['CHORUS_LECTEUR'],
+        reglePortee: currentUserData?.service || currentUserService || 'Mon service',
+        restrictions: 'Aucune',
+        soumiseLe: new Date().toISOString().split('T')[0],
+        statut: 'en_attente',
+      });
+    }
+
+    const sophie = users.find(
+      (u) => normalize(fullName(u)) === normalize('Sophie Bernard'),
+    );
+    if (sophie) {
+      const sophieTeam = users.filter(
+        (u) =>
+          normalize(u.service) === normalize(sophie.service) &&
+          normalize(fullName(u)) !== normalize('Sophie Bernard'),
+      );
+      sophieTeam.slice(0, 2).forEach((member, index) => {
+        const memberName = fullName(member);
+        const alreadyExists = generated.some(
+          (r) =>
+            normalize(r.demandeur) === normalize('Sophie Bernard') &&
+            normalize(r.agentConcerne) === normalize(memberName),
+        );
+        if (!alreadyExists) {
+          generated.unshift({
+            id: `fx-sophie-${member.id}`,
+            agentConcerne: memberName,
+            demandeur: 'Sophie Bernard',
+            applications: index % 2 === 0 ? ['CHORUS'] : ['SAFIR'],
+            profils: index % 2 === 0 ? ['CHORUS_GESTIONNAIRE'] : ['SAFIR_CONSULTANT'],
+            reglePortee: sophie.service || member.service || 'Mon service',
+            restrictions: 'Aucune',
+            soumiseLe: `2026-03-${String(index + 1).padStart(2, '0')}`,
+            statut: 'en_attente',
+          });
+        }
+      });
+    }
+
+    return generated;
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [chefScopeFilter, setChefScopeFilter] = useState<'all' | 'moi' | 'mes_agents'>('all');
+  const [adminServiceFilter, setAdminServiceFilter] = useState('all');
+  const [adminDomainFilter, setAdminDomainFilter] = useState('all');
+  const [adminLocationFilter, setAdminLocationFilter] = useState('all');
 
   // États pour les dialogs
   const [isAddAppDialogOpen, setIsAddAppDialogOpen] = useState(false);
@@ -220,9 +285,7 @@ export function CerbereView() {
   });
   const [rejectionReason, setRejectionReason] = useState('');
   
-  // Rôle utilisateur (simulation - en production ce serait récupéré du contexte/store)
-  const userRole: 'admin' | 'chef_service' | 'agent' = 'admin';
-  const currentUserName = 'Admin Système';
+  const userRole = currentUserRole;
 
   // Gestion des applications
   const handleAddApplication = () => {
@@ -359,16 +422,96 @@ export function CerbereView() {
     toast.success('Demande refusée');
   };
 
-  // Filtrage
+  const normalize = (value?: string) => (value || '').trim().toLowerCase();
+  const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
+  const currentUserData = useMemo(() => {
+    return usersData.find((u) => normalize(fullName(u)) === normalize(currentUserName)) || null;
+  }, [currentUserName, usersData]);
+
+  const teamMemberNames = useMemo(() => {
+    if (!currentUserData?.service) return [];
+    return usersData
+      .filter((u) => normalize(u.service) === normalize(currentUserData.service))
+      .map((u) => fullName(u));
+  }, [currentUserData, usersData]);
+
+  const userByName = (name: string) =>
+    usersData.find((u) => normalize(fullName(u)) === normalize(name)) || null;
+
+  const adminServiceOptions = useMemo(
+    () => Array.from(new Set(usersData.map((u) => u.service).filter(Boolean))),
+    [usersData],
+  );
+  const adminDomainOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          usersData
+            .filter((u) => adminServiceFilter === 'all' || u.service === adminServiceFilter)
+            .map((u) => u.domain)
+            .filter(Boolean),
+        ),
+      ),
+    [adminServiceFilter, usersData],
+  );
+  const adminLocationOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          usersData
+            .filter((u) => adminServiceFilter === 'all' || u.service === adminServiceFilter)
+            .filter((u) => adminDomainFilter === 'all' || u.domain === adminDomainFilter)
+            .map((u) => u.location)
+            .filter(Boolean),
+        ),
+      ),
+    [adminDomainFilter, adminServiceFilter, usersData],
+  );
+
+  // Filtrage par rôle + filtres UI
   const filteredRequests = requests.filter((req) => {
     const matchesSearch =
       req.agentConcerne.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.demandeur.toLowerCase().includes(searchTerm.toLowerCase()) ||
       req.applications.some((app) => app.toLowerCase().includes(searchTerm.toLowerCase()));
-
     const matchesStatus = statusFilter === 'all' || req.statut === statusFilter;
+    if (!matchesSearch || !matchesStatus) return false;
 
-    return matchesSearch && matchesStatus;
+    if (userRole === 'agent') {
+      return (
+        normalize(req.demandeur) === normalize(currentUserName) ||
+        normalize(req.agentConcerne) === normalize(currentUserName)
+      );
+    }
+
+    if (userRole === 'chef_service') {
+      const madeByChef = normalize(req.demandeur) === normalize(currentUserName);
+      if (!madeByChef) return false;
+
+      if (chefScopeFilter === 'moi') {
+        return normalize(req.agentConcerne) === normalize(currentUserName);
+      }
+      if (chefScopeFilter === 'mes_agents') {
+        return (
+          normalize(req.agentConcerne) !== normalize(currentUserName) &&
+          teamMemberNames.some((name) => normalize(name) === normalize(req.agentConcerne))
+        );
+      }
+      return true;
+    }
+
+    const targetUser = userByName(req.agentConcerne);
+    if (adminServiceFilter !== 'all' && normalize(targetUser?.service) !== normalize(adminServiceFilter)) {
+      return false;
+    }
+    if (adminDomainFilter !== 'all' && normalize(targetUser?.domain) !== normalize(adminDomainFilter)) {
+      return false;
+    }
+    if (adminLocationFilter !== 'all' && normalize(targetUser?.location) !== normalize(adminLocationFilter)) {
+      return false;
+    }
+
+    return true;
   });
 
   const getStatusBadge = (statut: string) => {
@@ -463,6 +606,11 @@ export function CerbereView() {
         applications={applications}
         userRole={userRole}
         currentUserName={currentUserName}
+        currentUserEmail={currentUserEmail}
+        currentUserService={currentUserService}
+        currentUserDomain={currentUserDomain}
+        currentUserLocation={currentUserLocation}
+        usersData={usersData}
       />
     );
   }
@@ -533,16 +681,29 @@ export function CerbereView() {
                 />
               </div>
             </div>
-            <Button
-              onClick={() => {
-                setFormData({ code: '', nom: '', description: '' });
-                setIsAddAppDialogOpen(true);
-              }}
-              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle application
-            </Button>
+            {userRole === 'admin' ? (
+              <Button
+                onClick={() => {
+                  setFormData({ code: '', nom: '', description: '' });
+                  setIsAddAppDialogOpen(true);
+                }}
+                className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nouvelle application
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  setActiveTab('requests');
+                  setCurrentView('form');
+                }}
+                className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Faire une demande
+              </Button>
+            )}
           </div>
 
           <div className="grid gap-6">
@@ -691,6 +852,70 @@ export function CerbereView() {
               </Button>
             </div>
           </div>
+
+          {userRole === 'chef_service' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="md:col-span-1">
+                <Select
+                  value={chefScopeFilter}
+                  onValueChange={(value: 'all' | 'moi' | 'mes_agents') => setChefScopeFilter(value)}
+                >
+                  <SelectTrigger className="bg-white border-slate-300">
+                    <SelectValue placeholder="Filtrer mes demandes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes mes demandes</SelectItem>
+                    <SelectItem value="moi">Moi</SelectItem>
+                    <SelectItem value="mes_agents">Mes agents</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {userRole === 'admin' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <Select value={adminServiceFilter} onValueChange={setAdminServiceFilter}>
+                <SelectTrigger className="bg-white border-slate-300">
+                  <SelectValue placeholder="Service" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les services</SelectItem>
+                  {adminServiceOptions.map((service) => (
+                    <SelectItem key={service} value={service}>
+                      {service}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={adminDomainFilter} onValueChange={setAdminDomainFilter}>
+                <SelectTrigger className="bg-white border-slate-300">
+                  <SelectValue placeholder="Domaine" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les domaines</SelectItem>
+                  {adminDomainOptions.map((domain) => (
+                    <SelectItem key={domain} value={domain}>
+                      {domain}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={adminLocationFilter} onValueChange={setAdminLocationFilter}>
+                <SelectTrigger className="bg-white border-slate-300">
+                  <SelectValue placeholder="Lieu" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les lieux</SelectItem>
+                  {adminLocationOptions.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-4">
             {filteredRequests.map((request) => (

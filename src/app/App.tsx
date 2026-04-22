@@ -3556,7 +3556,17 @@ export default function App() {
           {activeView === "settings" && <SettingsView />}
 
           {/* Cerbere view */}
-          {activeView === "cerbere" && <CerbereView />}
+          {activeView === "cerbere" && (
+            <CerbereView
+              usersData={adminUsers}
+              currentUserRole={user?.role || "agent"}
+              currentUserName={user?.name || "Utilisateur"}
+              currentUserEmail={user?.email}
+              currentUserService={user?.service}
+              currentUserDomain={user?.domain}
+              currentUserLocation={user?.location}
+            />
+          )}
 
           {/* Actualités view */}
           {activeView === "actualites" && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AppUser } from '@/app/components/admin/UserManagementView';
 
 interface CerbereApplication {
   id: string;
@@ -45,6 +46,11 @@ interface CerbereRequestFormProps {
   applications: CerbereApplication[];
   userRole: 'admin' | 'chef_service' | 'agent';
   currentUserName: string;
+  currentUserEmail?: string;
+  currentUserService?: string;
+  currentUserDomain?: string;
+  currentUserLocation?: string;
+  usersData: AppUser[];
 }
 
 export function CerbereRequestForm({
@@ -53,10 +59,13 @@ export function CerbereRequestForm({
   applications,
   userRole,
   currentUserName,
+  currentUserEmail,
+  currentUserService,
+  currentUserDomain,
+  currentUserLocation,
+  usersData,
 }: CerbereRequestFormProps) {
-  const [agentConcerne, setAgentConcerne] = useState(
-    userRole === 'admin' ? '' : currentUserName
-  );
+  const [agentConcerne, setAgentConcerne] = useState('');
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
   const [selectedProfils, setSelectedProfils] = useState<{
     [key: string]: string[];
@@ -64,6 +73,103 @@ export function CerbereRequestForm({
   const [reglePortee, setReglePortee] = useState('');
   const [restrictions, setRestrictions] = useState('');
   const [justification, setJustification] = useState('');
+  const [adminServiceFilter, setAdminServiceFilter] = useState('all');
+  const [adminDomainFilter, setAdminDomainFilter] = useState('all');
+  const [adminLocationFilter, setAdminLocationFilter] = useState('all');
+
+  const normalize = (value?: string) => (value || '').trim().toLowerCase();
+  const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
+
+  const currentUserData = useMemo(() => {
+    if (!usersData.length) return null;
+    const byEmail = currentUserEmail
+      ? usersData.find((u) => normalize(u.email) === normalize(currentUserEmail))
+      : undefined;
+    if (byEmail) return byEmail;
+    return usersData.find((u) => normalize(fullName(u)) === normalize(currentUserName)) || null;
+  }, [currentUserEmail, currentUserName, usersData]);
+
+  const baseEligibleAgents = useMemo(() => {
+    if (userRole === 'admin') return usersData;
+
+    if (userRole === 'agent') {
+      if (currentUserData) return [currentUserData];
+      return usersData.filter((u) => normalize(fullName(u)) === normalize(currentUserName));
+    }
+
+    const sourceService = currentUserData?.service || currentUserService || '';
+
+    return usersData.filter((u) => {
+      if (normalize(u.service) !== normalize(sourceService)) return false;
+      return true;
+    });
+  }, [
+    currentUserData,
+    currentUserName,
+    currentUserService,
+    userRole,
+    usersData,
+  ]);
+
+  const availableServices = useMemo(
+    () => Array.from(new Set(baseEligibleAgents.map((u) => u.service).filter(Boolean))),
+    [baseEligibleAgents],
+  );
+  const availableDomains = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          baseEligibleAgents
+            .filter((u) => adminServiceFilter === 'all' || u.service === adminServiceFilter)
+            .map((u) => u.domain)
+            .filter(Boolean),
+        ),
+      ),
+    [adminServiceFilter, baseEligibleAgents],
+  );
+  const availableLocations = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          baseEligibleAgents
+            .filter((u) => adminServiceFilter === 'all' || u.service === adminServiceFilter)
+            .filter((u) => adminDomainFilter === 'all' || u.domain === adminDomainFilter)
+            .map((u) => u.location)
+            .filter(Boolean),
+        ),
+      ),
+    [adminDomainFilter, adminServiceFilter, baseEligibleAgents],
+  );
+
+  const eligibleAgents = useMemo(() => {
+    if (userRole !== 'admin') return baseEligibleAgents;
+    return baseEligibleAgents.filter((u) => {
+      if (adminServiceFilter !== 'all' && u.service !== adminServiceFilter) return false;
+      if (adminDomainFilter !== 'all' && u.domain !== adminDomainFilter) return false;
+      if (adminLocationFilter !== 'all' && u.location !== adminLocationFilter) return false;
+      return true;
+    });
+  }, [
+    adminDomainFilter,
+    adminLocationFilter,
+    adminServiceFilter,
+    baseEligibleAgents,
+    userRole,
+  ]);
+
+  useEffect(() => {
+    if (userRole === 'agent') {
+      setAgentConcerne(currentUserData ? fullName(currentUserData) : currentUserName);
+      return;
+    }
+    if (eligibleAgents.length === 0) {
+      setAgentConcerne('');
+      return;
+    }
+    if (!eligibleAgents.some((u) => fullName(u) === agentConcerne)) {
+      setAgentConcerne(fullName(eligibleAgents[0]));
+    }
+  }, [agentConcerne, currentUserData, currentUserName, eligibleAgents, userRole]);
 
   const handleApplicationToggle = (appId: string) => {
     if (selectedApplications.includes(appId)) {
@@ -195,18 +301,92 @@ export function CerbereRequestForm({
                 <Label htmlFor="agentConcerne">
                   Agent concerné par la demande *
                 </Label>
-                {userRole === 'admin' ? (
-                  <Input
-                    id="agentConcerne"
-                    placeholder="Nom et prénom de l'agent"
-                    value={agentConcerne}
-                    onChange={(e) => setAgentConcerne(e.target.value)}
-                  />
-                ) : (
+                {userRole === 'agent' ? (
                   <div className="p-3 rounded-lg bg-white border border-gray-200">
-                    <p className="font-medium text-gray-900">{agentConcerne}</p>
+                    <p className="font-medium text-gray-900">Moi</p>
                     <p className="text-sm text-gray-600 mt-1">
-                      Demande pour votre propre compte
+                      {currentUserData ? fullName(currentUserData) : currentUserName}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {userRole === 'admin' && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3 space-y-3">
+                        <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">
+                          Filtres administrateur
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-slate-600">Service</Label>
+                            <Select value={adminServiceFilter} onValueChange={setAdminServiceFilter}>
+                              <SelectTrigger className="bg-white border-slate-300">
+                                <SelectValue placeholder="Tous les services" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Tous les services</SelectItem>
+                                {availableServices.map((service) => (
+                                  <SelectItem key={service} value={service}>
+                                    {service}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-slate-600">Domaine</Label>
+                            <Select value={adminDomainFilter} onValueChange={setAdminDomainFilter}>
+                              <SelectTrigger className="bg-white border-slate-300">
+                                <SelectValue placeholder="Tous les domaines" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Tous les domaines</SelectItem>
+                                {availableDomains.map((domain) => (
+                                  <SelectItem key={domain} value={domain}>
+                                    {domain}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-slate-600">Lieu</Label>
+                            <Select value={adminLocationFilter} onValueChange={setAdminLocationFilter}>
+                              <SelectTrigger className="bg-white border-slate-300">
+                                <SelectValue placeholder="Tous les lieux" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Tous les lieux</SelectItem>
+                                {availableLocations.map((location) => (
+                                  <SelectItem key={location} value={location}>
+                                    {location}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <Select value={agentConcerne} onValueChange={setAgentConcerne}>
+                      <SelectTrigger className="bg-white border-slate-300">
+                        <SelectValue placeholder="Sélectionnez un agent" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {eligibleAgents.map((agent) => {
+                          const name = fullName(agent);
+                          return (
+                            <SelectItem key={agent.id} value={name}>
+                              {name}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">
+                      {userRole === 'chef_service'
+                        ? "Vous pouvez sélectionner uniquement les membres de votre équipe."
+                        : `${eligibleAgents.length} agent(s) correspondant aux filtres.`}
                     </p>
                   </div>
                 )}
