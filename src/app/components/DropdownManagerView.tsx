@@ -248,7 +248,7 @@ export function DropdownManagerView({ userRole }: DropdownManagerViewProps) {
     <div className="p-8 space-y-6">
       <PageHeader
         icon={Settings}
-        title="Gestion des Listes Déroulantes"
+        title="Gestion des listes déroulantes"
         subtitle="Ajoutez ou supprimez des options pour les formulaires"
       />
 

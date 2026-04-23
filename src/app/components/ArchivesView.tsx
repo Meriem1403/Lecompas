@@ -462,7 +462,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-red-100 text-sm font-medium">Total Archives</p>
+                <p className="text-red-100 text-sm font-medium">Total des archives</p>
                 <p className="text-3xl font-bold">{archives.length}</p>
               </div>
               <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">

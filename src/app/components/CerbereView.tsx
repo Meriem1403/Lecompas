@@ -721,7 +721,7 @@ export function CerbereView({
       {/* En-tête */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <h3 className="text-2xl font-bold text-gray-900">Gestion Cerbère</h3>
+          <h3 className="text-2xl font-bold text-gray-900">Gestion des applications Cerbère</h3>
           <p className="text-gray-600">
             Applications, profils et demandes d'habilitation
           </p>
@@ -746,7 +746,7 @@ export function CerbereView({
         >
           <div className="flex items-center space-x-2">
             <Shield className="h-5 w-5" />
-            <span>Applications & Profils</span>
+            <span>Applications et profils</span>
           </div>
         </button>
         <button

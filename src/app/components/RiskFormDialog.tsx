@@ -392,7 +392,7 @@ export function RiskFormDialog({
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="numeroRisque">Numéro Risque</Label>
+                  <Label htmlFor="numeroRisque">Numéro de risque</Label>
                   {riskReferences.length > 0 && (
                     <Select
                       value={
@@ -660,7 +660,7 @@ export function RiskFormDialog({
 
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="moyenMaitrise">Moyen de Maîtrise *</Label>
+                  <Label htmlFor="moyenMaitrise">Moyen de maîtrise *</Label>
                   <Input
                     id="moyenMaitrise"
                     value={formData.moyenMaitrise}
@@ -671,7 +671,7 @@ export function RiskFormDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="prioriteFinale">Priorité Finale (1-16) *</Label>
+                  <Label htmlFor="prioriteFinale">Priorité finale (1 à 16) *</Label>
                   <Input
                     id="prioriteFinale"
                     type="number"
@@ -692,7 +692,7 @@ export function RiskFormDialog({
               </h3>
               
               <div className="space-y-2">
-                <Label htmlFor="echeance">Échéance Globale *</Label>
+                <Label htmlFor="echeance">Échéance globale *</Label>
                 <Input
                   id="echeance"
                   type="date"

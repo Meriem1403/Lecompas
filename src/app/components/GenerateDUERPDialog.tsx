@@ -1025,7 +1025,7 @@ export function GenerateDUERPDialog({ open, onOpenChange }: GenerateDUERPDialogP
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span>Plan d'actions avec échéancier</span>
+                    <span>Plan d'action avec échéancier</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />

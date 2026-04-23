@@ -257,7 +257,7 @@ export function AsbestosAttestationsListView({
         <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-600">Attente Admin</p>
+              <p className="text-sm font-medium text-gray-600">En attente administrateur</p>
               <p className="text-3xl font-bold text-blue-600 mt-1">{stats.enAttenteAdmin}</p>
             </div>
           </CardContent>

@@ -331,24 +331,24 @@ export function RisksManagementView({
         const progress = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
 
         return {
-          'N° Risque': risk.numeroRisque,
+          'N° risque': risk.numeroRisque,
           'Risque': risk.title,
           'Unité': risk.unite || '-',
           'Service': risk.service,
           'Site': risk.site,
           'Responsable': risk.responsable,
-          'Situation Dangereuse': risk.situation,
-          'Risques Associés': risk.associatedRisk,
+          'Situation dangereuse': risk.situation,
+          'Risques associés': risk.associatedRisk,
           'Catégorie': risk.category,
           'Gravité': risk.severity,
           'Probabilité': risk.probability,
-          'Niveau de Risque': risk.riskLevel,
-          'Priorité Finale': risk.prioriteFinale,
-          'Mesures Existantes': risk.existingMeasures?.join('; ') || 'Aucune',
-          'Actions Planifiées': risk.plannedMeasures?.map(m => `${m.description} (${m.responsible})`).join('; ') || 'Aucune',
+          'Niveau de risque': risk.riskLevel,
+          'Priorité finale': risk.prioriteFinale,
+          'Mesures existantes': risk.existingMeasures?.join('; ') || 'Aucune',
+          'Actions planifiées': risk.plannedMeasures?.map(m => `${m.description} (${m.responsible})`).join('; ') || 'Aucune',
           'Avancement': `${completedActions}/${totalActions} (${progress}%)`,
           'Échéance': risk.echeance ? new Date(risk.echeance).toLocaleDateString('fr-FR') : '-',
-          'Retour d\'Action': risk.retourAction || '-',
+          'Retour d\'action': risk.retourAction || '-',
           'Observation': risk.observation || '-',
           'Statut': risk.status === 'traité' ? 'Traité' : risk.status === 'en_cours' ? 'En cours' : 'Identifié'
         };
@@ -361,24 +361,24 @@ export function RisksManagementView({
 
       // Ajuster la largeur des colonnes
       const colWidths = [
-        { wch: 15 }, // N° Risque
+        { wch: 15 }, // N° risque
         { wch: 30 }, // Risque
         { wch: 15 }, // Unité
         { wch: 20 }, // Service
         { wch: 15 }, // Site
         { wch: 20 }, // Responsable
-        { wch: 40 }, // Situation Dangereuse
-        { wch: 40 }, // Risques Associés
+        { wch: 40 }, // Situation dangereuse
+        { wch: 40 }, // Risques associés
         { wch: 15 }, // Catégorie
         { wch: 10 }, // Gravité
         { wch: 12 }, // Probabilité
-        { wch: 15 }, // Niveau de Risque
-        { wch: 15 }, // Priorité Finale
-        { wch: 40 }, // Mesures Existantes
-        { wch: 40 }, // Actions Planifiées
+        { wch: 15 }, // Niveau de risque
+        { wch: 15 }, // Priorité finale
+        { wch: 40 }, // Mesures existantes
+        { wch: 40 }, // Actions planifiées
         { wch: 20 }, // Avancement
         { wch: 12 }, // Échéance
-        { wch: 40 }, // Retour d'Action
+        { wch: 40 }, // Retour d'action
         { wch: 40 }, // Observation
         { wch: 15 }  // Statut
       ];
@@ -494,24 +494,24 @@ export function RisksManagementView({
                 <table className="w-full" style={{ minWidth: '3500px' }}>
                   <thead className="bg-gradient-to-r from-gray-50 to-slate-50 sticky top-0 z-10">
                       <tr>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">N° Risque</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">N° risque</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Risque</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Unité</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Service</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Site</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Responsable</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Situation Dangereuse</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Risques Associés</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Situation dangereuse</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Risques associés</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Catégorie</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[80px]">Gravité</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Probabilité</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Niveau Risque</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Priorité Finale</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Mesures Existantes</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Actions Planifiées</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Niveau de risque</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Priorité finale</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Mesures existantes</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Actions planifiées</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">Avancement</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[110px]">Échéance</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Retour d'Action</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Retour d'action</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Observation</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Statut</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-gray-50 to-slate-50 min-w-[150px] shadow-lg">Actions</th>
@@ -832,7 +832,7 @@ export function RisksManagementView({
                   <div>
                     <Label className="text-gray-600 font-semibold flex items-center gap-2">
                       <AlertCircle className="h-4 w-4 text-orange-500" />
-                      Situation Dangereuse
+                      Situation dangereuse
                     </Label>
                     <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500 mt-2">
                       <p className="text-gray-700">{selectedRisk.situation}</p>
@@ -841,7 +841,7 @@ export function RisksManagementView({
                   <div>
                     <Label className="text-gray-600 font-semibold flex items-center gap-2">
                       <Shield className="h-4 w-4 text-red-500" />
-                      Risques Associés (Dommage)
+                      Risques associés (dommage)
                     </Label>
                     <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500 mt-2">
                       <p className="text-gray-700">{selectedRisk.associatedRisk}</p>
@@ -869,7 +869,7 @@ export function RisksManagementView({
                   </div>
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-300 text-center">
-                  <Label className="text-gray-600 text-xs font-semibold mb-1">Niveau de Risque (Calculé)</Label>
+                  <Label className="text-gray-600 text-xs font-semibold mb-1">Niveau de risque (calculé)</Label>
                   <p className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mt-2">{selectedRisk.riskLevel}</p>
                   <p className="text-sm font-semibold text-gray-600 mt-2">
                     {selectedRisk.riskLevel >= 12 ? 'Critique' : selectedRisk.riskLevel >= 8 ? 'Élevé' : selectedRisk.riskLevel >= 4 ? 'Moyen' : 'Faible'}
@@ -896,7 +896,7 @@ export function RisksManagementView({
               <CardContent className="pt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-green-600" />
-                  Statut du Risque
+                  Statut du risque
                 </h3>
                 <Badge className={`w-full justify-center font-bold text-base py-3 ${
                   selectedRisk.status === 'traité' ? 'bg-green-100 text-green-800 border-green-300' :
@@ -911,7 +911,7 @@ export function RisksManagementView({
             {/* Mesures existantes */}
             <Card className="border-0 shadow-lg">
               <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Mesures de Prévention Existantes</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Mesures de prévention existantes</h3>
                 {selectedRisk.existingMeasures && selectedRisk.existingMeasures.length > 0 ? (
                   <ul className="space-y-2">
                     {selectedRisk.existingMeasures.map((measure, idx) => (
@@ -934,7 +934,7 @@ export function RisksManagementView({
               <CardContent className="pt-6 space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Clock className="h-5 w-5 text-blue-600" />
-                  Actions Planifiées
+                  Actions planifiées
                 </h3>
                 {selectedRisk.plannedMeasures && selectedRisk.plannedMeasures.length > 0 ? (
                   <div className="space-y-3">
@@ -971,41 +971,41 @@ export function RisksManagementView({
               <CardContent className="pt-6 space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Calculator className="h-5 w-5 text-cyan-600" />
-                  Évaluation Avancée
+                  Évaluation avancée
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-gray-600">Moyen de Maîtrise</Label>
+                    <Label className="text-gray-600">Moyen de maîtrise</Label>
                     <p className="text-gray-900 mt-1 font-semibold">{selectedRisk.moyenMaitrise || 'Non défini'}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-600">Priorité Finale</Label>
+                    <Label className="text-gray-600">Priorité finale</Label>
                     <p className="text-gray-900 mt-1 font-semibold">{selectedRisk.prioriteFinale}</p>
                   </div>
                 </div>
                 <div className="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
-                  <p className="text-xs text-gray-600 font-semibold mb-1">Calcul Priorité</p>
+                  <p className="text-xs text-gray-600 font-semibold mb-1">Calcul de la priorité</p>
                   <p className="text-3xl font-bold text-yellow-800">{selectedRisk.calculPriorite || selectedRisk.riskLevel}</p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Suivi et Échéances */}
+            {/* Suivi et échéances */}
             <Card className="border-0 shadow-lg">
               <CardContent className="pt-6 space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-pink-600" />
-                  Suivi et Échéances
+                  Suivi et échéances
                 </h3>
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-gray-600">Échéance Globale</Label>
+                    <Label className="text-gray-600">Échéance globale</Label>
                     <p className="text-gray-900 mt-1 font-semibold">
                       {selectedRisk.echeance ? new Date(selectedRisk.echeance).toLocaleDateString('fr-FR') : 'Non définie'}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-gray-600">Retour d'Action</Label>
+                    <Label className="text-gray-600">Retour d&apos;action</Label>
                     <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500 mt-1">
                       <p className="text-gray-700">{selectedRisk.retourAction || 'Aucun retour'}</p>
                     </div>
@@ -1318,7 +1318,7 @@ export function RisksManagementView({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <Label>Moyen de Maîtrise *</Label>
+                  <Label>Moyen de maîtrise *</Label>
                   <Input
                     value={formData.moyenMaitrise || ''}
                     onChange={(e) => setFormData({ ...formData, moyenMaitrise: e.target.value })}
@@ -1326,7 +1326,7 @@ export function RisksManagementView({
                   />
                 </div>
                 <div>
-                  <Label>Priorité Finale (1-16) *</Label>
+                  <Label>Priorité finale (1 à 16) *</Label>
                   <Input
                     type="number"
                     min="1"
@@ -1337,7 +1337,7 @@ export function RisksManagementView({
                 </div>
               </div>
               <div className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500 mt-4">
-                <p className="text-xs text-gray-600 font-semibold mb-1">Calcul Priorité</p>
+                <p className="text-xs text-gray-600 font-semibold mb-1">Calcul de la priorité</p>
                 <p className="text-2xl font-bold text-yellow-800">{(formData.severity || 1) * (formData.probability || 1)}</p>
               </div>
             </CardContent>
@@ -1347,7 +1347,7 @@ export function RisksManagementView({
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Mesures de Prévention Existantes</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Mesures de prévention existantes</h3>
                 <Button
                   type="button"
                   size="sm"
@@ -1408,7 +1408,7 @@ export function RisksManagementView({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-blue-600" />
-                  Actions Planifiées
+                  Actions planifiées
                 </h3>
                 <Button
                   type="button"

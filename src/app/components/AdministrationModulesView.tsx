@@ -131,7 +131,7 @@ export function AdministrationModulesView({ onSelectModule, onGoBack }: Administ
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Modules Administration
+            Modules d&apos;administration
           </h2>
           <p className="text-gray-600">
             Sélectionnez un module pour commencer à travailler

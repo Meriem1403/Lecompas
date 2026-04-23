@@ -56,7 +56,7 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
     },
     {
       id: "safety-protocols",
-      title: "Protocole sécurité",
+      title: "Protocole de sécurité",
       description: "Protocoles opérationnels de chargement, déchargement, levage et coactivité",
       icon: Shield,
       color: "text-cyan-500",
@@ -64,7 +64,7 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
     },
     {
       id: "safety-sheets",
-      title: "Fiches sécurité",
+      title: "Fiches de sécurité",
       description: "Fiches par secteur : activités, prévention, contrôles amiante, plomb, CACES, CVC, etc.",
       icon: FileCheck,
       color: "text-pink-500",
@@ -80,7 +80,7 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
     },
     {
       id: "registre",
-      title: "Registre Accidents",
+      title: "Registre des accidents",
       description: "Registre officiel des accidents de travail",
       icon: ClipboardList,
       color: "text-rose-500",
@@ -88,7 +88,7 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
     },
     {
       id: "actions",
-      title: "Plan d'actions",
+      title: "Plan d'action",
       description: "Suivi des mesures de prévention et actions correctives",
       icon: Calendar,
       color: "text-green-500",
@@ -127,10 +127,10 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
               </button>
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                  DUERP Manager
+                  Prévention
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Gestion des risques professionnels et de la sécurité au travail
+                  Risques professionnels, prévention sur le terrain, accidentologie et document unique
                 </p>
               </div>
             </div>
@@ -147,10 +147,10 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Modules DUERP
+            Modules de prévention
           </h2>
           <p className="text-gray-600">
-            Sélectionnez un module pour commencer à travailler
+            Choisissez un outil pour accéder au contenu correspondant
           </p>
         </div>
 

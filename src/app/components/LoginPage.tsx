@@ -115,7 +115,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-gray-900">DUERP</h1>
-                <p className="text-lg text-gray-600">Gestion des Risques Professionnels</p>
+                <p className="text-lg text-gray-600">Gestion des risques professionnels</p>
               </div>
             </div>
 

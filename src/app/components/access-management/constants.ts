@@ -16,25 +16,25 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "team",
-    label: "Equipe",
+    label: "Équipe",
     section: "Applications",
     description: "Cartes membres et fiches collaborateurs.",
   },
   {
     id: "access-management",
-    label: "Gestion des acces",
+    label: "Gestion des accès",
     section: "Applications",
     description: "Configuration des droits d'affichage et CRUD par agent.",
   },
   {
     id: "actualites",
-    label: "Actualites",
+    label: "Actualités",
     section: "Communication",
     description: "Flux d'actualites et notifications internes.",
   },
   {
     id: "risks",
-    label: "Evaluation des risques",
+    label: "Évaluation des risques",
     section: "Prevention",
     description: "Risque, niveaux, mesures et responsables.",
   },
@@ -46,25 +46,25 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "prevention-plan",
-    label: "Plan de prevention",
+    label: "Plan de prévention",
     section: "Prevention",
     description: "Pilotage des plans de prevention par risque, service et priorite.",
   },
   {
     id: "safety-protocols",
-    label: "Protocole securite",
+    label: "Protocole de sécurité",
     section: "Prevention",
     description: "Gestion des protocoles de securite operationnels et signatures associees.",
   },
   {
     id: "safety-sheets",
-    label: "Fiches securite",
+    label: "Fiches de sécurité",
     section: "Prevention",
     description: "Fiches secteur : identification, prevention et controles reglementaires (type DUERP/COB).",
   },
   {
     id: "actions",
-    label: "Plan d'actions",
+    label: "Plan d'action",
     section: "Prevention",
     description: "Pilotage des actions et suivi des delais.",
   },
@@ -76,7 +76,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "cerbere",
-    label: "Applications Cerbere",
+    label: "Applications Cerbère",
     section: "Informatique",
     description: "Demandes d'habilitation et validations.",
   },
@@ -94,7 +94,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "risk-references",
-    label: "Referentiel risques",
+    label: "Référentiel des risques",
     section: "Administration",
     description: "Parametrage des references de risques.",
   },
@@ -106,7 +106,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "roles",
-    label: "Roles",
+    label: "Rôles",
     section: "Administration",
     description: "Gestion des roles et habilitations globales.",
   },
@@ -130,7 +130,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "medical-visits",
-    label: "Visites medicales",
+    label: "Visites médicales",
     section: "Ressources humaines",
     description: "Planification et suivi des visites medicales.",
   },
@@ -142,7 +142,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "arrivees-departs",
-    label: "Arrivees & Departs",
+    label: "Arrivées et départs",
     section: "Ressources humaines",
     description: "Gestion des demandes et questionnaires RH.",
   },
@@ -154,7 +154,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "registre",
-    label: "Registre Accidents",
+    label: "Registre des accidents",
     section: "Prevention",
     description: "Registre detaille des declarations d'accidents.",
   },
@@ -184,7 +184,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "fisherman",
-    label: "Gestion peche",
+    label: "Gestion de la pêche",
     section: "Environnement",
     description: "Suivi des autorisations et activites peche.",
   },
@@ -196,7 +196,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "settings",
-    label: "Parametres",
+    label: "Paramètres",
     section: "Systeme",
     description: "Configuration applicative et preferences.",
   },

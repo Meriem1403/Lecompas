@@ -100,7 +100,7 @@ export function ServiceManagementView({
         <div className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <h3 className="text-2xl font-bold text-gray-900">Gestion des Services</h3>
+              <h3 className="text-2xl font-bold text-gray-900">Gestion des services</h3>
               <p className="text-gray-600">Gérez les services de votre organisation</p>
             </div>
             <Button 

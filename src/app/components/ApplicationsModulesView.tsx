@@ -29,14 +29,14 @@ export function ApplicationsModulesView({
     },
     {
       id: "team",
-      title: "Equipe",
+      title: "Équipe",
       description: "Consultation des fiches agents et informations d'équipe",
       icon: Users,
       gradient: "from-cyan-600 via-sky-500 to-blue-500",
     },
     {
       id: "access-management",
-      title: "Gestion des acces",
+      title: "Gestion des accès",
       description: "Configuration des accès par agent et par module",
       icon: Cog,
       gradient: "from-violet-600 via-indigo-500 to-blue-500",
@@ -70,7 +70,7 @@ export function ApplicationsModulesView({
 
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Modules Applications</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Modules d&apos;applications</h2>
           <p className="text-gray-600">Sélectionnez un module pour continuer</p>
         </div>
 

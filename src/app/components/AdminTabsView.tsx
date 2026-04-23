@@ -243,7 +243,7 @@ export function AdminTabsView({
   if (activeTab === 'domains') {
     return (
       <SimpleEntityManagementView
-        title="Gestion des Domaines"
+        title="Gestion des domaines"
         description="Gérez les domaines d'activité"
         items={domains}
         setItems={setDomains}
@@ -261,7 +261,7 @@ export function AdminTabsView({
   if (activeTab === 'locations') {
     return (
       <SimpleEntityManagementView
-        title="Gestion des Lieux"
+        title="Gestion des lieux"
         description="Gérez les sites et localisations"
         items={locations}
         setItems={setLocations}
@@ -279,7 +279,7 @@ export function AdminTabsView({
   if (activeTab === 'categories') {
     return (
       <SimpleEntityManagementView
-        title="Gestion des Catégories"
+        title="Gestion des catégories"
         description="Gérez les catégories de personnel"
         items={categories}
         setItems={setCategories}

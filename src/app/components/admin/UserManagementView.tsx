@@ -151,7 +151,7 @@ export function UserManagementView({
         <div className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <h3 className="text-2xl font-bold text-gray-900">Gestion des Utilisateurs</h3>
+              <h3 className="text-2xl font-bold text-gray-900">Gestion des utilisateurs</h3>
               <p className="text-gray-600">Gérez les utilisateurs et leurs accès</p>
             </div>
             <Button 

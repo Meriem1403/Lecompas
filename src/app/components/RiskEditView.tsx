@@ -440,7 +440,7 @@ export function RiskEditView({
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="numeroRisque" className="text-sm font-semibold">Numéro Risque</Label>
+                  <Label htmlFor="numeroRisque" className="text-sm font-semibold">Numéro de risque</Label>
                   {riskReferences.length > 0 && (
                     <Select
                       value={
@@ -915,7 +915,7 @@ export function RiskEditView({
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <Label htmlFor="moyenMaitrise" className="text-sm font-semibold">Moyen de Maîtrise *</Label>
+                <Label htmlFor="moyenMaitrise" className="text-sm font-semibold">Moyen de maîtrise *</Label>
                 <Input
                   id="moyenMaitrise"
                   value={formData.moyenMaitrise}
@@ -925,7 +925,7 @@ export function RiskEditView({
                 />
               </div>
               <div>
-                <Label htmlFor="prioriteFinale" className="text-sm font-semibold">Priorité Finale (1-16) *</Label>
+                <Label htmlFor="prioriteFinale" className="text-sm font-semibold">Priorité finale (1 à 16) *</Label>
                 <Input
                   id="prioriteFinale"
                   type="number"
@@ -937,7 +937,7 @@ export function RiskEditView({
                 />
               </div>
               <div className="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
-                <p className="text-xs text-gray-600 font-semibold mb-1">Calcul Priorité</p>
+                <p className="text-xs text-gray-600 font-semibold mb-1">Calcul de la priorité</p>
                 <p className="font-bold text-2xl text-yellow-800">{formData.calculPriorite}</p>
               </div>
             </CardContent>
@@ -953,7 +953,7 @@ export function RiskEditView({
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <Label htmlFor="echeance" className="text-sm font-semibold">Échéance Globale *</Label>
+                <Label htmlFor="echeance" className="text-sm font-semibold">Échéance globale *</Label>
                 <Input
                   id="echeance"
                   type="date"

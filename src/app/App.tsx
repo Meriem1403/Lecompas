@@ -132,6 +132,7 @@ import {
   Layers,
   Tag,
   UserCog,
+  UserCheck,
   Archive,
   ClipboardList,
   Bell,
@@ -1622,13 +1623,13 @@ export default function App() {
         },
         {
           id: "team",
-          label: "Equipe",
+          label: "Équipe",
           icon: Users,
           color: "text-sky-600",
         },
         {
           id: "access-management",
-          label: "Gestion des acces",
+          label: "Gestion des accès",
           icon: Cog,
           color: "text-violet-600",
         },
@@ -1656,7 +1657,7 @@ export default function App() {
         },
         {
           id: "risk-references",
-          label: "Référentiel risques",
+          label: "Référentiel des risques",
           icon: FileText,
           color: "text-amber-600",
         },
@@ -1715,7 +1716,7 @@ export default function App() {
         },
         {
           id: "arrivees-departs",
-          label: "Arrivées & Départs",
+          label: "Arrivées et départs",
           icon: ClipboardList,
           color: "text-teal-600",
         },
@@ -1755,13 +1756,13 @@ export default function App() {
         },
         {
           id: "safety-protocols",
-          label: "Protocole sécurité",
+          label: "Protocole de sécurité",
           icon: Shield,
           color: "text-cyan-600",
         },
         {
           id: "safety-sheets",
-          label: "Fiches sécurité",
+          label: "Fiches de sécurité",
           icon: FileCheck,
           color: "text-pink-600",
         },
@@ -1773,13 +1774,13 @@ export default function App() {
         },
         {
           id: "registre",
-          label: "Registre Accidents",
+          label: "Registre des accidents",
           icon: ClipboardList,
           color: "text-rose-500",
         },
         {
           id: "actions",
-          label: "Plan d'actions",
+          label: "Plan d'action",
           icon: Calendar,
           color: "text-green-500",
         },
@@ -1814,13 +1815,13 @@ export default function App() {
         },
         {
           id: "asbestos-attestations",
-          label: "Attestations Amiante",
+          label: "Attestations amiante",
           icon: FileSignature,
           color: "text-amber-600",
         },
         {
           id: "fisherman",
-          label: "Gestion pêche",
+          label: "Gestion de la pêche",
           icon: Fish,
           color: "text-teal-600",
         },
@@ -1918,6 +1919,7 @@ export default function App() {
             setActiveView("category-modules");
           }}
           onGoToDashboard={() => setActiveView("dashboard")}
+          onGoToRisks={() => setActiveView("risks")}
         />
       </>
     );
@@ -2069,9 +2071,10 @@ export default function App() {
           </button>
 
           {/* Role Selector */}
-          <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
-            <p className="text-xs font-semibold text-gray-700 mb-2">
-              🎭 Rôle actuel :
+          <div className="mt-4 p-3 bg-gradient-to-br from-violet-50 via-indigo-50 to-slate-50 rounded-xl border border-violet-200/90 shadow-sm">
+            <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+              <UserCog className="h-3.5 w-3.5 text-violet-700 shrink-0" aria-hidden />
+              Rôle actuel :
             </p>
             <select
               value={user?.role || "agent"}
@@ -2128,7 +2131,7 @@ export default function App() {
                   }`,
                 );
               }}
-              className="w-full px-3 py-2 text-sm font-semibold bg-white border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+              className="w-full px-3 py-2 text-sm font-semibold bg-white border-2 border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 cursor-pointer"
             >
               <option value="agent">Agent</option>
               <option value="admin">Administrateur</option>
@@ -2136,11 +2139,10 @@ export default function App() {
                 Chef de service
               </option>
             </select>
-            <p className="text-xs text-gray-600 mt-2">
-              Connecté :{" "}
-              <span className="font-semibold text-gray-900">
-                {user?.name}
-              </span>
+            <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
+              <UserCheck className="h-3.5 w-3.5 text-indigo-600 shrink-0" aria-hidden />
+              <span>Connecté :</span>
+              <span className="font-semibold text-gray-900">{user?.name}</span>
             </p>
           </div>
         </div>

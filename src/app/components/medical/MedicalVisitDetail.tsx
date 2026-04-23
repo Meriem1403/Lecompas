@@ -289,7 +289,7 @@ export function MedicalVisitDetail({ medicalVisit, risks, onBack, onEdit, onDele
               <div>
                 <p className="text-sm text-gray-500 mb-1">ETPE</p>
                 <p className="text-base font-semibold text-gray-900">{medicalVisit.etpe.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Équivalent Temps Plein</p>
+                <p className="text-xs text-gray-500 mt-0.5">Équivalent temps plein</p>
               </div>
             )}
           </div>

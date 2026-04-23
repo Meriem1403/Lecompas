@@ -544,7 +544,7 @@ export function AsbestosDeclarationListView({
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {validateAction === 'admin' ? 'Validation Admin' : 'Validation Secrétaire Général'}
+              {validateAction === 'admin' ? 'Validation administrateur' : 'Validation secrétaire général'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               Déclaration de <strong>{declarationToValidate?.prenom} {declarationToValidate?.nom}</strong>

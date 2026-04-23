@@ -483,7 +483,7 @@ export function SecuritySheetView({
                 <FileText className="h-8 w-8" />
               </div>
               <div>
-                <CardTitle className="text-3xl sm:text-4xl font-bold">Fiches securite</CardTitle>
+                <CardTitle className="text-3xl sm:text-4xl font-bold">Fiches de sécurité</CardTitle>
                 <p className="text-pink-100 text-lg mt-1">
                   Identification, prevention et controles reglementaires par site — meme logique que le plan de prevention.
                 </p>
@@ -587,7 +587,7 @@ export function SecuritySheetView({
                   <span className="text-sm font-semibold text-pink-900">{r.referentielAnnee || "—"}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-stone-100 border border-stone-300 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-stone-600">Derniere MAJ :</span>
+                  <span className="font-bold uppercase tracking-wide text-stone-600">Dernière mise à jour :</span>
                   <span className="text-sm font-semibold text-stone-900">{r.dateMiseAJour || "—"}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-pink-100/80 border border-pink-200 rounded-lg px-3 py-2">
@@ -1264,7 +1264,7 @@ function DetailBody({
         </Card>
       ) : null}
 
-      {record.updatedBy ? <p className="text-xs text-slate-500">Derniere saisie : {record.updatedBy}</p> : null}
+      {record.updatedBy ? <p className="text-xs text-slate-500">Dernière saisie : {record.updatedBy}</p> : null}
     </div>
   );
 }

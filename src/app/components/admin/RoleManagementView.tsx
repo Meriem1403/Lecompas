@@ -93,7 +93,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
         <div className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <h3 className="text-2xl font-bold text-gray-900">Gestion des Rôles</h3>
+              <h3 className="text-2xl font-bold text-gray-900">Gestion des rôles</h3>
               <p className="text-gray-600">Gérez les rôles et permissions</p>
             </div>
             <Button 

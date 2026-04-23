@@ -352,7 +352,7 @@ export function AsbestosAttestationDetail({
               }`}>
                 <UserCheck className="h-6 w-6 text-white" />
               </div>
-              <p className="text-sm font-semibold text-gray-900 mt-2">Validation Admin</p>
+              <p className="text-sm font-semibold text-gray-900 mt-2">Validation administrateur</p>
               {attestation.validationAdmin && (
                 <p className="text-xs text-gray-600 mt-1">
                   {attestation.validationAdmin.validatedBy}

@@ -189,7 +189,7 @@ export function ElectronicSignaturePage({
           <div className="inline-flex h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 items-center justify-center shadow-xl mb-4">
             <FileSignature className="h-8 w-8 text-white" />
           </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Signature Électronique</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Signature électronique</h1>
           <p className="text-gray-600">{documentTitle}</p>
         </div>
 

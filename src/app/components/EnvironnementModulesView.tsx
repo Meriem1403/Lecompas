@@ -44,7 +44,7 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
     },
     {
       id: "asbestos-attestations",
-      title: "Attestations Amiante",
+      title: "Attestations amiante",
       description: "Gestion des attestations et certifications amiante",
       icon: FileSignature,
       color: "text-amber-600",
@@ -52,7 +52,7 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
     },
     {
       id: "fisherman",
-      title: "Gestion pêche",
+      title: "Gestion de la pêche",
       description: "Gestion des autorisations de pêche et déclarations",
       icon: Fish,
       color: "text-teal-600",
@@ -95,7 +95,7 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Modules Environnement
+            Modules d&apos;environnement
           </h2>
           <p className="text-gray-600">
             Sélectionnez un module pour commencer à travailler

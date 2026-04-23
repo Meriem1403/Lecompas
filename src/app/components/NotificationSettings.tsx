@@ -365,7 +365,7 @@ export function NotificationSettings({
               <div className="space-y-3 p-4 bg-green-50 rounded-lg border-2 border-green-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="h-5 w-5 text-green-600" />
-                  <h4 className="font-bold text-gray-900">Arrivées & Départs</h4>
+                  <h4 className="font-bold text-gray-900">Arrivées et départs</h4>
                 </div>
                 <div className="space-y-2 ml-7">
                   <div className="flex items-center justify-between">

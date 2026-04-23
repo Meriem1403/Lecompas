@@ -42,7 +42,7 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
     },
     {
       id: "arrivees-departs",
-      title: "Arrivées & Départs",
+      title: "Arrivées et départs",
       description: "Gestion des arrivées et départs du personnel",
       icon: Users,
       color: "text-teal-600",
@@ -85,7 +85,7 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Modules ressources humaines
+            Modules des ressources humaines
           </h2>
           <p className="text-gray-600">
             Sélectionnez un module pour commencer à travailler

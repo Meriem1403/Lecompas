@@ -25,9 +25,11 @@ interface Category {
 interface CategoriesViewProps {
   onSelectCategory: (categoryId: string) => void;
   onGoToDashboard: () => void;
+  /** Accès rapide : ouvrir directement l'évaluation des risques */
+  onGoToRisks: () => void;
 }
 
-export function CategoriesView({ onSelectCategory, onGoToDashboard }: CategoriesViewProps) {
+export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks }: CategoriesViewProps) {
   const categories: Category[] = [
     {
       id: "applications",
@@ -99,21 +101,20 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard }: Categories
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-cyan-100 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent break-words">
                 Le Compas
               </h1>
-              <p className="text-gray-600 mt-1">
-                DIRM
-              </p>
+              <p className="text-gray-600 mt-1 text-sm sm:text-base">DIRM</p>
             </div>
             <button
+              type="button"
               onClick={onGoToDashboard}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg hover:scale-105 transition-all"
+              className="inline-flex w-full sm:w-auto shrink-0 items-center justify-center gap-2 px-5 py-3 sm:px-6 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg active:scale-[0.99] sm:hover:scale-105 transition-all min-h-11"
             >
-              <LayoutDashboard className="h-5 w-5" />
+              <LayoutDashboard className="h-5 w-5 shrink-0" />
               Dashboard
             </button>
           </div>
@@ -121,9 +122,9 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard }: Categories
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2">
             Choisissez une catégorie
           </h2>
           <p className="text-gray-600">
@@ -171,39 +172,45 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard }: Categories
           })}
         </div>
 
-        {/* Quick Access Section */}
-        <div className="mt-12">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">
+        {/* Accès rapide : cartes cliquables + grille responsive */}
+        <div className="mt-10 sm:mt-12">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">
             Accès rapide
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                    <LayoutDashboard className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Dashboard</CardTitle>
-                    <CardDescription>Vue d'ensemble de la plateforme</CardDescription>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={onGoToDashboard}
+              className="w-full min-h-[4.5rem] text-left rounded-xl border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50 p-4 sm:p-5 shadow-sm transition-all hover:shadow-lg hover:border-cyan-300 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+            >
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                  <LayoutDashboard className="h-6 w-6 text-white" />
                 </div>
-              </CardHeader>
-            </Card>
-            
-            <Card className="bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-200 hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
-                    <Shield className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Évaluation des risques</CardTitle>
-                    <CardDescription>Accès direct au module principal</CardDescription>
-                  </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">Dashboard</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Vue d&apos;ensemble de la plateforme</p>
                 </div>
-              </CardHeader>
-            </Card>
+                <ChevronRight className="h-5 w-5 text-cyan-500 shrink-0" aria-hidden />
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={onGoToRisks}
+              className="w-full min-h-[4.5rem] text-left rounded-xl border-2 border-teal-200 bg-gradient-to-br from-teal-50 to-cyan-50 p-4 sm:p-5 shadow-sm transition-all hover:shadow-lg hover:border-teal-300 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2"
+            >
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
+                  <Shield className="h-6 w-6 text-white" />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">Évaluation des risques</p>
+                  <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Accès direct au module</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-teal-500 shrink-0" aria-hidden />
+              </div>
+            </button>
           </div>
         </div>
       </div>

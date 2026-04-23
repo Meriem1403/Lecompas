@@ -373,7 +373,7 @@ export function RegistreAccidentsView() {
             onClick={handleAdd}
           >
             <PlusCircle className="h-4 w-4 mr-2" />
-            Nouvel Accident
+            Nouvel accident
           </Button>
         </div>
       </div>
@@ -481,7 +481,7 @@ export function RegistreAccidentsView() {
             <p className="text-gray-600 mb-4">Commencez par enregistrer un accident bénin</p>
             <Button onClick={handleAdd} className="bg-red-600 hover:bg-red-700">
               <PlusCircle className="h-4 w-4 mr-2" />
-              Nouvel Accident
+              Nouvel accident
             </Button>
           </Card>
         ) : (
@@ -639,7 +639,7 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900">Nouvel Accident Bénin</h3>
+          <h3 className="text-2xl font-bold text-gray-900">Nouvel accident bénin</h3>
           <p className="text-gray-600">Inscription au registre des accidents du travail</p>
         </div>
         <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">

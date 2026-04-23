@@ -235,7 +235,7 @@ export function AsbestosDeclarationForm({ declaration, currentUser, onSave, onCa
                 <div className={`h-4 w-4 rounded-full border-2 ${
                   type === 'intermediaire' ? 'border-amber-500 bg-amber-500' : 'border-gray-300'
                 }`} />
-                <h3 className="font-bold text-gray-900">Attestation d'Exposition Intermédiaire</h3>
+                <h3 className="font-bold text-gray-900">Attestation d&apos;exposition intermédiaire</h3>
               </div>
               <p className="text-sm text-gray-600">
                 Exposition antérieure au 31 janvier 2012 ouvrant droit à un suivi post-professionnel
@@ -254,7 +254,7 @@ export function AsbestosDeclarationForm({ declaration, currentUser, onSave, onCa
                 <div className={`h-4 w-4 rounded-full border-2 ${
                   type === 'presence' ? 'border-amber-500 bg-amber-500' : 'border-gray-300'
                 }`} />
-                <h3 className="font-bold text-gray-900">Attestation de Présence</h3>
+                <h3 className="font-bold text-gray-900">Attestation de présence</h3>
               </div>
               <p className="text-sm text-gray-600">
                 Présence dans des lieux de travail susceptibles d'avoir été contaminés par de l'amiante

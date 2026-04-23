@@ -556,7 +556,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                 <UserPlus className="h-8 w-8" />
               </div>
               <div>
-                <CardTitle className="text-4xl font-bold text-white mb-1">Arrivées & Départs</CardTitle>
+                <CardTitle className="text-4xl font-bold text-white mb-1">Arrivées et départs</CardTitle>
                 <CardDescription className="text-blue-100 text-lg">
                   Gestion des questionnaires d'intégration et de sortie
                 </CardDescription>

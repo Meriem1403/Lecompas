@@ -201,10 +201,10 @@ export function TeamView({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 bg-clip-text text-transparent">
-            Equipe
+            Équipe
           </h3>
           <p className="text-gray-600">
-            Selection progressive : navigation, service, domaine, lieu, puis equipe.
+            Sélection progressive : navigation, service, domaine, lieu, puis équipe.
           </p>
         </div>
         <Badge className="w-fit bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border border-blue-200 hover:from-blue-100 hover:to-cyan-100">
@@ -218,7 +218,7 @@ export function TeamView({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                  Membres filtres
+                  Membres filtrés
                 </p>
                 <p className="text-2xl font-bold text-blue-900 mt-1">
                   {filteredUsers.length}
@@ -342,7 +342,7 @@ export function TeamView({
                   </CardHeader>
                   <CardContent className="mt-auto p-6 pt-0">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 font-medium">Selectionner</span>
+                      <span className="text-gray-500 font-medium">Sélectionner</span>
                       <ChevronRight className="h-5 w-5 text-cyan-500 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </CardContent>
@@ -438,12 +438,12 @@ export function TeamView({
                     <CardDescription className="text-gray-600">
                       {domain === "all"
                         ? "Afficher tous les domaines disponibles."
-                        : "Filtrer l’equipe sur ce domaine."}
+                        : "Filtrer l’équipe sur ce domaine."}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="mt-auto p-6 pt-0">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 font-medium">Selectionner</span>
+                      <span className="text-gray-500 font-medium">Sélectionner</span>
                       <ChevronRight className="h-5 w-5 text-purple-500 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </CardContent>
@@ -483,12 +483,12 @@ export function TeamView({
                     <CardDescription className="text-gray-600">
                       {location === "all"
                         ? "Afficher tous les lieux disponibles."
-                        : "Filtrer l’equipe sur ce lieu."}
+                        : "Filtrer l’équipe sur ce lieu."}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="mt-auto p-6 pt-0">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 font-medium">Selectionner</span>
+                      <span className="text-gray-500 font-medium">Sélectionner</span>
                       <ChevronRight className="h-5 w-5 text-teal-500 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </CardContent>
@@ -502,7 +502,7 @@ export function TeamView({
       {canShowTeam && (
         <>
           <div className="space-y-4">
-            <h4 className="text-2xl font-bold text-gray-800">Equipe</h4>
+            <h4 className="text-2xl font-bold text-gray-800">Équipe</h4>
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

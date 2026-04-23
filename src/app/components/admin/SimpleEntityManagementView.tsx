@@ -57,6 +57,12 @@ export function SimpleEntityManagementView({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
+  const sujetTitreGestion = (() => {
+    const reste = title.replace(/^Gestion des\s+/i, "").trim();
+    if (!reste) return title;
+    return reste.charAt(0).toUpperCase() + reste.slice(1);
+  })();
+
   const handleEdit = (item: SimpleEntity) => {
     setSelectedItem(item);
     setViewMode('edit');
@@ -85,7 +91,7 @@ export function SimpleEntityManagementView({
   const confirmDelete = () => {
     if (itemToDelete) {
       setItems(items.filter(i => i.id !== itemToDelete));
-      toast.success(`${title.split(' ')[2]} supprimé avec succès`);
+      toast.success(`${sujetTitreGestion} : suppression effectuée`);
       setDeleteDialogOpen(false);
       setItemToDelete(null);
     }
@@ -104,10 +110,10 @@ export function SimpleEntityManagementView({
         ...(hasServices ? { services: itemData.services || [] } : {})
       };
       setItems([...items, newItem]);
-      toast.success(`${title.split(' ')[2]} créé avec succès`);
+      toast.success(`${sujetTitreGestion} : élément créé`);
     } else if (viewMode === 'edit' && selectedItem) {
       setItems(items.map(i => i.id === selectedItem.id ? { ...i, ...itemData } : i));
-      toast.success(`${title.split(' ')[2]} modifié avec succès`);
+      toast.success(`${sujetTitreGestion} : élément modifié`);
     }
     handleBack();
   };

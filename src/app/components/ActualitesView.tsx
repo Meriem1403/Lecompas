@@ -427,7 +427,7 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
                 <Bell className="h-8 w-8" />
               </div>
               <div>
-                <CardTitle className="text-3xl sm:text-4xl font-bold text-white mb-1">Actualités & Notifications</CardTitle>
+                <CardTitle className="text-3xl sm:text-4xl font-bold text-white mb-1">Actualités et notifications</CardTitle>
                 <CardDescription className="text-slate-100 text-lg">
                   Informations, événements, documents et liens utiles
                 </CardDescription>

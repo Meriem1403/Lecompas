@@ -370,7 +370,7 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
                 placeholder="Ex: 1.00"
                 className="mt-1"
               />
-              <p className="text-xs text-gray-500 mt-1">Équivalent Temps Plein (0 à 1)</p>
+              <p className="text-xs text-gray-500 mt-1">Équivalent temps plein (0 à 1)</p>
             </div>
           </div>
 

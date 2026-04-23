@@ -807,7 +807,7 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
             <h3 className="text-lg font-semibold text-slate-900">Champs complets du protocole / plan de prevention</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2"><Label>Titre document</Label><Input value={form.protocol.protocoleTitle} onChange={(e) => updateProtocol("protocoleTitle", e.target.value)} className="border-2 border-slate-300" /></div>
-              <div className="space-y-2"><Label>Reference Code du Travail</Label><Input value={form.protocol.codeTravailReference} onChange={(e) => updateProtocol("codeTravailReference", e.target.value)} className="border-2 border-slate-300" /></div>
+              <div className="space-y-2"><Label>Référence (code du Travail)</Label><Input value={form.protocol.codeTravailReference} onChange={(e) => updateProtocol("codeTravailReference", e.target.value)} className="border-2 border-slate-300" /></div>
               <div className="space-y-2 md:col-span-2"><Label>Type operation</Label><Input value={form.protocol.operationType} onChange={(e) => updateProtocol("operationType", e.target.value)} className="border-2 border-slate-300" /></div>
             </div>
 
@@ -993,7 +993,7 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
                 <Target className="h-8 w-8" />
               </div>
               <div>
-                <CardTitle className="text-3xl sm:text-4xl font-bold">Plan de prevention</CardTitle>
+                <CardTitle className="text-3xl sm:text-4xl font-bold">Plan de prévention</CardTitle>
                 <p className="text-emerald-100 text-lg mt-1">Pilotage des actions de prevention par risque, service et priorite.</p>
               </div>
             </div>
