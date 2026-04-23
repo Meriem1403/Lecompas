@@ -114,18 +114,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <Shield className="h-10 w-10 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-gray-900">DUERP</h1>
-                <p className="text-lg text-gray-600">Gestion des risques professionnels</p>
+                <h1 className="text-4xl font-bold text-gray-900">Le Compas</h1>
+                <p className="text-lg text-gray-600">Espace de travail de la DIRM Méditerranée</p>
               </div>
             </div>
 
             <div className="space-y-4">
               <h2 className="text-3xl font-bold text-gray-900">
-                Direction Interrégionale<br />de la Mer Méditerranée
+                Direction interrégionale<br />de la mer Méditerranée
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed">
-                Plateforme sécurisée de gestion du Document Unique d'Évaluation 
-                des Risques Professionnels et de l'accidentologie.
+                Un point d’accès unique pour les missions du quotidien : prévention et SST,
+                suivi des risques, environnement, ressources humaines et outils métiers.
               </p>
             </div>
 
@@ -159,11 +159,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <div className="p-6 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl border-2 border-blue-200">
             <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-blue-600" />
-              Conformité réglementaire
+              Outil interne
             </h3>
             <p className="text-sm text-gray-700">
-              Conforme aux articles L4121-1 à L4121-5 et R4121-1 à R4121-4 du Code du travail.
-              Signature électronique conforme au règlement eIDAS.
+              Réservé aux agents et partenaires habilités de la DIRM. Les contenus
+              (dont DUERP, registres et indicateurs) sont gérés selon les règles en vigueur
+              pour le service.
             </p>
           </div>
         </div>
@@ -172,14 +173,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="flex flex-col justify-center">
           <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-xl">
             <CardHeader className="space-y-3 pb-6">
-              <div className="flex items-center justify-center lg:hidden">
-                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl mb-4">
+              <div className="flex flex-col items-center justify-center lg:hidden text-center">
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl mb-3">
                   <Shield className="h-8 w-8 text-white" />
                 </div>
+                <p className="text-xl font-bold text-gray-900">Le Compas</p>
+                <p className="text-sm text-gray-600 mb-1">DIRM Méditerranée</p>
               </div>
               <CardTitle className="text-3xl text-center lg:text-left">Connexion</CardTitle>
               <CardDescription className="text-center lg:text-left">
-                Accédez à votre espace DUERP sécurisé
+                Connectez-vous à votre espace Le Compas
               </CardDescription>
             </CardHeader>
 
