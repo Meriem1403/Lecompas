@@ -72,10 +72,10 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard }: Categories
     {
       id: "duerp",
       title: "Prévention",
-      description: "Évaluation des risques, plan d'actions, documents DUERP et accidentologie",
+      description: "Évaluation des risques, sensibilisation, plans, protocoles, fiches, accidentologie, DUERP",
       icon: Shield,
       gradient: "from-blue-500 via-cyan-500 to-teal-500",
-      moduleCount: 6,
+      moduleCount: 10,
     },
     {
       id: "environnement",

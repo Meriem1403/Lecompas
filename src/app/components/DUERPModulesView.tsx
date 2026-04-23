@@ -1,14 +1,17 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { 
-  Shield, 
-  AlertCircle, 
-  ClipboardList, 
-  Calendar, 
-  FileText, 
+import {
+  Shield,
+  AlertCircle,
+  ClipboardList,
+  Calendar,
+  FileText,
   Archive,
+  Target,
   ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  FileCheck,
+  Info,
 } from "lucide-react";
 
 interface Module {
@@ -34,6 +37,38 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
       icon: Shield,
       color: "text-purple-500",
       gradient: "from-purple-500 via-indigo-500 to-blue-500",
+    },
+    {
+      id: "risk-awareness",
+      title: "Sensibilisation aux risques",
+      description: "Fiches de sensibilisation pour les collaborateurs, liées à l'évaluation (DUERP)",
+      icon: Info,
+      color: "text-orange-500",
+      gradient: "from-orange-500 via-amber-500 to-yellow-500",
+    },
+    {
+      id: "prevention-plan",
+      title: "Plan de prévention",
+      description: "Plans de prévention opérationnels liés aux risques et services",
+      icon: Target,
+      color: "text-sky-500",
+      gradient: "from-sky-500 via-blue-500 to-indigo-500",
+    },
+    {
+      id: "safety-protocols",
+      title: "Protocole sécurité",
+      description: "Protocoles opérationnels de chargement, déchargement, levage et coactivité",
+      icon: Shield,
+      color: "text-cyan-500",
+      gradient: "from-cyan-500 via-teal-500 to-emerald-500",
+    },
+    {
+      id: "safety-sheets",
+      title: "Fiches sécurité",
+      description: "Fiches par secteur : activités, prévention, contrôles amiante, plomb, CACES, CVC, etc.",
+      icon: FileCheck,
+      color: "text-pink-500",
+      gradient: "from-pink-500 via-rose-500 to-stone-400",
     },
     {
       id: "accidents",

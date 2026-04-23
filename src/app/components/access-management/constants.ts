@@ -40,9 +40,27 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "risk-awareness",
-    label: "Prevention & Exposition",
+    label: "Sensibilisation aux risques",
     section: "Prevention",
-    description: "Informations de prevention ciblees selon les risques d'exposition.",
+    description: "Fiches de sensibilisation pour les collaborateurs, a partir de l'evaluation (DUERP).",
+  },
+  {
+    id: "prevention-plan",
+    label: "Plan de prevention",
+    section: "Prevention",
+    description: "Pilotage des plans de prevention par risque, service et priorite.",
+  },
+  {
+    id: "safety-protocols",
+    label: "Protocole securite",
+    section: "Prevention",
+    description: "Gestion des protocoles de securite operationnels et signatures associees.",
+  },
+  {
+    id: "safety-sheets",
+    label: "Fiches securite",
+    section: "Prevention",
+    description: "Fiches secteur : identification, prevention et controles reglementaires (type DUERP/COB).",
   },
   {
     id: "actions",

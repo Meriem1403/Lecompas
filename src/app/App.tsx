@@ -75,6 +75,12 @@ import { TeamView } from "./components/TeamView";
 import { AccessManagementView } from "./components/AccessManagementView";
 import { RiskAwarenessView } from "./components/RiskAwarenessView";
 import { RiskAwarenessRecord } from "./components/RiskAwarenessView";
+import { PreventionPlanView } from "./components/PreventionPlanView";
+import { SafetyProtocolView } from "./components/SafetyProtocolView";
+import {
+  defaultSecuritySheetsState,
+  SecuritySheetView,
+} from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
 import { EmployeeAccessProfile } from "./components/access-management/types";
 import {
@@ -140,6 +146,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   Menu,
+  FileCheck,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -682,6 +689,7 @@ export default function App() {
   const [riskAwarenessRecords, setRiskAwarenessRecords] = useState<
     RiskAwarenessRecord[]
   >([]);
+  const [securitySheets, setSecuritySheets] = useState(defaultSecuritySheetsState);
   const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
   const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
@@ -1735,9 +1743,27 @@ export default function App() {
         },
         {
           id: "risk-awareness",
-          label: "Prévention & Exposition",
+          label: "Sensibilisation aux risques",
           icon: Info,
-          color: "text-indigo-500",
+          color: "text-orange-600",
+        },
+        {
+          id: "prevention-plan",
+          label: "Plan de prévention",
+          icon: Target,
+          color: "text-sky-600",
+        },
+        {
+          id: "safety-protocols",
+          label: "Protocole sécurité",
+          icon: Shield,
+          color: "text-cyan-600",
+        },
+        {
+          id: "safety-sheets",
+          label: "Fiches sécurité",
+          icon: FileCheck,
+          color: "text-pink-600",
         },
         {
           id: "accidents",
@@ -3451,6 +3477,33 @@ export default function App() {
               exposedRiskKeys={visibleRisks.map(
                 (risk) => `${risk.numeroRisque}::${risk.title}`,
               )}
+            />
+          )}
+          {activeView === "prevention-plan" && (
+            <PreventionPlanView
+              risks={visibleRisks}
+              currentUserRole={user?.role || "agent"}
+              currentUserName={user?.name || "Utilisateur"}
+            />
+          )}
+          {activeView === "safety-protocols" && (
+            <SafetyProtocolView
+              currentUserRole={user?.role || "agent"}
+              currentUserName={user?.name || "Utilisateur"}
+              currentUserService={user?.service || ""}
+              currentUserDomain={user?.domain || ""}
+              currentUserLocation={user?.location || ""}
+              serviceOptions={serviceOptions}
+              domainOptions={domainOptions}
+              locationOptions={locationOptions}
+            />
+          )}
+          {activeView === "safety-sheets" && (
+            <SecuritySheetView
+              currentUserRole={user?.role || "agent"}
+              currentUserName={user?.name || "Utilisateur"}
+              records={securitySheets}
+              setRecords={setSecuritySheets}
             />
           )}
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -73,6 +73,8 @@ export function RiskAwarenessView({
   });
   const [linkDraft, setLinkDraft] = useState("");
   const [docDraft, setDocDraft] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
 
   const visibleRecords = useMemo(() => {
     const base =
@@ -95,6 +97,22 @@ export function RiskAwarenessView({
 
   const completedCount = visibleRecords.filter((record) => record.status === "complete").length;
   const toCompleteCount = visibleRecords.filter((record) => record.status === "a_completer").length;
+
+  const totalPages = Math.max(1, Math.ceil(visibleRecords.length / pageSize));
+  const paginatedRecords = useMemo(
+    () => visibleRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [visibleRecords, currentPage, pageSize],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const selected = records.find((r) => r.id === selectedId) || null;
   const openCreate = () => {
@@ -284,7 +302,7 @@ export function RiskAwarenessView({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           {userRole === "admin" ? (
             <Button
-              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
               onClick={() => openEdit(selected)}
             >
               <Pencil className="h-4 w-4 mr-2" />
@@ -301,7 +319,7 @@ export function RiskAwarenessView({
           </Button>
         </div>
 
-        <Card className="border-0 shadow-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-900 to-blue-900 text-white">
+        <Card className="border-0 shadow-2xl overflow-hidden bg-gradient-to-br from-slate-950 via-orange-950 to-amber-950 text-white">
           <CardHeader className="py-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-4">
@@ -309,19 +327,19 @@ export function RiskAwarenessView({
                   <Shield className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-blue-200">Fiche prevention</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-orange-200">Fiche de sensibilisation</p>
                   <CardTitle className="text-2xl sm:text-3xl text-white mt-1">
                     {selected.riskNumber} — {selected.riskTitle}
                   </CardTitle>
-                  <p className="text-sm text-blue-100 mt-2">
-                    Consultation detaillee des informations de prevention et d'exposition.
+                  <p className="text-sm text-orange-100 mt-2">
+                    Ressources pour sensibiliser les collaborateurs à ce risque.
                   </p>
                 </div>
               </div>
               <Badge
                 className={
                   isComplete
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    ? "bg-orange-100 text-orange-900 border-orange-300"
                     : "bg-amber-100 text-amber-800 border-amber-300"
                 }
               >
@@ -332,22 +350,22 @@ export function RiskAwarenessView({
         </Card>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50">
+          <Card className="border-2 border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50">
             <CardContent className="p-4">
-              <p className="text-xs uppercase tracking-wide text-indigo-700 font-semibold">Statut</p>
-              <p className="text-lg font-semibold text-indigo-900 mt-1">{isComplete ? "Finalisée" : "En attente"}</p>
+              <p className="text-xs uppercase tracking-wide text-orange-900 font-semibold">Statut</p>
+              <p className="text-lg font-semibold text-orange-950 mt-1">{isComplete ? "Finalisée" : "En attente"}</p>
             </CardContent>
           </Card>
-          <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-cyan-50">
+          <Card className="border-2 border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50/80">
             <CardContent className="p-4">
-              <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold">Liens utiles</p>
-              <p className="text-lg font-semibold text-blue-900 mt-1">{linksCount}</p>
+              <p className="text-xs uppercase tracking-wide text-amber-900 font-semibold">Liens utiles</p>
+              <p className="text-lg font-semibold text-amber-950 mt-1">{linksCount}</p>
             </CardContent>
           </Card>
-          <Card className="border-2 border-cyan-100 bg-gradient-to-br from-cyan-50 to-sky-50">
+          <Card className="border-2 border-stone-200 bg-gradient-to-br from-stone-50 to-stone-100">
             <CardContent className="p-4">
-              <p className="text-xs uppercase tracking-wide text-cyan-700 font-semibold">Documents</p>
-              <p className="text-lg font-semibold text-cyan-900 mt-1">{docsCount}</p>
+              <p className="text-xs uppercase tracking-wide text-stone-600 font-semibold">Documents</p>
+              <p className="text-lg font-semibold text-stone-900 mt-1">{docsCount}</p>
             </CardContent>
           </Card>
         </div>
@@ -371,9 +389,9 @@ export function RiskAwarenessView({
         </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card className="border-2 border-blue-100 bg-blue-50/60">
+          <Card className="border-2 border-amber-100 bg-amber-50/60">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base text-blue-900 flex items-center gap-2">
+              <CardTitle className="text-base text-amber-950 flex items-center gap-2">
                 <Link2 className="h-4 w-4" />
                 Liens utiles
               </CardTitle>
@@ -386,10 +404,10 @@ export function RiskAwarenessView({
                     href={link}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-white p-3 text-sm text-blue-900 hover:bg-blue-50"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white p-3 text-sm text-amber-950 hover:bg-amber-50/90"
                   >
                     <span className="truncate">{link}</span>
-                    <ExternalLink className="h-4 w-4 shrink-0 text-blue-600" />
+                    <ExternalLink className="h-4 w-4 shrink-0 text-orange-600" />
                   </a>
                 ))
               ) : (
@@ -398,9 +416,9 @@ export function RiskAwarenessView({
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-cyan-100 bg-cyan-50/60">
+          <Card className="border-2 border-stone-200 bg-stone-100/50">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base text-cyan-900 flex items-center gap-2">
+              <CardTitle className="text-base text-stone-900 flex items-center gap-2">
                 <Paperclip className="h-4 w-4" />
                 Documents associés
               </CardTitle>
@@ -410,10 +428,10 @@ export function RiskAwarenessView({
                 selected.documents.map((doc) => (
                   <div
                     key={doc}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-cyan-200 bg-white p-3"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-3"
                   >
-                    <span className="text-sm text-cyan-900 truncate">{doc}</span>
-                    <FileText className="h-4 w-4 shrink-0 text-cyan-700" />
+                    <span className="text-sm text-stone-800 truncate">{doc}</span>
+                    <FileText className="h-4 w-4 shrink-0 text-stone-600" />
                   </div>
                 ))
               ) : (
@@ -448,7 +466,7 @@ export function RiskAwarenessView({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">
-              {viewMode === "create" ? "Nouvelle fiche Prévention" : "Modifier la fiche"}
+              {viewMode === "create" ? "Nouvelle fiche de sensibilisation" : "Modifier la fiche"}
             </h3>
             <p className="text-gray-600">CRUD en page complète, sans popup.</p>
           </div>
@@ -463,7 +481,7 @@ export function RiskAwarenessView({
         </div>
 
         <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur">
-          <div className="h-2 bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-500" />
+          <div className="h-2 bg-gradient-to-r from-orange-500 via-amber-500 to-stone-400" />
           <CardContent className="p-4 sm:p-8 space-y-5">
             <div className="space-y-1">
               <CardTitle className="text-xl text-slate-900">Informations generales</CardTitle>
@@ -508,7 +526,7 @@ export function RiskAwarenessView({
             <Separator />
             <div className="space-y-2">
               <h4 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                <Link2 className="h-5 w-5 text-blue-600" />
+                <Link2 className="h-5 w-5 text-orange-600" />
                 Liens utiles
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
@@ -522,7 +540,7 @@ export function RiskAwarenessView({
                   type="button"
                   onClick={addLink}
                   variant="outline"
-                  className="border-2 border-dashed border-blue-300 text-blue-700 hover:bg-blue-50"
+                  className="border-2 border-dashed border-amber-400 text-amber-900 hover:bg-amber-50"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Ajouter
@@ -535,11 +553,11 @@ export function RiskAwarenessView({
                 {links.map((link) => (
                   <div
                     key={link}
-                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-blue-50 border-2 border-blue-200 rounded-lg"
+                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-amber-50 border-2 border-amber-200 rounded-lg"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <Link2 className="h-4 w-4 text-blue-700 shrink-0" />
-                      <p className="text-sm text-blue-900 break-all">{link}</p>
+                      <Link2 className="h-4 w-4 text-amber-800 shrink-0" />
+                      <p className="text-sm text-amber-950 break-all">{link}</p>
                     </div>
                     <Button
                       type="button"
@@ -557,7 +575,7 @@ export function RiskAwarenessView({
             <Separator />
             <div className="space-y-2">
               <h4 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                <Paperclip className="h-5 w-5 text-cyan-600" />
+                <Paperclip className="h-5 w-5 text-stone-600" />
                 Documents et fiches
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
@@ -571,7 +589,7 @@ export function RiskAwarenessView({
                   type="button"
                   onClick={addDocument}
                   variant="outline"
-                  className="border-2 border-dashed border-cyan-300 text-cyan-700 hover:bg-cyan-50"
+                  className="border-2 border-dashed border-stone-300 text-stone-700 hover:bg-stone-100"
                 >
                   <Upload className="h-4 w-4 mr-1" />
                   Ajouter
@@ -584,11 +602,11 @@ export function RiskAwarenessView({
                 {docs.map((doc) => (
                   <div
                     key={doc}
-                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-cyan-50 border-2 border-cyan-200 rounded-lg"
+                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-stone-100 border-2 border-stone-200 rounded-lg"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <Paperclip className="h-4 w-4 text-cyan-700 shrink-0" />
-                      <p className="text-sm text-cyan-900 break-all">{doc}</p>
+                      <Paperclip className="h-4 w-4 text-stone-600 shrink-0" />
+                      <p className="text-sm text-stone-900 break-all">{doc}</p>
                     </div>
                     <Button
                       type="button"
@@ -608,7 +626,7 @@ export function RiskAwarenessView({
                 Annuler
               </Button>
               <Button
-                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
                 onClick={saveRecord}
               >
                 Enregistrer
@@ -622,23 +640,24 @@ export function RiskAwarenessView({
 
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800 via-indigo-800 to-purple-800 text-white overflow-hidden relative">
-        <CardHeader className="relative py-8 sm:py-10">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
-                <Shield className="h-8 w-8" />
+      <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-orange-900 to-amber-950 text-white overflow-hidden relative">
+        <CardHeader className="relative py-6 sm:py-10">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+            <div className="flex flex-col min-w-0 sm:flex-row sm:items-start gap-3 sm:gap-4">
+              <div className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg self-start">
+                <Shield className="h-7 w-7 sm:h-8 sm:w-8" />
               </div>
-              <div>
-                <CardTitle className="text-3xl sm:text-4xl font-bold text-white mb-1">
-                  Prévention & Exposition
+              <div className="min-w-0 flex-1 space-y-1.5 sm:space-y-2 pr-0 sm:pr-2">
+                <CardTitle className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white break-words">
+                  Sensibilisation aux risques
                 </CardTitle>
-                <p className="text-slate-100 text-lg">
-                  Fiches de prévention alignées sur Évaluation des risques et Référentiel.
+                <p className="text-slate-100 text-sm sm:text-base leading-relaxed break-words">
+                  Une fiche par risque, à partager avec les équipes pour expliquer le danger et les
+                  bons réflexes.
                 </p>
               </div>
             </div>
-            <Badge className="w-full lg:w-auto justify-center bg-white text-slate-900 border border-slate-200 text-lg px-5 py-2 shadow-xl">
+            <Badge className="shrink-0 w-fit self-start sm:self-end lg:self-center bg-white text-slate-900 border border-slate-200 text-sm sm:text-base px-3 sm:px-5 py-2 shadow-xl">
               {visibleRecords.length} fiche(s)
             </Badge>
           </div>
@@ -646,22 +665,22 @@ export function RiskAwarenessView({
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50">
+        <Card className="border-2 border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Fiches visibles</p>
-              <p className="text-2xl font-bold text-indigo-900">{visibleRecords.length}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">Fiches visibles</p>
+              <p className="text-2xl font-bold text-orange-950">{visibleRecords.length}</p>
             </div>
-            <Shield className="h-8 w-8 text-indigo-500" />
+            <Shield className="h-8 w-8 text-orange-600" />
           </CardContent>
         </Card>
-        <Card className="border-2 border-green-100 bg-gradient-to-br from-green-50 to-emerald-50">
+        <Card className="border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-100/80">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Complétées</p>
-              <p className="text-2xl font-bold text-green-900">{completedCount}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Complétées</p>
+              <p className="text-2xl font-bold text-amber-950">{completedCount}</p>
             </div>
-            <CheckCircle2 className="h-8 w-8 text-green-500" />
+            <CheckCircle2 className="h-8 w-8 text-amber-600" />
           </CardContent>
         </Card>
         <Card className="border-2 border-amber-100 bg-gradient-to-br from-amber-50 to-orange-50">
@@ -705,7 +724,7 @@ export function RiskAwarenessView({
             </div>
             {userRole === "admin" ? (
               <Button
-                className="w-full xl:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                className="w-full xl:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
                 onClick={openCreate}
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
@@ -717,28 +736,28 @@ export function RiskAwarenessView({
       </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {visibleRecords.map((record) => (
+        {paginatedRecords.map((record) => (
           <Card
             key={record.id}
-            className="group border-2 border-transparent hover:border-indigo-200 bg-white/95 hover:shadow-2xl transition-all duration-300"
+            className="group border-2 border-transparent hover:border-orange-200 bg-white/95 hover:shadow-2xl transition-all duration-300"
           >
             <CardContent className="p-5 space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white shrink-0">
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white shrink-0">
                     <Shield className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold tracking-wide text-indigo-600 uppercase">
-                      {record.riskNumber}
+                    <p className="text-xs font-semibold tracking-wide text-orange-700 uppercase">Fiche de sensibilisation</p>
+                    <p className="text-lg font-semibold text-slate-900 break-words leading-snug">
+                      {record.summary || "Résumé à compléter"}
                     </p>
-                    <p className="text-lg font-semibold text-slate-900 break-words leading-snug">{record.riskTitle}</p>
                   </div>
                 </div>
                 <Badge
                   className={
                     record.status === "complete"
-                      ? "bg-green-100 text-green-800 border-green-300"
+                      ? "bg-orange-100 text-orange-900 border-orange-300"
                       : "bg-amber-100 text-amber-800 border-amber-300"
                   }
                 >
@@ -746,9 +765,25 @@ export function RiskAwarenessView({
                 </Badge>
               </div>
 
+              <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 shadow-sm max-w-full min-w-0">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-orange-800">Réf risque</span>
+                <span className="font-mono text-xs font-bold text-orange-950">{record.riskNumber}</span>
+                <span className="text-xs text-orange-700">-</span>
+                <span className="text-xs font-semibold text-orange-900 truncate max-w-[200px]">{record.riskTitle}</span>
+              </div>
+
               <p className="text-sm text-slate-700 line-clamp-3 min-h-[60px]">
-                {record.summary || "Résumé non renseigné."}
+                {record.content || "Contenu détaillé non renseigné."}
               </p>
+
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-2">
+                  <span className="font-semibold text-amber-900">Liens :</span> {record.links.length}
+                </div>
+                <div className="rounded-lg bg-stone-100 border border-stone-200 p-2">
+                  <span className="font-semibold text-stone-700">Documents :</span> {record.documents.length}
+                </div>
+              </div>
 
               <div className="text-xs text-slate-500">
                 {record.updatedBy ? `Dernière mise à jour par ${record.updatedBy}` : "Jamais complétée"}
@@ -762,7 +797,7 @@ export function RiskAwarenessView({
                 {userRole === "admin" ? (
                   <>
                     <Button
-                      className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      className="w-full sm:flex-1 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
                       onClick={() => openEdit(record)}
                     >
                       <Pencil className="h-4 w-4 mr-2" />
@@ -783,10 +818,41 @@ export function RiskAwarenessView({
         ))}
       </div>
 
+      {visibleRecords.length > 0 ? (
+        <Card className="border-2 border-orange-100 bg-white/95">
+          <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">
+              Page {currentPage} / {totalPages} – {visibleRecords.length} fiche
+              {visibleRecords.length > 1 ? "s" : ""}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-orange-200 hover:bg-orange-50"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              >
+                Précédent
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-orange-200 hover:bg-orange-50"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              >
+                Suivant
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {visibleRecords.length === 0 ? (
-        <Card className="border-2 border-dashed border-gray-300 bg-white/80">
+        <Card className="border-2 border-dashed border-orange-200 bg-orange-50/30">
           <CardContent className="py-14 text-center">
-            <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+            <AlertTriangle className="h-10 w-10 text-orange-500 mx-auto mb-3" />
             <p className="text-gray-700 font-semibold">Aucune fiche disponible</p>
             <p className="text-gray-500 text-sm mt-1">
               Les fiches apparaîtront automatiquement lors de la création d'un nouveau risque.
