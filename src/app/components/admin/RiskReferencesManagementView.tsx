@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -15,6 +15,7 @@ import {
 } from "@/app/components/ui/alert-dialog";
 import { PlusCircle, Edit, Trash2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "@/app/components/ui/list-pagination-bar";
 
 export interface RiskReference {
   id: string;
@@ -45,6 +46,18 @@ export function RiskReferencesManagementView({
     numeroRisque: "",
     title: "",
   });
+  const [listPage, setListPage] = useState(1);
+
+  const listPageSize = TABLE_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(references.length / listPageSize));
+  const paginatedReferences = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return references.slice(start, start + listPageSize);
+  }, [references, listPage, listPageSize]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages, references.length]);
 
   const handleCreate = () => {
     setSelectedReference(null);
@@ -164,7 +177,7 @@ export function RiskReferencesManagementView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {references.map((reference) => (
+                    {paginatedReferences.map((reference) => (
                       <tr
                         key={reference.id}
                         className="hover:bg-red-50/40 transition-colors"
@@ -214,6 +227,14 @@ export function RiskReferencesManagementView({
               </div>
             </CardContent>
           </Card>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={references.length}
+            onPageChange={setListPage}
+            itemLabel="référence(s)"
+          />
         </div>
 
         <AlertDialog

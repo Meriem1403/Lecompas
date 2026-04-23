@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -32,6 +32,7 @@ import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 interface AccidentBenin {
   id: string;
@@ -118,12 +119,28 @@ export function RegistreAccidentsView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accidentToDelete, setAccidentToDelete] = useState<string | null>(null);
   const [filterAnnee, setFilterAnnee] = useState<string>('all');
+  const [listPage, setListPage] = useState(1);
 
   // Filtrage
   const filteredAccidents = accidents.filter(acc => {
     if (filterAnnee !== 'all' && acc.annee.toString() !== filterAnnee) return false;
     return true;
   });
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredAccidents.length / listPageSize));
+  const paginatedAccidents = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredAccidents.slice(start, start + listPageSize);
+  }, [filteredAccidents, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [filterAnnee]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
 
   // Années disponibles
   const availableYears = Array.from(new Set(accidents.map(a => a.annee))).sort((a, b) => b - a);
@@ -485,7 +502,7 @@ export function RegistreAccidentsView() {
             </Button>
           </Card>
         ) : (
-          filteredAccidents.map(accident => (
+          paginatedAccidents.map(accident => (
             <Card key={accident.id} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1">
@@ -584,6 +601,14 @@ export function RegistreAccidentsView() {
           ))
         )}
       </div>
+
+      <ListPaginationBar
+        currentPage={listPage}
+        totalPages={listTotalPages}
+        totalItems={filteredAccidents.length}
+        onPageChange={setListPage}
+        itemLabel="enregistrement(s)"
+      />
 
       {/* Delete Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

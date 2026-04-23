@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -16,6 +16,7 @@ import {
 } from '@/app/components/ui/alert-dialog';
 import { PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 export interface Role {
   id: number;
@@ -35,6 +36,18 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<number | null>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const listPageSize = TABLE_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(roles.length / listPageSize));
+  const paginatedRoles = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return roles.slice(start, start + listPageSize);
+  }, [roles, listPage, listPageSize]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages, roles.length]);
 
   const handleView = (role: Role) => {
     setSelectedRole(role);
@@ -118,7 +131,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {roles.map((role) => (
+                    {paginatedRoles.map((role) => (
                       <tr key={role.id} className="hover:bg-purple-50/50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{role.id}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -160,6 +173,14 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
               </div>
             </CardContent>
           </Card>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={roles.length}
+            onPageChange={setListPage}
+            itemLabel="rôle(s)"
+          />
         </div>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { toast } from 'sonner';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '../ui/list-pagination-bar';
 
 interface MercuryListViewProps {
   campaigns: MercuryCampaign[];
@@ -48,6 +49,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState<MercuryCampaign | null>(null);
+  const [listPage, setListPage] = useState(1);
 
   const statusConfig = {
     planifiee: {
@@ -87,6 +89,21 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
     const matchesStatus = filterStatus === 'all' || campaign.statut === filterStatus;
     return matchesSearch && matchesStatus;
   });
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredCampaigns.length / listPageSize));
+  const paginatedCampaigns = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredCampaigns.slice(start, start + listPageSize);
+  }, [filteredCampaigns, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, filterStatus]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
 
   const handleDeleteClick = (campaign: MercuryCampaign) => {
     setCampaignToDelete(campaign);
@@ -250,7 +267,7 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
             </CardContent>
           </Card>
         ) : (
-          filteredCampaigns.map((campaign) => {
+          paginatedCampaigns.map((campaign) => {
             const config = statusConfig[campaign.statut];
             const IconComponent = config.icon;
             
@@ -396,6 +413,14 @@ export function MercuryListView({ campaigns, onCreateNew, onViewDetail, onEdit, 
           })
         )}
       </div>
+
+      <ListPaginationBar
+        currentPage={listPage}
+        totalPages={listTotalPages}
+        totalItems={filteredCampaigns.length}
+        onPageChange={setListPage}
+        itemLabel="campagne(s)"
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

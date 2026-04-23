@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -33,6 +33,7 @@ import { DocumentEditView } from './DocumentEditView';
 import { GenerateDUERPDialog } from './GenerateDUERPDialog';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 export interface Document {
   id: string;
@@ -169,6 +170,7 @@ export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) 
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [listPage, setListPage] = useState(1);
   const [generateDUERPOpen, setGenerateDUERPOpen] = useState(false);
 
   const handleAdd = () => {
@@ -484,6 +486,21 @@ export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) 
     return typeMatch && statusMatch;
   });
 
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / listPageSize));
+  const paginatedDocuments = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredDocuments.slice(start, start + listPageSize);
+  }, [filteredDocuments, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [filterType, filterStatus]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
+
   // Si on est en mode création, afficher uniquement la page de création
   if (isCreating) {
     return (
@@ -653,7 +670,7 @@ export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) 
 
       {/* Documents List */}
       <div className="space-y-4">
-        {filteredDocuments.map((document) => {
+        {paginatedDocuments.map((document) => {
           const statusConfig = getStatusConfig(document.status);
           const StatusIcon = statusConfig.icon;
 
@@ -773,6 +790,14 @@ export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) 
           );
         })}
       </div>
+
+      <ListPaginationBar
+        currentPage={listPage}
+        totalPages={listTotalPages}
+        totalItems={filteredDocuments.length}
+        onPageChange={setListPage}
+        itemLabel="document(s)"
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { toast } from 'sonner';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '../ui/list-pagination-bar';
 
 interface AsbestosListViewProps {
   interventions: AsbestosIntervention[];
@@ -49,6 +50,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [interventionToDelete, setInterventionToDelete] = useState<AsbestosIntervention | null>(null);
+  const [listPage, setListPage] = useState(1);
 
   const statusConfig = {
     non_amiante: {
@@ -103,6 +105,21 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
     const matchesPriority = filterPriority === 'all' || intervention.priorite === filterPriority;
     return matchesSearch && matchesStatus && matchesPriority;
   });
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredInterventions.length / listPageSize));
+  const paginatedInterventions = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredInterventions.slice(start, start + listPageSize);
+  }, [filteredInterventions, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, filterStatus, filterPriority]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
 
   const handleDeleteClick = (intervention: AsbestosIntervention) => {
     setInterventionToDelete(intervention);
@@ -283,7 +300,7 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
             </CardContent>
           </Card>
         ) : (
-          filteredInterventions.map((intervention) => {
+          paginatedInterventions.map((intervention) => {
             const config = statusConfig[intervention.statut];
             const IconComponent = config.icon;
             const scoreInfo = intervention.scoreActuel ? scoreConfig[intervention.scoreActuel] : null;
@@ -442,6 +459,14 @@ export function AsbestosListView({ interventions, onCreateNew, onViewDetail, onE
           })
         )}
       </div>
+
+      <ListPaginationBar
+        currentPage={listPage}
+        totalPages={listTotalPages}
+        totalItems={filteredInterventions.length}
+        onPageChange={setListPage}
+        itemLabel="intervention(s)"
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

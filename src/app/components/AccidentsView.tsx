@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from './ui/list-pagination-bar';
 
 interface Accident {
   id: string;
@@ -44,6 +45,18 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
   const [editingAccident, setEditingAccident] = useState<Accident | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accidentToDelete, setAccidentToDelete] = useState<string | null>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(accidents.length / listPageSize));
+  const paginatedAccidents = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return accidents.slice(start, start + listPageSize);
+  }, [accidents, listPage, listPageSize]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages, accidents.length]);
 
   const handleAdd = () => {
     setIsCreating(true);
@@ -140,7 +153,7 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
               </CardContent>
             </Card>
           ) : (
-            accidents.map((accident) => {
+            paginatedAccidents.map((accident) => {
               const severityGradient = 
                 accident.severity === 'très_grave' ? 'from-red-500 to-rose-600' :
                 accident.severity === 'grave' ? 'from-orange-500 to-red-500' :
@@ -260,6 +273,14 @@ export function AccidentsView({ accidents, onAdd, onUpdate, onDelete }: Accident
           )}
         </div>
       </div>
+
+      <ListPaginationBar
+        currentPage={listPage}
+        totalPages={listTotalPages}
+        totalItems={accidents.length}
+        onPageChange={setListPage}
+        itemLabel="accident(s)"
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

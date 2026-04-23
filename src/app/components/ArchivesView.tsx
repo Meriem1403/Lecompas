@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -29,6 +29,7 @@ import {
 import { DocumentDetailView } from './DocumentDetailView';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 export interface ArchivedDocument {
   id: string;
@@ -156,6 +157,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
   const [archiveToRestore, setArchiveToRestore] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterYear, setFilterYear] = useState<string>('all');
+  const [listPage, setListPage] = useState(1);
 
   const handleView = (archive: ArchivedDocument) => {
     setViewingArchive(archive);
@@ -427,6 +429,21 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
     return typeMatch && yearMatch;
   });
 
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredArchives.length / listPageSize));
+  const paginatedArchives = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredArchives.slice(start, start + listPageSize);
+  }, [filteredArchives, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [filterType, filterYear]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
+
   // Si on est en mode consultation
   if (viewingArchive) {
     // Convertir l'archive en format Document pour DocumentDetailView
@@ -571,7 +588,7 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
 
       {/* Archives List */}
       <div className="space-y-4">
-        {filteredArchives.map((archive) => {
+        {paginatedArchives.map((archive) => {
           const retentionStatus = getRetentionStatus(archive.retentionEndDate);
 
           return (
@@ -706,6 +723,14 @@ export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
           );
         })}
       </div>
+
+      <ListPaginationBar
+        currentPage={listPage}
+        totalPages={listTotalPages}
+        totalItems={filteredArchives.length}
+        onPageChange={setListPage}
+        itemLabel="archive(s)"
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

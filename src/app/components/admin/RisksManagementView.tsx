@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -19,6 +19,7 @@ import {
 import { AlertTriangle, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Target, TrendingUp, Clock, AlertCircle, Calendar, Calculator, Shield, Tag, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 export interface Risk {
   id: string;
@@ -98,6 +99,7 @@ export function RisksManagementView({
   const [riskToDelete, setRiskToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [listPage, setListPage] = useState(1);
 
   // Form state pour création/édition
   const [formData, setFormData] = useState<Partial<Risk>>({});
@@ -425,6 +427,21 @@ export function RisksManagementView({
     return matchesSearch && matchesStatus;
   });
 
+  const listPageSize = TABLE_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredRisks.length / listPageSize));
+  const paginatedRisks = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredRisks.slice(start, start + listPageSize);
+  }, [filteredRisks, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery, filterStatus]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
+
   // Vue liste
   if (viewMode === 'list') {
     return (
@@ -518,7 +535,7 @@ export function RisksManagementView({
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredRisks.map((risk, index) => {
+                      {paginatedRisks.map((risk, index) => {
                         const completedActions = risk.plannedMeasures?.filter(m => m.status === 'completed').length || 0;
                         const totalActions = risk.plannedMeasures?.length || 0;
                         const progress = totalActions > 0 ? (completedActions / totalActions) * 100 : 0;
@@ -699,6 +716,14 @@ export function RisksManagementView({
                 </div>
             </CardContent>
           </Card>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={filteredRisks.length}
+            onPageChange={setListPage}
+            itemLabel="risque(s)"
+          />
         </div>
 
         {/* Dialog de suppression */}

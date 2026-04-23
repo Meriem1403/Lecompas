@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -18,6 +18,7 @@ import {
 import { Building2, PlusCircle, Edit, Trash2, ArrowLeft, Check, X, Layers, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { Separator } from '@/app/components/ui/separator';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 export interface Service {
   id: string;
@@ -46,6 +47,18 @@ export function ServiceManagementView({
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(services.length / listPageSize));
+  const paginatedServices = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return services.slice(start, start + listPageSize);
+  }, [services, listPage, listPageSize]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages, services.length]);
 
   const handleEdit = (service: Service) => {
     setSelectedService(service);
@@ -113,7 +126,7 @@ export function ServiceManagementView({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((service) => (
+            {paginatedServices.map((service) => (
               <Card key={service.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -189,6 +202,14 @@ export function ServiceManagementView({
               </Card>
             ))}
           </div>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={services.length}
+            onPageChange={setListPage}
+            itemLabel="service(s)"
+          />
         </div>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

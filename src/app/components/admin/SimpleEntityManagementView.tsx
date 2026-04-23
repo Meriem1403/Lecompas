@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -16,6 +16,7 @@ import {
 } from '@/app/components/ui/alert-dialog';
 import { PlusCircle, Edit, Trash2, ArrowLeft, LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 interface SimpleEntity {
   id: string;
@@ -56,6 +57,18 @@ export function SimpleEntityManagementView({
   const [selectedItem, setSelectedItem] = useState<SimpleEntity | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(items.length / listPageSize));
+  const paginatedItems = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return items.slice(start, start + listPageSize);
+  }, [items, listPage, listPageSize]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages, items.length]);
 
   const sujetTitreGestion = (() => {
     const reste = title.replace(/^Gestion des\s+/i, "").trim();
@@ -137,7 +150,7 @@ export function SimpleEntityManagementView({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {items.map((item) => (
+            {paginatedItems.map((item) => (
               <Card key={item.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group">
                 <CardHeader>
                   <div className="flex flex-col items-center text-center">
@@ -187,6 +200,14 @@ export function SimpleEntityManagementView({
               </Card>
             ))}
           </div>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={items.length}
+            onPageChange={setListPage}
+            itemLabel="élément(s)"
+          />
         </div>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

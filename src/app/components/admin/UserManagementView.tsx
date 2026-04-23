@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -17,6 +17,7 @@ import {
 } from '@/app/components/ui/alert-dialog';
 import { User, PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 export interface AppUser {
   id: string;
@@ -84,6 +85,18 @@ export function UserManagementView({
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [listPage, setListPage] = useState(1);
+
+  const listPageSize = TABLE_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(users.length / listPageSize));
+  const paginatedUsers = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return users.slice(start, start + listPageSize);
+  }, [users, listPage, listPageSize]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages, users.length]);
 
   const handleView = (user: AppUser) => {
     setSelectedUser(user);
@@ -184,7 +197,7 @@ export function UserManagementView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {users.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <tr key={user.id} className="hover:bg-blue-50/50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.firstName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.lastName}</td>
@@ -238,6 +251,14 @@ export function UserManagementView({
               </div>
             </CardContent>
           </Card>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={users.length}
+            onPageChange={setListPage}
+            itemLabel="utilisateur(s)"
+          />
         </div>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

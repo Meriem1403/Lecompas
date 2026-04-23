@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -38,6 +38,7 @@ import {
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { toast } from 'sonner';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '../ui/list-pagination-bar';
 
 interface AsbestosDeclarationListViewProps {
   declarations: AsbestosDeclaration[];
@@ -76,6 +77,7 @@ export function AsbestosDeclarationListView({
   const [validateAction, setValidateAction] = useState<'admin' | 'sg' | null>(null);
   const [declarationToValidate, setDeclarationToValidate] = useState<AsbestosDeclaration | null>(null);
   const [validationComment, setValidationComment] = useState('');
+  const [listPage, setListPage] = useState(1);
 
   const statusConfig: Record<DeclarationStatus, { label: string; color: string; icon: any }> = {
     pending: {
@@ -123,6 +125,21 @@ export function AsbestosDeclarationListView({
     
     return matchesSearch && matchesStatus && matchesType;
   });
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredDeclarations.length / listPageSize));
+  const paginatedDeclarations = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredDeclarations.slice(start, start + listPageSize);
+  }, [filteredDeclarations, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, filterStatus, filterType]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
 
   // Statistiques
   const stats = {
@@ -489,9 +506,18 @@ export function AsbestosDeclarationListView({
       {/* Declarations List */}
       <div className="space-y-3">
         {filteredDeclarations.length > 0 ? (
-          filteredDeclarations.map(declaration => (
-            <DeclarationCard key={declaration.id} declaration={declaration} />
-          ))
+          <>
+            {paginatedDeclarations.map(declaration => (
+              <DeclarationCard key={declaration.id} declaration={declaration} />
+            ))}
+            <ListPaginationBar
+              currentPage={listPage}
+              totalPages={listTotalPages}
+              totalItems={filteredDeclarations.length}
+              onPageChange={setListPage}
+              itemLabel="déclaration(s)"
+            />
+          </>
         ) : (
           <Card className="border-2 border-dashed border-gray-300">
             <CardContent className="pt-12 pb-12 text-center">

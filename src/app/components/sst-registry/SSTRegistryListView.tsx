@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { SSTRemark, RemarkStatus } from '../SSTRegistryView';
 import { toast } from 'sonner';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '../ui/list-pagination-bar';
 
 interface SSTRegistryListViewProps {
   remarks: SSTRemark[];
@@ -60,6 +61,7 @@ export function SSTRegistryListView({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<RemarkStatus | 'all'>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
+  const [listPage, setListPage] = useState(1);
 
   const statusConfig = {
     nouvelle: { 
@@ -111,6 +113,21 @@ export function SSTRegistryListView({
   const sortedRemarks = [...filteredRemarks].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(sortedRemarks.length / listPageSize));
+  const paginatedRemarks = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return sortedRemarks.slice(start, start + listPageSize);
+  }, [sortedRemarks, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchTerm, statusFilter, serviceFilter]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
 
   // Statistics
   const stats = {
@@ -301,7 +318,7 @@ export function SSTRegistryListView({
           </h2>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-            {sortedRemarks.map((remark) => {
+            {paginatedRemarks.map((remark) => {
               const config = statusConfig[remark.status];
               const StatusIcon = config.icon;
               
@@ -465,6 +482,14 @@ export function SSTRegistryListView({
               );
             })}
           </div>
+
+          <ListPaginationBar
+            currentPage={listPage}
+            totalPages={listTotalPages}
+            totalItems={sortedRemarks.length}
+            onPageChange={setListPage}
+            itemLabel="remarque(s)"
+          />
         </div>
       )}
     </div>
