@@ -1069,6 +1069,85 @@ function CreateAccidentView({
 
 // Composant de vue détaillée
 function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onBack: () => void }) {
+  const hasSoignantSignature = (acc: AccidentBenin) =>
+    Boolean(acc.signatureSoignantImage) || Boolean(acc.signatureSoignantDate) || acc.signatureSoignant;
+  const hasVictimeSignature = (acc: AccidentBenin) =>
+    Boolean(acc.signatureVictimeImage) || Boolean(acc.signatureVictimeDate) || acc.signatureVictime;
+  const isFullySigned = (acc: AccidentBenin) =>
+    hasSoignantSignature(acc) && hasVictimeSignature(acc);
+  const handleExportDeclarationPDF = () => {
+    try {
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 14;
+      let y = 18;
+
+      const addSection = (title: string, lines: string[]) => {
+        pdf.setFillColor(248, 250, 252);
+        pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 10 + lines.length * 6, 2, 2, 'F');
+        pdf.setDrawColor(226, 232, 240);
+        pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 10 + lines.length * 6, 2, 2, 'S');
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(31, 41, 55);
+        pdf.setFontSize(11);
+        pdf.text(title, margin + 3, y + 1);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(51, 65, 85);
+        y += 7;
+        lines.forEach((line) => {
+          const wrapped = pdf.splitTextToSize(line, pageWidth - margin * 2 - 8);
+          pdf.text(wrapped, margin + 4, y + 1);
+          y += wrapped.length * 5;
+        });
+        y += 7;
+      };
+
+      pdf.setFillColor(220, 38, 38);
+      pdf.rect(0, 0, pageWidth, 28, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text('Déclaration d’accident du travail', pageWidth / 2, 12, { align: 'center' });
+      pdf.setFontSize(11);
+      pdf.text(`N° ${accident.numero}/${accident.annee}`, pageWidth / 2, 20, { align: 'center' });
+
+      y = 36;
+      addSection('Identification', [
+        `Victime: ${accident.prenomVictime} ${accident.nomVictime}`,
+        `Date de l'accident: ${new Date(accident.dateAccident).toLocaleDateString('fr-FR')} à ${accident.heureAccident || 'Non renseignée'}`,
+        `Lieu: ${accident.lieuAccident}`,
+        `Date de déclaration: ${new Date(accident.dateInscription).toLocaleString('fr-FR')}`,
+      ]);
+
+      addSection('Circonstances et lésions', [
+        `Circonstances: ${accident.circonstances}`,
+        `Nature des lésions: ${accident.natureLesions}`,
+        `Siège des lésions: ${accident.siegeLesions}`,
+      ]);
+
+      addSection('Soignant et signatures', [
+        `Soignant: ${accident.soignant}`,
+        `Signature soignant: ${hasSoignantSignature(accident) ? 'Oui' : 'Non'}${accident.signatureSoignantDate ? ` (${new Date(accident.signatureSoignantDate).toLocaleDateString('fr-FR')})` : ''}`,
+        `Signature victime: ${hasVictimeSignature(accident) ? 'Oui' : 'Non'}${accident.signatureVictimeDate ? ` (${new Date(accident.signatureVictimeDate).toLocaleDateString('fr-FR')})` : ''}`,
+      ]);
+
+      if (accident.observations) {
+        addSection('Observations', [accident.observations]);
+      }
+
+      pdf.setTextColor(107, 114, 128);
+      pdf.setFontSize(8);
+      pdf.text('Document généré depuis le registre des accidents du travail', margin, 287);
+
+      pdf.save(`Declaration_Accident_${accident.numero}_${accident.annee}.pdf`);
+      toast.success('Déclaration téléchargée en PDF');
+    } catch (error) {
+      console.error('Error generating declaration PDF:', error);
+      toast.error('Erreur lors du téléchargement de la déclaration');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1084,9 +1163,15 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
             })}
           </p>
         </div>
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
-          Retour
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button variant="outline" onClick={handleExportDeclarationPDF} className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50">
+            <Download className="h-4 w-4 mr-2" />
+            Télécharger la déclaration
+          </Button>
+          <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
+            Retour
+          </Button>
+        </div>
       </div>
 
       <Card className="p-6 space-y-6">
