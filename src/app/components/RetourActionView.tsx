@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Check
 } from 'lucide-react';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 interface Risk {
   id: string;
@@ -101,6 +102,9 @@ export function RetourActionView({
   const [justification, setJustification] = useState('');
   const [reviewComments, setReviewComments] = useState<{ [key: string]: string }>({});
   const [selectedMeasureForReplace, setSelectedMeasureForReplace] = useState<{ [key: string]: number }>({});
+  const [pendingPage, setPendingPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const pageSize = Math.max(2, DEFAULT_LIST_PAGE_SIZE - 3);
 
   const handleSubmit = () => {
     if (!proposedMeasure.trim() || !justification.trim()) {
@@ -146,6 +150,31 @@ export function RetourActionView({
 
   const pendingReturns = actionReturns.filter(ar => ar.riskId === risk.id && ar.status === 'pending');
   const historyReturns = actionReturns.filter(ar => ar.riskId === risk.id && ar.status !== 'pending');
+  const pendingTotalPages = Math.max(1, Math.ceil(pendingReturns.length / pageSize));
+  const historyTotalPages = Math.max(1, Math.ceil(historyReturns.length / pageSize));
+
+  const paginatedPendingReturns = useMemo(() => {
+    const start = (pendingPage - 1) * pageSize;
+    return pendingReturns.slice(start, start + pageSize);
+  }, [pendingReturns, pendingPage, pageSize]);
+
+  const paginatedHistoryReturns = useMemo(() => {
+    const start = (historyPage - 1) * pageSize;
+    return historyReturns.slice(start, start + pageSize);
+  }, [historyReturns, historyPage, pageSize]);
+
+  useEffect(() => {
+    setPendingPage(1);
+    setHistoryPage(1);
+  }, [risk.id]);
+
+  useEffect(() => {
+    if (pendingPage > pendingTotalPages) setPendingPage(pendingTotalPages);
+  }, [pendingPage, pendingTotalPages]);
+
+  useEffect(() => {
+    if (historyPage > historyTotalPages) setHistoryPage(historyTotalPages);
+  }, [historyPage, historyTotalPages]);
 
   const getStatusBadge = (status: ActionReturn['status']) => {
     switch (status) {
@@ -335,7 +364,7 @@ export function RetourActionView({
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {pendingReturns.map((actionReturn) => (
+              {paginatedPendingReturns.map((actionReturn) => (
                   <Card key={actionReturn.id} className="border-2 border-amber-300 bg-white">
                     <CardContent className="pt-6 space-y-4">
                       {/* En-tête */}
@@ -460,6 +489,14 @@ export function RetourActionView({
                   </Card>
               ))}
             </div>
+            <ListPaginationBar
+              currentPage={pendingPage}
+              totalPages={pendingTotalPages}
+              totalItems={pendingReturns.length}
+              onPageChange={setPendingPage}
+              itemLabel="retour(s) en attente"
+              className="mt-4"
+            />
           </CardContent>
         </Card>
       )}
@@ -475,7 +512,7 @@ export function RetourActionView({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {historyReturns.map((actionReturn) => (
+              {paginatedHistoryReturns.map((actionReturn) => (
                   <Card
                     key={actionReturn.id}
                     className={`border-2 ${
@@ -559,6 +596,14 @@ export function RetourActionView({
                   </Card>
               ))}
             </div>
+            <ListPaginationBar
+              currentPage={historyPage}
+              totalPages={historyTotalPages}
+              totalItems={historyReturns.length}
+              onPageChange={setHistoryPage}
+              itemLabel="retour(s) dans l'historique"
+              className="mt-4"
+            />
           </CardContent>
         </Card>
       )}

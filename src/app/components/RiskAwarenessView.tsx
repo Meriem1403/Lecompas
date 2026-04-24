@@ -7,6 +7,7 @@ import { Label } from "@/app/components/ui/label";
 import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
+import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -818,36 +819,14 @@ export function RiskAwarenessView({
         ))}
       </div>
 
-      {visibleRecords.length > 0 ? (
-        <Card className="border-2 border-orange-100 bg-white/95">
-          <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">
-              Page {currentPage} / {totalPages} – {visibleRecords.length} fiche
-              {visibleRecords.length > 1 ? "s" : ""}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-orange-200 hover:bg-orange-50"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              >
-                Précédent
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-orange-200 hover:bg-orange-50"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              >
-                Suivant
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={visibleRecords.length}
+        onPageChange={setCurrentPage}
+        itemLabel="fiche(s)"
+        className="border-orange-100"
+      />
 
       {visibleRecords.length === 0 ? (
         <Card className="border-2 border-dashed border-orange-200 bg-orange-50/30">

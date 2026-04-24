@@ -29,9 +29,15 @@ export function ListPaginationBar({
   return (
     <Card className={cn("border-2 bg-white/95", className)}>
       <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-600">
-          Page {currentPage} / {totalPages} — {totalItems} {itemLabel}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
+            Page {currentPage} sur {totalPages}
+          </span>
+          <span className="text-slate-400">•</span>
+          <span className="rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-700">
+            {totalItems} {itemLabel}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             type="button"

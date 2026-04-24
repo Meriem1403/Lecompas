@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -19,7 +19,8 @@ import {
   X,
   Save,
   PlusCircle,
-  Trash2
+  Trash2,
+  ArrowLeft
 } from 'lucide-react';
 
 interface Accident {
@@ -34,20 +35,42 @@ interface Accident {
   witnesses: string[];
   measures: string;
   createdAt: string;
+  service?: string;
+  domain?: string;
 }
 
 interface AccidentEditViewProps {
   accident: Accident;
   onSave: (accident: Accident) => void;
   onCancel: () => void;
+  agents: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    service: string;
+    domain: string;
+    location: string;
+  }>;
+  serviceOptions: string[];
+  domainOptions: string[];
+  locationOptions: string[];
 }
 
 export function AccidentEditView({ 
   accident, 
   onSave, 
-  onCancel
+  onCancel,
+  agents,
+  serviceOptions,
+  domainOptions,
+  locationOptions
 }: AccidentEditViewProps) {
-  const [formData, setFormData] = useState<Accident>(accident);
+  const [formData, setFormData] = useState<Accident>({
+    ...accident,
+    service: accident.service && serviceOptions.includes(accident.service) ? accident.service : '',
+    domain: accident.domain && domainOptions.includes(accident.domain) ? accident.domain : '',
+    location: locationOptions.includes(accident.location) ? accident.location : ''
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,20 +120,64 @@ export function AccidentEditView({
         return AlertCircle;
     }
   };
+  const getSeverityLabel = (severity: 'bénin' | 'modéré' | 'grave' | 'très_grave') => {
+    switch (severity) {
+      case 'bénin':
+        return 'Bénin';
+      case 'modéré':
+        return 'Modéré';
+      case 'grave':
+        return 'Grave';
+      default:
+        return 'Très grave';
+    }
+  };
 
   const TypeIcon = getTypeIcon(formData.type);
   const severityGradient = getSeverityGradient(formData.severity);
+  const severityTextClass = 'text-white';
+  const filteredAgents = useMemo(
+    () =>
+      agents.filter(
+        (agent) =>
+          (!formData.service || agent.service === formData.service) &&
+          (!formData.domain || agent.domain === formData.domain) &&
+          (!formData.location || agent.location === formData.location)
+      ),
+    [agents, formData.service, formData.domain, formData.location]
+  );
+  const witnessSuggestions = useMemo(() => {
+    const sourceAgents = filteredAgents.length > 0 ? filteredAgents : agents;
+    return Array.from(
+      new Set(sourceAgents.map((agent) => `${agent.firstName} ${agent.lastName}`))
+    );
+  }, [agents, filteredAgents]);
+
+  useEffect(() => {
+    if (
+      formData.victim &&
+      !filteredAgents.some((agent) => `${agent.firstName} ${agent.lastName}` === formData.victim)
+    ) {
+      setFormData((prev) => ({ ...prev, victim: '' }));
+    }
+  }, [filteredAgents, formData.victim]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Modifier l'accident</h2>
+        <p className="text-gray-600 mt-1">Mettez à jour les informations de la déclaration.</p>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button 
           type="button"
-          variant="ghost" 
+          variant="outline" 
           onClick={onCancel}
-          className="hover:bg-purple-50"
+          className="w-full sm:w-auto border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-semibold"
         >
-          ← Annuler et retour
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Retour à la liste
         </Button>
         <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
           <Button 
@@ -136,18 +203,18 @@ export function AccidentEditView({
         {/* Main Form */}
         <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
           <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
-                <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${severityGradient} flex items-center justify-center shadow-lg`}>
+            <div className="w-full">
+              <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
+                <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${severityGradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
                   <TypeIcon className="h-8 w-8 text-white" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 w-full">
                   <Label htmlFor="title" className="text-sm font-semibold text-gray-600">Titre de l'accident</Label>
                   <Input
                     id="title"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="text-xl font-bold mt-1"
+                    className="w-full text-xl font-bold mt-1"
                     required
                   />
                 </div>
@@ -193,35 +260,98 @@ export function AccidentEditView({
 
             <Separator />
 
-            {/* Victime et Lieu */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Service, domaine et lieu */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl">
+                <Label className="text-sm font-bold text-purple-900 mb-2">Service</Label>
+                <Select
+                  value={formData.service || '__none__'}
+                  onValueChange={(value) => setFormData({ ...formData, service: value === '__none__' ? '' : value })}
+                >
+                  <SelectTrigger className="bg-white border-purple-200">
+                    <SelectValue placeholder="Sélectionner un service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Non sélectionné</SelectItem>
+                    {serviceOptions.map((service) => (
+                      <SelectItem key={service} value={service}>
+                        {service}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl">
+                <Label className="text-sm font-bold text-blue-900 mb-2">Domaine</Label>
+                <Select
+                  value={formData.domain || '__none__'}
+                  onValueChange={(value) => setFormData({ ...formData, domain: value === '__none__' ? '' : value })}
+                >
+                  <SelectTrigger className="bg-white border-blue-200">
+                    <SelectValue placeholder="Sélectionner un domaine" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Non sélectionné</SelectItem>
+                    {domainOptions.map((domain) => (
+                      <SelectItem key={domain} value={domain}>
+                        {domain}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="bg-gradient-to-br from-cyan-50 to-sky-50 p-4 rounded-xl">
+                <Label className="text-sm font-bold text-cyan-900 mb-2">Lieu</Label>
+                <Select
+                  value={formData.location || '__none__'}
+                  onValueChange={(value) => setFormData({ ...formData, location: value === '__none__' ? '' : value })}
+                >
+                  <SelectTrigger className="bg-white border-cyan-200">
+                    <SelectValue placeholder="Sélectionner un lieu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Non sélectionné</SelectItem>
+                    {locationOptions.map((location) => (
+                      <SelectItem key={location} value={location}>
+                        {location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Victime */}
+            <div className="grid grid-cols-1 gap-4">
               <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl">
                 <Label htmlFor="victim" className="text-sm font-bold text-purple-900 mb-2 flex items-center">
                   <User className="h-4 w-4 mr-2" />
-                  Victime
+                  Victime (agents filtrés)
                 </Label>
-                <Input
-                  id="victim"
+                <Select
                   value={formData.victim}
-                  onChange={(e) => setFormData({ ...formData, victim: e.target.value })}
-                  placeholder="Nom de la victime"
-                  className="bg-white border-purple-200"
-                  required
-                />
-              </div>
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl">
-                <Label htmlFor="location" className="text-sm font-bold text-blue-900 mb-2 flex items-center">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Lieu
-                </Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Lieu de l'accident"
-                  className="bg-white border-blue-200"
-                  required
-                />
+                  onValueChange={(value) => setFormData({ ...formData, victim: value })}
+                  disabled={filteredAgents.length === 0}
+                >
+                  <SelectTrigger id="victim" className="bg-white border-purple-200">
+                    <SelectValue placeholder={filteredAgents.length === 0 ? "Aucun agent pour ce filtre" : "Sélectionner un agent"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredAgents.map((agent) => {
+                      const fullName = `${agent.firstName} ${agent.lastName}`;
+                      return (
+                        <SelectItem key={agent.id} value={fullName}>
+                          {fullName}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-purple-700 mt-2">
+                  Service : {formData.service || "Non défini"} · Domaine : {formData.domain || "Non défini"} · Lieu : {formData.location || "Non défini"}
+                </p>
               </div>
             </div>
 
@@ -273,6 +403,7 @@ export function AccidentEditView({
                         value={witness}
                         onChange={(e) => updateWitness(idx, e.target.value)}
                         placeholder="Nom du témoin..."
+                        list="witness-agents-edit"
                         className="flex-1 bg-white border-amber-200"
                       />
                       <Button
@@ -290,6 +421,14 @@ export function AccidentEditView({
                   <p className="text-amber-700 italic text-sm">Aucun témoin. Cliquez sur "Ajouter" pour en créer un.</p>
                 )}
               </div>
+              <datalist id="witness-agents-edit">
+                {witnessSuggestions.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              <p className="text-xs text-amber-800 mt-2">
+                Suggestions d'agents disponibles, avec saisie manuelle possible.
+              </p>
             </div>
 
             <Separator />
@@ -339,9 +478,9 @@ export function AccidentEditView({
               </Select>
               
               <div className={`text-center p-4 rounded-xl bg-gradient-to-br ${severityGradient} bg-opacity-10 border-2`}>
-                <p className="text-gray-600 text-xs font-semibold mb-1">Niveau de gravité sélectionné</p>
-                <p className="font-bold text-2xl capitalize">
-                  {formData.severity.replace('_', ' ')}
+                <p className={`${severityTextClass} text-xs font-semibold mb-1`}>Niveau de gravité sélectionné</p>
+                <p className={`${severityTextClass} font-bold text-2xl`}>
+                  {getSeverityLabel(formData.severity)}
                 </p>
               </div>
             </CardContent>

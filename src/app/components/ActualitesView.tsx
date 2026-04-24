@@ -45,6 +45,7 @@ import {
 import { toast } from 'sonner';
 import { ActualiteFormPage } from '@/app/components/ActualiteFormPage';
 import { ActualiteDetailPage } from '@/app/components/ActualiteDetailPage';
+import { ListPaginationBar } from '@/app/components/ui/list-pagination-bar';
 
 interface Document {
   id: string;
@@ -251,10 +252,12 @@ const mockActualites: Actualite[] = [
 ];
 
 type ViewMode = 'list' | 'new' | 'edit' | 'detail';
+const ACTUALITES_PAGE_SIZE = 3;
 
 export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'chef_service' | 'agent' }) {
   const [actualites, setActualites] = useState<Actualite[]>(mockActualites);
   const [filteredActualites, setFilteredActualites] = useState<Actualite[]>(mockActualites);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedActualite, setSelectedActualite] = useState<Actualite | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -279,6 +282,20 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
 
     setFilteredActualites(filtered);
   }, [actualites, filterType, showOnlyUnread]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredActualites.length / ACTUALITES_PAGE_SIZE));
+  const paginatedActualites = React.useMemo(() => {
+    const start = (currentPage - 1) * ACTUALITES_PAGE_SIZE;
+    return filteredActualites.slice(start, start + ACTUALITES_PAGE_SIZE);
+  }, [filteredActualites, currentPage]);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, showOnlyUnread]);
+
+  React.useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const handleMarkAsRead = (actualiteId: string) => {
     setActualites(
@@ -489,6 +506,14 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
         </CardContent>
       </Card>
 
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredActualites.length}
+        onPageChange={setCurrentPage}
+        itemLabel="actualité(s)"
+      />
+
       {/* Liste des actualités */}
       <div className="space-y-4">
         {filteredActualites.length === 0 ? (
@@ -508,7 +533,7 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
             </CardContent>
           </Card>
         ) : (
-          filteredActualites.map((actualite) => {
+          paginatedActualites.map((actualite) => {
             const isUnread = !actualite.vuesPar.includes(currentUserId);
             const isExpired = actualite.dateExpiration
               ? new Date(actualite.dateExpiration) < new Date()
@@ -698,6 +723,14 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
           })
         )}
       </div>
+
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredActualites.length}
+        onPageChange={setCurrentPage}
+        itemLabel="actualité(s)"
+      />
 
       {/* Dialog Suppression */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

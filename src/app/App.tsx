@@ -32,6 +32,7 @@ import { Separator } from "./components/ui/separator";
 import { AccidentsView } from "./components/AccidentsView";
 import { ActionsView } from "./components/ActionsView";
 import { RiskFormDialog } from "./components/RiskFormDialog";
+import { ListPaginationBar } from "./components/ui/list-pagination-bar";
 import { RiskEditView } from "./components/RiskEditView";
 import {
   AdminTabsView,
@@ -226,6 +227,8 @@ interface Accident {
   type: "travail" | "trajet" | "maladie_pro";
   victim: string;
   location: string;
+  service?: string;
+  domain?: string;
   witnesses: string[];
   measures: string;
   createdAt: string;
@@ -1260,6 +1263,103 @@ export default function App() {
         "L'isolement et le manque d'activité physique sont des problèmes récurrents. Des pauses collectives permettraient de maintenir le lien social et encourager le mouvement.",
       status: "pending",
     },
+  ]);
+  const [actionReturnsCurrentPage, setActionReturnsCurrentPage] =
+    useState(1);
+  const [actionReturnsSearch, setActionReturnsSearch] = useState("");
+  const [actionReturnsServiceFilter, setActionReturnsServiceFilter] =
+    useState("all");
+  const [actionReturnsAuthorFilter, setActionReturnsAuthorFilter] =
+    useState("all");
+  const [actionReturnsRiskFilter, setActionReturnsRiskFilter] =
+    useState("all");
+  const ACTION_RETURNS_PAGE_SIZE = 6;
+  const pendingActionReturns = actionReturns.filter(
+    (ar) => ar.status === "pending",
+  );
+  const filteredPendingActionReturns = pendingActionReturns.filter(
+    (actionReturn) => {
+      const linkedRisk = risks.find((r) => r.id === actionReturn.riskId);
+      const service = linkedRisk?.service || "";
+      const site = linkedRisk?.site || "";
+      const riskTitle =
+        linkedRisk?.title || actionReturn.riskTitle || "";
+      const searchBlob = [
+        actionReturn.proposedBy,
+        actionReturn.proposedMeasure,
+        actionReturn.justification,
+        riskTitle,
+        service,
+        site,
+      ]
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch =
+        actionReturnsSearch.trim() === "" ||
+        searchBlob.includes(actionReturnsSearch.toLowerCase());
+      const matchesService =
+        actionReturnsServiceFilter === "all" ||
+        service === actionReturnsServiceFilter;
+      const matchesAuthor =
+        actionReturnsAuthorFilter === "all" ||
+        actionReturn.proposedBy === actionReturnsAuthorFilter;
+      const matchesRisk =
+        actionReturnsRiskFilter === "all" ||
+        actionReturn.riskId === actionReturnsRiskFilter;
+      return (
+        matchesSearch &&
+        matchesService &&
+        matchesAuthor &&
+        matchesRisk
+      );
+    },
+  );
+  const availableActionReturnServices = Array.from(
+    new Set(
+      pendingActionReturns
+        .map((ar) => risks.find((r) => r.id === ar.riskId)?.service || "")
+        .filter(Boolean),
+    ),
+  ).sort();
+  const availableActionReturnAuthors = Array.from(
+    new Set(pendingActionReturns.map((ar) => ar.proposedBy).filter(Boolean)),
+  ).sort();
+  const availableActionReturnRisks = Array.from(
+    new Set(
+      pendingActionReturns
+        .map((ar) => {
+          const risk = risks.find((r) => r.id === ar.riskId);
+          if (!risk) return null;
+          return `${risk.id}::${risk.title}`;
+        })
+        .filter(Boolean) as string[],
+    ),
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+  const actionReturnsTotalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredPendingActionReturns.length /
+        ACTION_RETURNS_PAGE_SIZE,
+    ),
+  );
+  const paginatedPendingActionReturns = filteredPendingActionReturns.slice(
+    (actionReturnsCurrentPage - 1) * ACTION_RETURNS_PAGE_SIZE,
+    actionReturnsCurrentPage * ACTION_RETURNS_PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    if (actionReturnsCurrentPage > actionReturnsTotalPages) {
+      setActionReturnsCurrentPage(actionReturnsTotalPages);
+    }
+  }, [actionReturnsCurrentPage, actionReturnsTotalPages]);
+
+  useEffect(() => {
+    setActionReturnsCurrentPage(1);
+  }, [
+    actionReturnsSearch,
+    actionReturnsServiceFilter,
+    actionReturnsAuthorFilter,
+    actionReturnsRiskFilter,
   ]);
 
   // Générer automatiquement les notifications pour les retours d'action en attente
@@ -2866,41 +2966,13 @@ export default function App() {
                       })
                     )}
                   </div>
-                  {filteredVisibleRisks.length > 0 && (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-gray-600">
-                        Page {riskCurrentPage} / {totalRiskPages}
-                      </p>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={riskCurrentPage === 1}
-                          onClick={() =>
-                            setRiskCurrentPage((page) =>
-                              Math.max(1, page - 1),
-                            )
-                          }
-                        >
-                          Précédent
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={
-                            riskCurrentPage === totalRiskPages
-                          }
-                          onClick={() =>
-                            setRiskCurrentPage((page) =>
-                              Math.min(totalRiskPages, page + 1),
-                            )
-                          }
-                        >
-                          Suivant
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  <ListPaginationBar
+                    currentPage={riskCurrentPage}
+                    totalPages={totalRiskPages}
+                    totalItems={filteredVisibleRisks.length}
+                    onPageChange={setRiskCurrentPage}
+                    itemLabel="risque(s)"
+                  />
                 </>
               ) : isEditingRisk && selectedRisk ? (
                 /* Risk Edit View */
@@ -3467,6 +3539,10 @@ export default function App() {
               onAdd={handleAddAccident}
               onUpdate={handleUpdateAccident}
               onDelete={handleDeleteAccident}
+              agents={adminUsers}
+              serviceOptions={serviceOptions}
+              domainOptions={domainOptions}
+              locationOptions={locationOptions}
             />
           )}
 
@@ -3560,8 +3636,88 @@ export default function App() {
               </div>
 
               {/* List of Action Returns */}
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Input
+                      placeholder="Rechercher (risque, mesure, auteur...)"
+                      value={actionReturnsSearch}
+                      onChange={(e) =>
+                        setActionReturnsSearch(e.target.value)
+                      }
+                    />
+                    <Select
+                      value={actionReturnsServiceFilter}
+                      onValueChange={setActionReturnsServiceFilter}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Service" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          Tous les services
+                        </SelectItem>
+                        {availableActionReturnServices.map((service) => (
+                          <SelectItem
+                            key={service}
+                            value={service}
+                          >
+                            {service}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={actionReturnsAuthorFilter}
+                      onValueChange={setActionReturnsAuthorFilter}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Auteur" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          Tous les auteurs
+                        </SelectItem>
+                        {availableActionReturnAuthors.map((author) => (
+                          <SelectItem
+                            key={author}
+                            value={author}
+                          >
+                            {author}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={actionReturnsRiskFilter}
+                      onValueChange={setActionReturnsRiskFilter}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Risque" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          Tous les risques
+                        </SelectItem>
+                        {availableActionReturnRisks.map((riskValue) => {
+                          const [riskId, riskTitle] = riskValue.split("::");
+                          return (
+                            <SelectItem
+                              key={riskId}
+                              value={riskId}
+                            >
+                              {riskTitle}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="grid grid-cols-1 gap-6">
-                {actionReturns.filter(ar => ar.status === 'pending').length === 0 ? (
+                {filteredPendingActionReturns.length === 0 ? (
                   <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
                     <CardContent className="pt-12 pb-12 text-center">
                       <div className="h-24 w-24 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-6">
@@ -3573,7 +3729,7 @@ export default function App() {
                     </CardContent>
                   </Card>
                 ) : (
-                  actionReturns.filter(ar => ar.status === 'pending').map((actionReturn) => {
+                  paginatedPendingActionReturns.map((actionReturn) => {
                     const risk = risks.find(r => r.id === actionReturn.riskId);
                     if (!risk) return null;
 
@@ -3642,6 +3798,13 @@ export default function App() {
                   })
                 )}
               </div>
+              <ListPaginationBar
+                currentPage={actionReturnsCurrentPage}
+                totalPages={actionReturnsTotalPages}
+                totalItems={filteredPendingActionReturns.length}
+                onPageChange={setActionReturnsCurrentPage}
+                itemLabel="retour(s) en attente"
+              />
             </div>
           )}
 
@@ -3681,7 +3844,12 @@ export default function App() {
 
           {/* Registre accidents view */}
           {activeView === "registre" && (
-            <RegistreAccidentsView />
+            <RegistreAccidentsView
+              agents={adminUsers}
+              serviceOptions={serviceOptions}
+              domainOptions={domainOptions}
+              locationOptions={locationOptions}
+            />
           )}
 
           {/* Settings view */}

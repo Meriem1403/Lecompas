@@ -9,6 +9,7 @@ import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
 import { AlertTriangle, ArrowLeft, Building2, ClipboardList, Download, FileText, Filter, PhoneCall, PlusCircle, Route, Search, Send, Shield, Ship, Signature, Target } from "lucide-react";
 import { toast } from "sonner";
+import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
 
 interface RiskMeasure {
   description: string;
@@ -1201,33 +1202,13 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
         ))}
       </div>
 
-      {visiblePlans.length > 0 ? (
-        <Card className="border-2 bg-white/95">
-          <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">
-              Page {currentPage} / {totalPages} - {visiblePlans.length} résultat(s)
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              >
-                Précédent
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              >
-                Suivant
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={visiblePlans.length}
+        onPageChange={setCurrentPage}
+        itemLabel="plan(s)"
+      />
 
       {visiblePlans.length === 0 ? (
         <Card className="border-2 border-dashed border-gray-300 bg-white/80">

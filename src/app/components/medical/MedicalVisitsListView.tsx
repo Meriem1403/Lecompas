@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -41,6 +41,7 @@ import {
   AlertDialogTitle,
 } from '../ui/alert-dialog';
 import { toast } from 'sonner';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '../ui/list-pagination-bar';
 
 interface MedicalVisitsListViewProps {
   medicalVisits: MedicalVisit[];
@@ -63,6 +64,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
   const [showAPlanifier, setShowAPlanifier] = useState(true);
   const [showEnRetard, setShowEnRetard] = useState(true);
   const [showUrgent, setShowUrgent] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const statusConfig = {
     a_jour: {
@@ -141,13 +143,27 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
     return matchesSearch && matchesService && matchesStatutMilitaire && matchesAmenagement;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredVisits.length / DEFAULT_LIST_PAGE_SIZE));
+  const paginatedVisits = useMemo(() => {
+    const start = (currentPage - 1) * DEFAULT_LIST_PAGE_SIZE;
+    return filteredVisits.slice(start, start + DEFAULT_LIST_PAGE_SIZE);
+  }, [filteredVisits, currentPage]);
+
   // Grouper par statut
   const visitsByStatus = {
-    urgent: filteredVisits.filter(v => v.statut === 'urgent'),
-    en_retard: filteredVisits.filter(v => v.statut === 'en_retard'),
-    a_planifier: filteredVisits.filter(v => v.statut === 'a_planifier'),
-    a_jour: filteredVisits.filter(v => v.statut === 'a_jour'),
+    urgent: paginatedVisits.filter(v => v.statut === 'urgent'),
+    en_retard: paginatedVisits.filter(v => v.statut === 'en_retard'),
+    a_planifier: paginatedVisits.filter(v => v.statut === 'a_planifier'),
+    a_jour: paginatedVisits.filter(v => v.statut === 'a_jour'),
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterService, filterStatutMilitaire, filterAmenagement]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const handleDeleteClick = (visit: MedicalVisit) => {
     setVisitToDelete(visit);
@@ -654,6 +670,14 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
           </CardContent>
         </Card>
       )}
+
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredVisits.length}
+        onPageChange={setCurrentPage}
+        itemLabel="agent(s)"
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

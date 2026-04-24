@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { CheckCircle, XCircle, Clock, User, Calendar, MessageSquare, ArrowLeftRight, Plus, Eye } from 'lucide-react';
+import { ListPaginationBar } from './ui/list-pagination-bar';
 
 interface ActionReturn {
   id: string;
@@ -27,6 +28,19 @@ interface ActionReturnHistoryProps {
 }
 
 export function ActionReturnHistory({ actionReturns, onManageActionReturns, userRole }: ActionReturnHistoryProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 2;
+
+  const totalPages = Math.max(1, Math.ceil(actionReturns.length / pageSize));
+  const paginatedActionReturns = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return actionReturns.slice(start, start + pageSize);
+  }, [actionReturns, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   const getStatusBadge = (status: ActionReturn['status']) => {
     switch (status) {
       case 'pending':
@@ -114,8 +128,20 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 p-3 rounded-xl border-2 border-indigo-200 bg-indigo-50/70">
+          <p className="text-xs font-semibold text-indigo-700 mb-2 uppercase tracking-wide">
+            Navigation des retours
+          </p>
+          <ListPaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={actionReturns.length}
+            onPageChange={setCurrentPage}
+            itemLabel="retour(s) d'action"
+          />
+        </div>
         <div className="space-y-4">
-            {actionReturns.map((actionReturn) => (
+            {paginatedActionReturns.map((actionReturn) => (
               <Card 
                 key={actionReturn.id} 
                 className={`border-2 ${
@@ -220,6 +246,15 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
                 </CardContent>
               </Card>
             ))}
+        </div>
+        <div className="mt-4 p-3 rounded-xl border-2 border-indigo-200 bg-indigo-50/70">
+          <ListPaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={actionReturns.length}
+            onPageChange={setCurrentPage}
+            itemLabel="retour(s) d'action"
+          />
         </div>
       </CardContent>
     </Card>

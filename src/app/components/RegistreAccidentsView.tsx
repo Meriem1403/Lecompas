@@ -51,6 +51,18 @@ interface AccidentBenin {
   signatureVictime: boolean;
   dateInscription: string;
   observations?: string;
+  serviceAffectation?: string;
+  domaineAffectation?: string;
+  lieuAffectation?: string;
+}
+
+interface AgentOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  service: string;
+  domain: string;
+  location: string;
 }
 
 // Données fictives
@@ -70,7 +82,7 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     soignant: 'Dr. Laurent Mercier',
     signatureSoignant: true,
     signatureVictime: true,
-    dateInscription: '2026-01-15',
+    dateInscription: '2026-01-15T11:05:00',
     observations: 'Pansement appliqué, pas de soins nécessaires'
   },
   {
@@ -88,7 +100,7 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     soignant: 'Infirmier Paul Bernard',
     signatureSoignant: true,
     signatureVictime: true,
-    dateInscription: '2026-01-20',
+    dateInscription: '2026-01-20T14:48:00',
     observations: 'Application de glace, surveillance 15 minutes'
   },
   {
@@ -106,12 +118,24 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     soignant: 'Dr. Laurent Mercier',
     signatureSoignant: true,
     signatureVictime: true,
-    dateInscription: '2026-01-28',
+    dateInscription: '2026-01-28T10:12:00',
     observations: 'Aucun soin nécessaire, surveillance recommandée'
   }
 ];
 
-export function RegistreAccidentsView() {
+interface RegistreAccidentsViewProps {
+  agents?: AgentOption[];
+  serviceOptions?: string[];
+  domainOptions?: string[];
+  locationOptions?: string[];
+}
+
+export function RegistreAccidentsView({
+  agents = [],
+  serviceOptions = [],
+  domainOptions = [],
+  locationOptions = [],
+}: RegistreAccidentsViewProps) {
   const [accidents, setAccidents] = useState<AccidentBenin[]>(FAKE_ACCIDENTS);
   const [viewingAccident, setViewingAccident] = useState<AccidentBenin | null>(null);
   const [editingAccident, setEditingAccident] = useState<AccidentBenin | null>(null);
@@ -119,13 +143,30 @@ export function RegistreAccidentsView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [accidentToDelete, setAccidentToDelete] = useState<string | null>(null);
   const [filterAnnee, setFilterAnnee] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterSignature, setFilterSignature] = useState<string>('all');
+  const [filterSoignant, setFilterSoignant] = useState<string>('all');
   const [listPage, setListPage] = useState(1);
 
   // Filtrage
-  const filteredAccidents = accidents.filter(acc => {
-    if (filterAnnee !== 'all' && acc.annee.toString() !== filterAnnee) return false;
-    return true;
-  });
+  const filteredAccidents = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return accidents.filter(acc => {
+      if (filterAnnee !== 'all' && acc.annee.toString() !== filterAnnee) return false;
+      if (filterSoignant !== 'all' && acc.soignant !== filterSoignant) return false;
+      if (filterSignature === 'signed' && !(acc.signatureSoignant && acc.signatureVictime)) return false;
+      if (filterSignature === 'partial' && acc.signatureSoignant && acc.signatureVictime) return false;
+
+      if (!normalizedSearch) return true;
+      const victim = `${acc.prenomVictime} ${acc.nomVictime}`.toLowerCase();
+      return (
+        victim.includes(normalizedSearch) ||
+        acc.lieuAccident.toLowerCase().includes(normalizedSearch) ||
+        acc.circonstances.toLowerCase().includes(normalizedSearch) ||
+        acc.natureLesions.toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [accidents, filterAnnee, searchTerm, filterSignature, filterSoignant]);
 
   const listPageSize = DEFAULT_LIST_PAGE_SIZE;
   const listTotalPages = Math.max(1, Math.ceil(filteredAccidents.length / listPageSize));
@@ -136,7 +177,7 @@ export function RegistreAccidentsView() {
 
   useEffect(() => {
     setListPage(1);
-  }, [filterAnnee]);
+  }, [filterAnnee, searchTerm, filterSignature, filterSoignant]);
 
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
@@ -144,6 +185,7 @@ export function RegistreAccidentsView() {
 
   // Années disponibles
   const availableYears = Array.from(new Set(accidents.map(a => a.annee))).sort((a, b) => b - a);
+  const availableSoignants = Array.from(new Set(accidents.map(a => a.soignant))).sort((a, b) => a.localeCompare(b));
 
   const handleAdd = () => {
     setIsCreating(true);
@@ -339,17 +381,26 @@ export function RegistreAccidentsView() {
   };
 
   if (isCreating) {
-    return <CreateAccidentView onBack={() => setIsCreating(false)} onSave={(accident) => {
+    return <CreateAccidentView
+      onBack={() => setIsCreating(false)}
+      agents={agents}
+      serviceOptions={serviceOptions}
+      domainOptions={domainOptions}
+      locationOptions={locationOptions}
+      onSave={(accident) => {
+      const accidentYear = new Date(accident.dateAccident).getFullYear();
       const newAccident = {
         ...accident,
         id: Date.now().toString(),
         numero: Math.max(...accidents.map(a => a.numero), 0) + 1,
-        dateInscription: new Date().toISOString().split('T')[0]
+        annee: Number.isNaN(accidentYear) ? new Date().getFullYear() : accidentYear,
+        dateInscription: new Date().toISOString()
       };
       setAccidents([...accidents, newAccident]);
       setIsCreating(false);
       toast.success('Accident enregistré avec succès');
-    }} />;
+    }}
+    />;
   }
 
   if (viewingAccident) {
@@ -360,8 +411,16 @@ export function RegistreAccidentsView() {
     return <EditAccidentView 
       accident={editingAccident} 
       onBack={() => setEditingAccident(null)}
+      agents={agents}
+      serviceOptions={serviceOptions}
+      domainOptions={domainOptions}
+      locationOptions={locationOptions}
       onSave={(updated) => {
-        setAccidents(accidents.map(a => a.id === updated.id ? updated : a));
+        const updatedYear = new Date(updated.dateAccident).getFullYear();
+        setAccidents(accidents.map(a => a.id === updated.id ? {
+          ...updated,
+          annee: Number.isNaN(updatedYear) ? a.annee : updatedYear
+        } : a));
         setEditingAccident(null);
         toast.success('Accident modifié avec succès');
       }}
@@ -376,21 +435,21 @@ export function RegistreAccidentsView() {
           <h3 className="text-2xl font-bold text-gray-900">Registre des Accidents du Travail</h3>
           <p className="text-gray-600">Accidents bénins sans arrêt (Article D.4711-3)</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3 lg:w-auto lg:items-center">
           <Button 
-            onClick={handleExportPDF}
-            variant="outline"
-            className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exporter PDF
-          </Button>
-          <Button 
-            className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-lg" 
+            className="w-full sm:w-auto lg:min-w-[170px] bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-lg" 
             onClick={handleAdd}
           >
             <PlusCircle className="h-4 w-4 mr-2" />
             Nouvel accident
+          </Button>
+          <Button 
+            onClick={handleExportPDF}
+            variant="outline"
+            className="w-full sm:w-auto lg:min-w-[150px] border-red-600 text-red-600 hover:bg-red-50"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exporter PDF
           </Button>
         </div>
       </div>
@@ -461,7 +520,7 @@ export function RegistreAccidentsView() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm text-purple-600 font-medium">Délai moyen inscription</p>
-              <p className="text-3xl font-bold text-purple-700">&lt; 24h</p>
+              <p className="text-2xl font-bold text-purple-700">24 h maximum</p>
             </div>
             <div className="h-11 w-11 shrink-0 rounded-xl bg-purple-100/80 flex items-center justify-center">
               <Clock className="h-6 w-6 text-purple-600" />
@@ -471,13 +530,20 @@ export function RegistreAccidentsView() {
       </div>
 
       {/* Filtres */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+      <div className="space-y-2">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-500" />
           <span className="text-sm font-medium text-gray-700">Filtres:</span>
         </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher victime, lieu, circonstances..."
+            className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-500 focus-visible:ring-red-500/30"
+          />
         <Select value={filterAnnee} onValueChange={setFilterAnnee}>
-          <SelectTrigger className="w-full sm:w-[200px]">
+          <SelectTrigger className="w-full bg-white border-gray-300 text-gray-900 focus:ring-red-500/30">
             <SelectValue placeholder="Toutes les années" />
           </SelectTrigger>
           <SelectContent>
@@ -487,6 +553,28 @@ export function RegistreAccidentsView() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={filterSignature} onValueChange={setFilterSignature}>
+          <SelectTrigger className="w-full bg-white border-gray-300 text-gray-900 focus:ring-red-500/30">
+            <SelectValue placeholder="Signature" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Toutes les signatures</SelectItem>
+            <SelectItem value="signed">Signé complet</SelectItem>
+            <SelectItem value="partial">Signature incomplète</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterSoignant} onValueChange={setFilterSoignant}>
+          <SelectTrigger className="w-full bg-white border-gray-300 text-gray-900 focus:ring-red-500/30">
+            <SelectValue placeholder="Soignant" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les soignants</SelectItem>
+            {availableSoignants.map((soignant) => (
+              <SelectItem key={soignant} value={soignant}>{soignant}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        </div>
       </div>
 
       {/* Liste des accidents */}
@@ -561,7 +649,13 @@ export function RegistreAccidentsView() {
                         <span className="font-medium">Soignant:</span> {accident.soignant}
                       </p>
                       <p className="text-gray-500">
-                        Inscrit le {new Date(accident.dateInscription).toLocaleDateString('fr-FR')}
+                        Déclaré le {new Date(accident.dateInscription).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </p>
                     </div>
                   </div>
@@ -634,11 +728,27 @@ export function RegistreAccidentsView() {
 }
 
 // Composant de création
-function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (accident: Omit<AccidentBenin, 'id' | 'numero' | 'dateInscription'>) => void }) {
+function CreateAccidentView({
+  onBack,
+  onSave,
+  agents,
+  serviceOptions,
+  domainOptions,
+  locationOptions
+}: {
+  onBack: () => void;
+  onSave: (accident: Omit<AccidentBenin, 'id' | 'numero' | 'annee' | 'dateInscription'>) => void;
+  agents: AgentOption[];
+  serviceOptions: string[];
+  domainOptions: string[];
+  locationOptions: string[];
+}) {
   const [formData, setFormData] = useState({
-    annee: new Date().getFullYear(),
     nomVictime: '',
     prenomVictime: '',
+    serviceAffectation: '',
+    domaineAffectation: '',
+    lieuAffectation: '',
     dateAccident: new Date().toISOString().split('T')[0],
     heureAccident: '',
     lieuAccident: '',
@@ -651,6 +761,15 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
     observations: ''
   });
 
+  const filteredAgents = useMemo(
+    () => agents.filter((agent) =>
+      (!formData.serviceAffectation || agent.service === formData.serviceAffectation) &&
+      (!formData.domaineAffectation || agent.domain === formData.domaineAffectation) &&
+      (!formData.lieuAffectation || agent.location === formData.lieuAffectation)
+    ),
+    [agents, formData.serviceAffectation, formData.domaineAffectation, formData.lieuAffectation]
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nomVictime || !formData.prenomVictime || !formData.dateAccident || !formData.lieuAccident) {
@@ -658,6 +777,15 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
       return;
     }
     onSave(formData);
+  };
+
+  const handleVictimeSelection = (fullName: string) => {
+    const [prenom, ...restNom] = fullName.split(' ');
+    setFormData({
+      ...formData,
+      prenomVictime: prenom || '',
+      nomVictime: restNom.join(' ') || ''
+    });
   };
 
   return (
@@ -674,41 +802,86 @@ function CreateAccidentView({ onBack, onSave }: { onBack: () => void; onSave: (a
 
       <form onSubmit={handleSubmit}>
         <Card className="p-6 space-y-6">
-          {/* Informations victime */}
+          {/* Affectation et victime */}
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <User className="h-5 w-5 mr-2 text-red-600" />
               Informations sur la victime
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="nom">Nom *</Label>
-                <Input
-                  id="nom"
-                  value={formData.nomVictime}
-                  onChange={(e) => setFormData({ ...formData, nomVictime: e.target.value })}
-                  required
-                />
+                <Label>Service</Label>
+                <Select
+                  value={formData.serviceAffectation || 'all'}
+                  onValueChange={(value) => setFormData({ ...formData, serviceAffectation: value === 'all' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non sélectionné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Non sélectionné</SelectItem>
+                    {serviceOptions.map((service) => (
+                      <SelectItem key={service} value={service}>{service}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prenom">Prénom *</Label>
-                <Input
-                  id="prenom"
-                  value={formData.prenomVictime}
-                  onChange={(e) => setFormData({ ...formData, prenomVictime: e.target.value })}
-                  required
-                />
+                <Label>Domaine</Label>
+                <Select
+                  value={formData.domaineAffectation || 'all'}
+                  onValueChange={(value) => setFormData({ ...formData, domaineAffectation: value === 'all' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non sélectionné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Non sélectionné</SelectItem>
+                    {domainOptions.map((domain) => (
+                      <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="annee">Année</Label>
-                <Input
-                  id="annee"
-                  type="number"
-                  value={formData.annee}
-                  onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) })}
-                />
+                <Label>Lieu</Label>
+                <Select
+                  value={formData.lieuAffectation || 'all'}
+                  onValueChange={(value) => setFormData({ ...formData, lieuAffectation: value === 'all' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non sélectionné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Non sélectionné</SelectItem>
+                    {locationOptions.map((location) => (
+                      <SelectItem key={location} value={location}>{location}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Victime *</Label>
+                <Select
+                  value={formData.prenomVictime && formData.nomVictime ? `${formData.prenomVictime} ${formData.nomVictime}` : ''}
+                  onValueChange={handleVictimeSelection}
+                  disabled={filteredAgents.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={filteredAgents.length === 0 ? "Aucun agent disponible" : "Sélectionner un agent"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredAgents.map((agent) => {
+                      const fullName = `${agent.firstName} ${agent.lastName}`;
+                      return <SelectItem key={agent.id} value={fullName}>{fullName}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            <p className="text-sm text-gray-600 mt-4">
+              Victime sélectionnée : <span className="font-semibold">{formData.prenomVictime} {formData.nomVictime}</span>
+            </p>
           </div>
 
           {/* Date et lieu */}
@@ -872,7 +1045,15 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Détail de l'accident N° {accident.numero}/{accident.annee}</h3>
-          <p className="text-gray-600">Enregistré le {new Date(accident.dateInscription).toLocaleDateString('fr-FR')}</p>
+          <p className="text-gray-600">
+            Déclaré le {new Date(accident.dateInscription).toLocaleString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </p>
         </div>
         <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
           Retour
@@ -983,7 +1164,13 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
         {/* Metadata */}
         <div className="pt-4 border-t">
           <p className="text-sm text-gray-600">
-            <span className="font-medium">Date d'inscription au registre:</span> {new Date(accident.dateInscription).toLocaleDateString('fr-FR')}
+            <span className="font-medium">Date et heure de déclaration:</span> {new Date(accident.dateInscription).toLocaleString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
           </p>
         </div>
       </Card>
@@ -992,12 +1179,45 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
 }
 
 // Composant d'édition
-function EditAccidentView({ accident, onBack, onSave }: { accident: AccidentBenin; onBack: () => void; onSave: (accident: AccidentBenin) => void }) {
+function EditAccidentView({
+  accident,
+  onBack,
+  onSave,
+  agents,
+  serviceOptions,
+  domainOptions,
+  locationOptions
+}: {
+  accident: AccidentBenin;
+  onBack: () => void;
+  onSave: (accident: AccidentBenin) => void;
+  agents: AgentOption[];
+  serviceOptions: string[];
+  domainOptions: string[];
+  locationOptions: string[];
+}) {
   const [formData, setFormData] = useState(accident);
+  const filteredAgents = useMemo(
+    () => agents.filter((agent) =>
+      (!formData.serviceAffectation || agent.service === formData.serviceAffectation) &&
+      (!formData.domaineAffectation || agent.domain === formData.domaineAffectation) &&
+      (!formData.lieuAffectation || agent.location === formData.lieuAffectation)
+    ),
+    [agents, formData.serviceAffectation, formData.domaineAffectation, formData.lieuAffectation]
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
+  };
+
+  const handleVictimeSelection = (fullName: string) => {
+    const [prenom, ...restNom] = fullName.split(' ');
+    setFormData({
+      ...formData,
+      prenomVictime: prenom || '',
+      nomVictime: restNom.join(' ') || ''
+    });
   };
 
   return (
@@ -1005,7 +1225,15 @@ function EditAccidentView({ accident, onBack, onSave }: { accident: AccidentBeni
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Modifier l'accident N° {accident.numero}/{accident.annee}</h3>
-          <p className="text-gray-600">Mise à jour de l'enregistrement</p>
+          <p className="text-gray-600">
+            Déclaré le {new Date(accident.dateInscription).toLocaleString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}
+          </p>
         </div>
         <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
           Retour
@@ -1020,35 +1248,80 @@ function EditAccidentView({ accident, onBack, onSave }: { accident: AccidentBeni
               <User className="h-5 w-5 mr-2 text-red-600" />
               Informations sur la victime
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="nom">Nom *</Label>
-                <Input
-                  id="nom"
-                  value={formData.nomVictime}
-                  onChange={(e) => setFormData({ ...formData, nomVictime: e.target.value })}
-                  required
-                />
+                <Label>Service</Label>
+                <Select
+                  value={formData.serviceAffectation || 'all'}
+                  onValueChange={(value) => setFormData({ ...formData, serviceAffectation: value === 'all' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non sélectionné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Non sélectionné</SelectItem>
+                    {serviceOptions.map((service) => (
+                      <SelectItem key={service} value={service}>{service}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prenom">Prénom *</Label>
-                <Input
-                  id="prenom"
-                  value={formData.prenomVictime}
-                  onChange={(e) => setFormData({ ...formData, prenomVictime: e.target.value })}
-                  required
-                />
+                <Label>Domaine</Label>
+                <Select
+                  value={formData.domaineAffectation || 'all'}
+                  onValueChange={(value) => setFormData({ ...formData, domaineAffectation: value === 'all' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non sélectionné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Non sélectionné</SelectItem>
+                    {domainOptions.map((domain) => (
+                      <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="annee">Année</Label>
-                <Input
-                  id="annee"
-                  type="number"
-                  value={formData.annee}
-                  onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) })}
-                />
+                <Label>Lieu</Label>
+                <Select
+                  value={formData.lieuAffectation || 'all'}
+                  onValueChange={(value) => setFormData({ ...formData, lieuAffectation: value === 'all' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Non sélectionné" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Non sélectionné</SelectItem>
+                    {locationOptions.map((location) => (
+                      <SelectItem key={location} value={location}>{location}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Victime *</Label>
+                <Select
+                  value={formData.prenomVictime && formData.nomVictime ? `${formData.prenomVictime} ${formData.nomVictime}` : ''}
+                  onValueChange={handleVictimeSelection}
+                  disabled={filteredAgents.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={filteredAgents.length === 0 ? "Aucun agent disponible" : "Sélectionner un agent"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredAgents.map((agent) => {
+                      const fullName = `${agent.firstName} ${agent.lastName}`;
+                      return <SelectItem key={agent.id} value={fullName}>{fullName}</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            <p className="text-sm text-gray-600 mt-4">
+              Victime sélectionnée : <span className="font-semibold">{formData.prenomVictime} {formData.nomVictime}</span>
+            </p>
           </div>
 
           <div>

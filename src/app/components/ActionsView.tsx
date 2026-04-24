@@ -29,6 +29,7 @@ import { ActionCreateView } from './ActionCreateView';
 import { ActionDetailView } from './ActionDetailView';
 import { ActionEditView } from './ActionEditView';
 import { toast } from 'sonner';
+import { ListPaginationBar } from './ui/list-pagination-bar';
 
 export interface Action {
   id: string;
@@ -815,33 +816,14 @@ export function ActionsView({
         )}
       </div>
 
-      {totalResults > 0 && (
-        <Card className="border-0 shadow-md bg-white/80">
-          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-gray-600">
-              Page {currentPage} sur {totalPages}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Précédent
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Suivant
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalResults}
+        onPageChange={setCurrentPage}
+        itemLabel="action(s)"
+        className="border-0 shadow-md bg-white/80"
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

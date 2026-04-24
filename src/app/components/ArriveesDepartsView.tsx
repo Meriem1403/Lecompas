@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -52,6 +52,7 @@ import { toast } from 'sonner';
 import { ArriveesDepartsNewDemandePage } from '@/app/components/ArriveesDepartsNewDemandePage';
 import { ArriveesDepartsDetailPage } from '@/app/components/ArriveesDepartsDetailPage';
 import { ArriveesDepartsQuestionnaireFormPage } from '@/app/components/ArriveesDepartsQuestionnaireFormPage';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 // Types
 interface Question {
@@ -338,6 +339,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatut, setFilterStatut] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Filtrage des demandes
   React.useEffect(() => {
@@ -361,6 +363,20 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
 
     setFilteredDemandes(filtered);
   }, [demandes, searchTerm, filterStatut, filterType]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDemandes.length / DEFAULT_LIST_PAGE_SIZE));
+  const paginatedDemandes = useMemo(() => {
+    const start = (currentPage - 1) * DEFAULT_LIST_PAGE_SIZE;
+    return filteredDemandes.slice(start, start + DEFAULT_LIST_PAGE_SIZE);
+  }, [filteredDemandes, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatut, filterType, activeTab]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   // Statistiques
   const stats = {
@@ -694,7 +710,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                     <p className="text-gray-400 text-sm mt-2">Cliquez sur "Nouvelle demande" pour commencer</p>
                   </div>
                 ) : (
-                  filteredDemandes.map((demande) => (
+                  paginatedDemandes.map((demande) => (
                     <Card key={demande.id} className="border-2 hover:border-blue-300 hover:shadow-xl transition-all duration-200 cursor-pointer group">
                       <CardContent className="p-6">
                         <div className="flex justify-between items-start">
@@ -746,6 +762,13 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                   ))
                 )}
               </div>
+              <ListPaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredDemandes.length}
+                onPageChange={setCurrentPage}
+                itemLabel="demande(s)"
+              />
             </TabsContent>
 
             {/* Toutes les demandes (Admin) */}
@@ -807,7 +830,7 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
 
                 {/* Liste des demandes */}
                 <div className="space-y-4">
-                  {filteredDemandes.map((demande) => (
+                  {paginatedDemandes.map((demande) => (
                     <Card key={demande.id} className="border-2 hover:border-blue-300 hover:shadow-xl transition-all duration-200 group">
                       <CardContent className="p-6">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -875,6 +898,13 @@ export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin'
                     </Card>
                   ))}
                 </div>
+                <ListPaginationBar
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={filteredDemandes.length}
+                  onPageChange={setCurrentPage}
+                  itemLabel="demande(s)"
+                />
               </TabsContent>
             )}
 

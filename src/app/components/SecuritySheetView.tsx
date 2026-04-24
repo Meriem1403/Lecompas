@@ -38,6 +38,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
 
 export interface ControleRow {
   id: string;
@@ -642,23 +643,13 @@ export function SecuritySheetView({
         ))}
       </div>
 
-      {filtered.length > 0 ? (
-        <Card className="border-2 bg-white/95">
-          <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">
-              Page {currentPage} / {totalPages} - {filtered.length} resultat(s)
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
-                Precedent
-              </Button>
-              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
-                Suivant
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
+      <ListPaginationBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filtered.length}
+        onPageChange={setCurrentPage}
+        itemLabel="fiche(s)"
+      />
 
       {filtered.length === 0 ? (
         <Card className="border-2 border-dashed border-gray-300 bg-white/80">

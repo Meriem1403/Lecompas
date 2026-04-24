@@ -51,6 +51,7 @@ import { CerbereRequestDetail } from '@/app/components/CerbereRequestDetail';
 import { CerbereRequestForm } from '@/app/components/CerbereRequestForm';
 import { generateCerbereAttestation } from '@/utils/generateCerbereAttestation';
 import { AppUser } from '@/app/components/admin/UserManagementView';
+import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 interface CerbereApplication {
   id: string;
@@ -284,6 +285,8 @@ export function CerbereView({
   const [adminServiceFilter, setAdminServiceFilter] = useState('all');
   const [adminDomainFilter, setAdminDomainFilter] = useState('all');
   const [adminLocationFilter, setAdminLocationFilter] = useState('all');
+  const [applicationsPage, setApplicationsPage] = useState(1);
+  const [requestsPage, setRequestsPage] = useState(1);
 
   // États pour les dialogs
   const [isAddAppDialogOpen, setIsAddAppDialogOpen] = useState(false);
@@ -567,6 +570,39 @@ export function CerbereView({
     return matchesRoleScope(req);
   });
 
+  const filteredApplications = applications.filter((app) => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return true;
+    const profileBlob = app.profils
+      .map((p) => `${p.identifiant} ${p.description}`)
+      .join(' ')
+      .toLowerCase();
+    return (
+      app.code.toLowerCase().includes(q) ||
+      app.nom.toLowerCase().includes(q) ||
+      app.description.toLowerCase().includes(q) ||
+      profileBlob.includes(q)
+    );
+  });
+
+  const applicationsTotalPages = Math.max(
+    1,
+    Math.ceil(filteredApplications.length / DEFAULT_LIST_PAGE_SIZE),
+  );
+  const paginatedApplications = filteredApplications.slice(
+    (applicationsPage - 1) * DEFAULT_LIST_PAGE_SIZE,
+    applicationsPage * DEFAULT_LIST_PAGE_SIZE,
+  );
+
+  const requestsTotalPages = Math.max(
+    1,
+    Math.ceil(filteredRequests.length / DEFAULT_LIST_PAGE_SIZE),
+  );
+  const paginatedRequests = filteredRequests.slice(
+    (requestsPage - 1) * DEFAULT_LIST_PAGE_SIZE,
+    requestsPage * DEFAULT_LIST_PAGE_SIZE,
+  );
+
   const getStatusBadge = (statut: string) => {
     switch (statut) {
       case 'en_attente_chef':
@@ -609,6 +645,27 @@ export function CerbereView({
         : r.statut === 'en_attente_chef' || r.statut === 'en_attente_admin') &&
       matchesRoleScope(r),
   ).length;
+
+  React.useEffect(() => {
+    setApplicationsPage(1);
+    setRequestsPage(1);
+  }, [
+    activeTab,
+    searchTerm,
+    statusFilter,
+    chefScopeFilter,
+    adminServiceFilter,
+    adminDomainFilter,
+    adminLocationFilter,
+  ]);
+
+  React.useEffect(() => {
+    if (applicationsPage > applicationsTotalPages) setApplicationsPage(applicationsTotalPages);
+  }, [applicationsPage, applicationsTotalPages]);
+
+  React.useEffect(() => {
+    if (requestsPage > requestsTotalPages) setRequestsPage(requestsTotalPages);
+  }, [requestsPage, requestsTotalPages]);
 
   // Handlers pour la nouvelle demande
   const handleSubmitNewRequest = (data: any) => {
@@ -808,7 +865,7 @@ export function CerbereView({
           </div>
 
           <div className="grid gap-6">
-            {applications.map((app) => (
+            {paginatedApplications.map((app) => (
               <Card key={app.id} className="border-0 shadow-xl bg-white/80 backdrop-blur">
                 <CardHeader>
                   <div className="flex justify-between items-start gap-3">
@@ -918,7 +975,22 @@ export function CerbereView({
                 </CardContent>
               </Card>
             ))}
+            {filteredApplications.length === 0 && (
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
+                <CardContent className="text-center py-12">
+                  <Shield className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500">Aucune application trouvée</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
+          <ListPaginationBar
+            currentPage={applicationsPage}
+            totalPages={applicationsTotalPages}
+            totalItems={filteredApplications.length}
+            onPageChange={setApplicationsPage}
+            itemLabel="application(s)"
+          />
         </div>
       )}
 
@@ -1026,7 +1098,7 @@ export function CerbereView({
           )}
 
           <div className="space-y-4">
-            {filteredRequests.map((request) => (
+            {paginatedRequests.map((request) => (
               <Card key={request.id} className="border-0 shadow-xl bg-white/80 backdrop-blur">
                 <CardContent className="p-5 space-y-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1204,6 +1276,13 @@ export function CerbereView({
               </Card>
             )}
           </div>
+          <ListPaginationBar
+            currentPage={requestsPage}
+            totalPages={requestsTotalPages}
+            totalItems={filteredRequests.length}
+            onPageChange={setRequestsPage}
+            itemLabel="demande(s)"
+          />
         </div>
       )}
 
