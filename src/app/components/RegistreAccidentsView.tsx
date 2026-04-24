@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -49,6 +49,10 @@ interface AccidentBenin {
   soignant: string;
   signatureSoignant: boolean;
   signatureVictime: boolean;
+  signatureSoignantDate?: string;
+  signatureVictimeDate?: string;
+  signatureSoignantImage?: string;
+  signatureVictimeImage?: string;
   dateInscription: string;
   observations?: string;
   serviceAffectation?: string;
@@ -82,6 +86,10 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     soignant: 'Dr. Laurent Mercier',
     signatureSoignant: true,
     signatureVictime: true,
+    signatureSoignantDate: '2026-01-15',
+    signatureVictimeDate: '2026-01-15',
+    signatureSoignantImage: '',
+    signatureVictimeImage: '',
     dateInscription: '2026-01-15T11:05:00',
     observations: 'Pansement appliqué, pas de soins nécessaires'
   },
@@ -100,6 +108,10 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     soignant: 'Infirmier Paul Bernard',
     signatureSoignant: true,
     signatureVictime: true,
+    signatureSoignantDate: '2026-01-20',
+    signatureVictimeDate: '2026-01-20',
+    signatureSoignantImage: '',
+    signatureVictimeImage: '',
     dateInscription: '2026-01-20T14:48:00',
     observations: 'Application de glace, surveillance 15 minutes'
   },
@@ -118,6 +130,10 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     soignant: 'Dr. Laurent Mercier',
     signatureSoignant: true,
     signatureVictime: true,
+    signatureSoignantDate: '2026-01-28',
+    signatureVictimeDate: '2026-01-28',
+    signatureSoignantImage: '',
+    signatureVictimeImage: '',
     dateInscription: '2026-01-28T10:12:00',
     observations: 'Aucun soin nécessaire, surveillance recommandée'
   }
@@ -136,6 +152,10 @@ export function RegistreAccidentsView({
   domainOptions = [],
   locationOptions = [],
 }: RegistreAccidentsViewProps) {
+  const hasSoignantSignature = (acc: AccidentBenin) => Boolean(acc.signatureSoignantImage) || Boolean(acc.signatureSoignantDate) || acc.signatureSoignant;
+  const hasVictimeSignature = (acc: AccidentBenin) => Boolean(acc.signatureVictimeImage) || Boolean(acc.signatureVictimeDate) || acc.signatureVictime;
+  const isFullySigned = (acc: AccidentBenin) => hasSoignantSignature(acc) && hasVictimeSignature(acc);
+
   const [accidents, setAccidents] = useState<AccidentBenin[]>(FAKE_ACCIDENTS);
   const [viewingAccident, setViewingAccident] = useState<AccidentBenin | null>(null);
   const [editingAccident, setEditingAccident] = useState<AccidentBenin | null>(null);
@@ -154,8 +174,8 @@ export function RegistreAccidentsView({
     return accidents.filter(acc => {
       if (filterAnnee !== 'all' && acc.annee.toString() !== filterAnnee) return false;
       if (filterSoignant !== 'all' && acc.soignant !== filterSoignant) return false;
-      if (filterSignature === 'signed' && !(acc.signatureSoignant && acc.signatureVictime)) return false;
-      if (filterSignature === 'partial' && acc.signatureSoignant && acc.signatureVictime) return false;
+      if (filterSignature === 'signed' && !isFullySigned(acc)) return false;
+      if (filterSignature === 'partial' && isFullySigned(acc)) return false;
 
       if (!normalizedSearch) return true;
       const victim = `${acc.prenomVictime} ${acc.nomVictime}`.toLowerCase();
@@ -352,7 +372,7 @@ export function RegistreAccidentsView({
         pdf.setFont('helvetica', 'bold');
         pdf.text('Signatures:', margin + 90, yPos);
         pdf.setFont('helvetica', 'normal');
-        const sigText = `Soignant: ${accident.signatureSoignant ? '✓' : '✗'} | Victime: ${accident.signatureVictime ? '✓' : '✗'}`;
+        const sigText = `Soignant: ${hasSoignantSignature(accident) ? '✓' : '✗'} | Victime: ${hasVictimeSignature(accident) ? '✓' : '✗'}`;
         pdf.text(sigText, margin + 110, yPos);
 
         yPos += 60;
@@ -507,7 +527,7 @@ export function RegistreAccidentsView({
             <div className="min-w-0">
               <p className="text-sm text-green-600 font-medium">Signés complets</p>
               <p className="text-3xl font-bold text-green-700">
-                {accidents.filter(a => a.signatureSoignant && a.signatureVictime).length}
+                {accidents.filter((a) => isFullySigned(a)).length}
               </p>
             </div>
             <div className="h-11 w-11 shrink-0 rounded-xl bg-green-100/80 flex items-center justify-center">
@@ -602,7 +622,7 @@ export function RegistreAccidentsView({
                       <Calendar className="h-4 w-4 inline mr-1" />
                       {new Date(accident.dateAccident).toLocaleDateString('fr-FR')} à {accident.heureAccident}
                     </span>
-                    {accident.signatureSoignant && accident.signatureVictime && (
+                    {isFullySigned(accident) && (
                       <Badge variant="outline" className="border-green-600 text-green-700">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Signé
@@ -758,6 +778,10 @@ function CreateAccidentView({
     soignant: '',
     signatureSoignant: false,
     signatureVictime: false,
+    signatureSoignantDate: '',
+    signatureVictimeDate: '',
+    signatureSoignantImage: '',
+    signatureVictimeImage: '',
     observations: ''
   });
 
@@ -985,26 +1009,31 @@ function CreateAccidentView({
                 />
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.signatureSoignant}
-                    onChange={(e) => setFormData({ ...formData, signatureSoignant: e.target.checked })}
-                    className="w-4 h-4 text-red-600 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Signature du soignant</span>
-                </label>
-
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.signatureVictime}
-                    onChange={(e) => setFormData({ ...formData, signatureVictime: e.target.checked })}
-                    className="w-4 h-4 text-red-600 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Signature de la victime</span>
-                </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SignaturePad
+                  label="Signature du soignant"
+                  value={formData.signatureSoignantImage || ''}
+                  onChange={(signature) =>
+                    setFormData({
+                      ...formData,
+                      signatureSoignantImage: signature,
+                      signatureSoignantDate: signature ? (formData.signatureSoignantDate || new Date().toISOString().split('T')[0]) : '',
+                      signatureSoignant: Boolean(signature),
+                    })
+                  }
+                />
+                <SignaturePad
+                  label="Signature de la victime"
+                  value={formData.signatureVictimeImage || ''}
+                  onChange={(signature) =>
+                    setFormData({
+                      ...formData,
+                      signatureVictimeImage: signature,
+                      signatureVictimeDate: signature ? (formData.signatureVictimeDate || new Date().toISOString().split('T')[0]) : '',
+                      signatureVictime: Boolean(signature),
+                    })
+                  }
+                />
               </div>
             </div>
           </div>
@@ -1066,7 +1095,7 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
           <Badge className="bg-red-600 text-white">
             Accident N° {accident.numero}/{accident.annee}
           </Badge>
-          {accident.signatureSoignant && accident.signatureVictime && (
+          {isFullySigned(accident) && (
             <Badge variant="outline" className="border-green-600 text-green-700">
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Document signé et complet
@@ -1130,22 +1159,46 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
           </h4>
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <p><span className="font-medium">Soignant:</span> {accident.soignant}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Signature du soignant</p>
+                {accident.signatureSoignantImage ? (
+                  <img src={accident.signatureSoignantImage} alt="Signature du soignant" className="h-24 w-full rounded border bg-white object-contain" />
+                ) : (
+                  <p className="text-sm text-gray-500">Aucune signature manuscrite</p>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Signature de la victime</p>
+                {accident.signatureVictimeImage ? (
+                  <img src={accident.signatureVictimeImage} alt="Signature de la victime" className="h-24 w-full rounded border bg-white object-contain" />
+                ) : (
+                  <p className="text-sm text-gray-500">Aucune signature manuscrite</p>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6 pt-2">
               <div className="flex items-center space-x-2">
-                {accident.signatureSoignant ? (
+                {hasSoignantSignature(accident) ? (
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                 ) : (
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                 )}
-                <span className="text-sm">Signature soignant</span>
+                <span className="text-sm">
+                  Signature soignant
+                  {accident.signatureSoignantDate ? ` (${new Date(accident.signatureSoignantDate).toLocaleDateString('fr-FR')})` : ''}
+                </span>
               </div>
               <div className="flex items-center space-x-2">
-                {accident.signatureVictime ? (
+                {hasVictimeSignature(accident) ? (
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                 ) : (
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                 )}
-                <span className="text-sm">Signature victime</span>
+                <span className="text-sm">
+                  Signature victime
+                  {accident.signatureVictimeDate ? ` (${new Date(accident.signatureVictimeDate).toLocaleDateString('fr-FR')})` : ''}
+                </span>
               </div>
             </div>
           </div>
@@ -1196,7 +1249,16 @@ function EditAccidentView({
   domainOptions: string[];
   locationOptions: string[];
 }) {
-  const [formData, setFormData] = useState(accident);
+  const hasSoignantSignature = (acc: AccidentBenin) => Boolean(acc.signatureSoignantImage) || Boolean(acc.signatureSoignantDate) || acc.signatureSoignant;
+  const hasVictimeSignature = (acc: AccidentBenin) => Boolean(acc.signatureVictimeImage) || Boolean(acc.signatureVictimeDate) || acc.signatureVictime;
+
+  const [formData, setFormData] = useState({
+    ...accident,
+    signatureSoignantDate: accident.signatureSoignantDate || '',
+    signatureVictimeDate: accident.signatureVictimeDate || '',
+    signatureSoignantImage: accident.signatureSoignantImage || '',
+    signatureVictimeImage: accident.signatureVictimeImage || '',
+  });
   const filteredAgents = useMemo(
     () => agents.filter((agent) =>
       (!formData.serviceAffectation || agent.service === formData.serviceAffectation) &&
@@ -1417,26 +1479,31 @@ function EditAccidentView({
                 />
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.signatureSoignant}
-                    onChange={(e) => setFormData({ ...formData, signatureSoignant: e.target.checked })}
-                    className="w-4 h-4 text-red-600 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Signature du soignant</span>
-                </label>
-
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.signatureVictime}
-                    onChange={(e) => setFormData({ ...formData, signatureVictime: e.target.checked })}
-                    className="w-4 h-4 text-red-600 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Signature de la victime</span>
-                </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <SignaturePad
+                  label="Signature du soignant"
+                  value={formData.signatureSoignantImage || ''}
+                  onChange={(signature) =>
+                    setFormData({
+                      ...formData,
+                      signatureSoignantImage: signature,
+                      signatureSoignantDate: signature ? (formData.signatureSoignantDate || new Date().toISOString().split('T')[0]) : '',
+                      signatureSoignant: Boolean(signature),
+                    })
+                  }
+                />
+                <SignaturePad
+                  label="Signature de la victime"
+                  value={formData.signatureVictimeImage || ''}
+                  onChange={(signature) =>
+                    setFormData({
+                      ...formData,
+                      signatureVictimeImage: signature,
+                      signatureVictimeDate: signature ? (formData.signatureVictimeDate || new Date().toISOString().split('T')[0]) : '',
+                      signatureVictime: Boolean(signature),
+                    })
+                  }
+                />
               </div>
             </div>
           </div>
@@ -1463,6 +1530,99 @@ function EditAccidentView({
           </div>
         </Card>
       </form>
+    </div>
+  );
+}
+
+function SignaturePad({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (dataUrl: string) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+
+  const getPosition = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  const startDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getPosition(event);
+    drawingRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const continueDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { x, y } = getPosition(event);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#111827';
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!drawingRef.current) return;
+    drawingRef.current = false;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    onChange(canvas.toDataURL('image/png'));
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (value) {
+      const image = new Image();
+      image.onload = () => {
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      };
+      image.src = value;
+    }
+  }, [value]);
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <canvas
+        ref={canvasRef}
+        width={420}
+        height={140}
+        className="w-full rounded border bg-white touch-none"
+        onPointerDown={startDrawing}
+        onPointerMove={continueDrawing}
+        onPointerUp={stopDrawing}
+        onPointerLeave={stopDrawing}
+      />
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={() => onChange('')}>
+          Effacer
+        </Button>
+      </div>
     </div>
   );
 }
