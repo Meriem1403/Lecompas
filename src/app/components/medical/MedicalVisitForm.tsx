@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -17,38 +17,79 @@ import {
   Activity,
   Shield,
   Stethoscope,
-  Users,
-  Building2,
-  Target
+  Target,
+  Upload,
+  FileText,
+  Bell,
 } from 'lucide-react';
 import { MedicalVisit, Risk } from '../MedicalVisitsView';
+import { AppUser } from '@/app/components/admin/UserManagementView';
+import { resolveEmployeeForVisit, sortUsersForSelect } from './medicalVisitUserMatch';
+import { readFileAsVisitReport, type MedicalVisitReportFile } from './medicalVisitReportFile';
 import { toast } from 'sonner';
+
+const SELECT_NONE = '__none__';
 
 interface MedicalVisitFormProps {
   medicalVisit?: MedicalVisit;
+  users: AppUser[];
   risks: Risk[];
   onSave: (visit: MedicalVisit) => void;
   onCancel: () => void;
 }
 
-export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: MedicalVisitFormProps) {
-  // Informations personnelles
+export function MedicalVisitForm({ medicalVisit, users, risks, onSave, onCancel }: MedicalVisitFormProps) {
+  const sortedUsers = useMemo(() => sortUsersForSelect(users), [users]);
+  const initialEmployee = useMemo(
+    () => resolveEmployeeForVisit(users, medicalVisit),
+    [users, medicalVisit],
+  );
+
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(
+    () => initialEmployee?.id ?? '',
+  );
+
   const [sexe, setSexe] = useState<'M' | 'F'>(medicalVisit?.sexe || 'M');
-  const [nom, setNom] = useState(medicalVisit?.nom || '');
-  const [prenom, setPrenom] = useState(medicalVisit?.prenom || '');
-  const [nombreEnfants, setNombreEnfants] = useState(medicalVisit?.nombreEnfants?.toString() || '');
+  const [nom, setNom] = useState(initialEmployee?.lastName ?? medicalVisit?.nom ?? '');
+  const [prenom, setPrenom] = useState(initialEmployee?.firstName ?? medicalVisit?.prenom ?? '');
   const [statutMilitaire, setStatutMilitaire] = useState<'Militaire' | 'Civil'>(medicalVisit?.statutMilitaire || 'Civil');
 
-  // Informations administratives
-  const [departement, setDepartement] = useState(medicalVisit?.departement || '');
-  const [gradeNNE, setGradeNNE] = useState(medicalVisit?.gradeNNE || '');
-  const [libellePoste, setLibellePoste] = useState(medicalVisit?.libellePoste || '');
-  const [echelon, setEchelon] = useState(medicalVisit?.echelon || '');
-  const [structureDetaillee, setStructureDetaillee] = useState(medicalVisit?.structureDetaillee || '');
-  const [service, setService] = useState(medicalVisit?.service || '');
-  const [inm, setInm] = useState(medicalVisit?.inm || '');
-  const [nombreHeuresRemunerees, setNombreHeuresRemunerees] = useState(medicalVisit?.nombreHeuresRemunerees?.toString() || '');
-  const [etpe, setEtpe] = useState(medicalVisit?.etpe?.toString() || '');
+  const [domaine, setDomaine] = useState(
+    initialEmployee?.domain ?? medicalVisit?.domaine ?? '',
+  );
+  const [lieu, setLieu] = useState(
+    initialEmployee?.location ?? medicalVisit?.lieu ?? '',
+  );
+  const [service, setService] = useState(
+    initialEmployee?.service ?? medicalVisit?.service ?? '',
+  );
+
+  const applyEmployee = (emp: AppUser) => {
+    setSelectedEmployeeId(emp.id);
+    setNom(emp.lastName);
+    setPrenom(emp.firstName);
+    setService(emp.service || '');
+    setDomaine(emp.domain || '');
+    setLieu(emp.location || '');
+  };
+
+  const clearEmployeeFields = () => {
+    setSelectedEmployeeId('');
+    setNom('');
+    setPrenom('');
+    setService('');
+    setDomaine('');
+    setLieu('');
+  };
+
+  const onAgentSelect = (value: string) => {
+    if (value === SELECT_NONE) {
+      clearEmployeeFields();
+      return;
+    }
+    const emp = users.find((u) => u.id === value);
+    if (emp) applyEmployee(emp);
+  };
 
   // Visites médicales
   const [derniereVisiteMedicale, setDerniereVisiteMedicale] = useState(medicalVisit?.derniereVisiteMedicale || '');
@@ -62,30 +103,32 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
   // Risques - Selection multiple
   const [selectedRisks, setSelectedRisks] = useState<string[]>(medicalVisit?.risquesExposition || []);
 
+  const [compteRenduVisite, setCompteRenduVisite] = useState<MedicalVisitReportFile | undefined>(
+    () => medicalVisit?.compteRenduVisite,
+  );
+  const compteRenduInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [prevenirConseillerPrevention, setPrevenirConseillerPrevention] = useState(
+    () => Boolean(medicalVisit?.prevenirConseillerPrevention),
+  );
+  const [prevenirSecretaireGeneral, setPrevenirSecretaireGeneral] = useState(
+    () => Boolean(medicalVisit?.prevenirSecretaireGeneral),
+  );
+
   const handleSave = () => {
-    // Validation
-    if (!nom.trim()) {
-      toast.error('Le nom est obligatoire');
+    if (!selectedEmployeeId) {
+      toast.error('Sélectionnez un agent dans la liste (annuaire Utilisateurs).');
       return;
     }
-    if (!prenom.trim()) {
-      toast.error('Le prénom est obligatoire');
+    const employee = users.find((u) => u.id === selectedEmployeeId);
+    if (!employee) {
+      toast.error('Agent introuvable dans l\'annuaire.');
       return;
     }
-    if (!departement.trim()) {
-      toast.error('Le département est obligatoire');
-      return;
-    }
-    if (!gradeNNE.trim()) {
-      toast.error('Le grade est obligatoire');
-      return;
-    }
-    if (!libellePoste.trim()) {
-      toast.error('Le libellé de poste est obligatoire');
-      return;
-    }
-    if (!structureDetaillee.trim()) {
-      toast.error('La structure détaillée est obligatoire');
+    const nomValue = employee.lastName.trim();
+    const prenomValue = employee.firstName.trim();
+    if (!nomValue || !prenomValue) {
+      toast.error('L\'agent sélectionné doit avoir un nom et un prénom dans l\'annuaire.');
       return;
     }
 
@@ -94,26 +137,24 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
       
       // Informations personnelles
       sexe,
-      nom,
-      prenom,
-      nombreEnfants: nombreEnfants ? parseInt(nombreEnfants) : undefined,
+      nom: nomValue,
+      prenom: prenomValue,
       statutMilitaire,
       
-      // Informations administratives
-      departement,
-      gradeNNE,
-      libellePoste,
-      echelon: echelon || undefined,
-      structureDetaillee,
-      service: service || undefined,
-      inm: inm || undefined,
-      nombreHeuresRemunerees: nombreHeuresRemunerees ? parseInt(nombreHeuresRemunerees) : undefined,
-      etpe: etpe ? parseFloat(etpe) : undefined,
+      employeeId: selectedEmployeeId,
+
+      // Informations administratives (calées sur l'annuaire)
+      domaine: (employee.domain || '').trim() || undefined,
+      lieu: (employee.location || '').trim() || undefined,
+      service: (employee.service || '').trim() || undefined,
       
       // Visites médicales
       derniereVisiteMedicale: derniereVisiteMedicale || undefined,
       prochaineVisiteMedicale: prochaineVisiteMedicale || undefined,
       surveillanceMedicaleAnnee: surveillanceMedicaleAnnee ? parseFloat(surveillanceMedicaleAnnee) : undefined,
+      compteRenduVisite: compteRenduVisite?.dataUrl ? compteRenduVisite : undefined,
+      prevenirConseillerPrevention,
+      prevenirSecretaireGeneral,
       
       // Aménagements
       amenagementPoste: amenagementPoste || undefined,
@@ -132,19 +173,26 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
     };
 
     onSave(newVisit);
-    toast.success(medicalVisit ? 'Suivi médical modifié avec succès' : 'Suivi médical créé avec succès');
+  };
+
+  const onCompteRenduFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+    readFileAsVisitReport(files[0]).then((doc) => {
+      if (!doc.dataUrl) {
+        toast.error('Impossible de lire le fichier.');
+        return;
+      }
+      setCompteRenduVisite(doc);
+      toast.success('Compte rendu joint.');
+    });
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour à la liste
-          </Button>
-          <div>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0">
             <h1 className="text-3xl font-bold text-gray-900">
               {medicalVisit ? `Modifier ${medicalVisit.prenom} ${medicalVisit.nom}` : 'Nouvel Agent - Suivi Médical'}
             </h1>
@@ -152,15 +200,21 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
               {medicalVisit ? 'Modifiez les informations du suivi médical' : 'Remplissez toutes les informations de l\'agent'}
             </p>
           </div>
+          <div className="flex justify-end shrink-0">
+            <Button variant="outline" size="default" onClick={onCancel} className="w-full sm:w-auto font-semibold shadow-sm border-2 border-gray-300">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour à la liste
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={onCancel}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:flex-wrap pt-4 border-t border-gray-200">
+          <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
           <Button
             onClick={handleSave}
-            className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+            className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
           >
             <Save className="h-4 w-4 mr-2" />
             Enregistrer
@@ -176,11 +230,64 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
             Informations personnelles
           </CardTitle>
           <CardDescription className="text-pink-700">
-            Identité et situation familiale de l'agent
+            Choisissez un agent dans l&apos;annuaire (Administration → Utilisateurs). Le nom, le prénom et l&apos;affectation se remplissent automatiquement.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="agentSelect" className="text-base">Agent *</Label>
+            <Select
+              value={selectedEmployeeId || SELECT_NONE}
+              onValueChange={onAgentSelect}
+              disabled={sortedUsers.length === 0}
+            >
+              <SelectTrigger id="agentSelect" className="mt-1">
+                <SelectValue placeholder="Sélectionner un agent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELECT_NONE}>— Choisir un agent —</SelectItem>
+                {sortedUsers.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {`${u.lastName.toUpperCase()} ${u.firstName}`} · {u.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {sortedUsers.length === 0 ? (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                Aucun utilisateur dans l&apos;annuaire. Ajoutez des utilisateurs dans <strong>Administration</strong> → <strong>Utilisateurs</strong>.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Source : liste des utilisateurs (champs service, domaine, lieu renseignés sur la fiche utilisateur).
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="nom" className="text-base">Nom</Label>
+              <Input
+                id="nom"
+                readOnly
+                value={nom}
+                placeholder="—"
+                className="mt-1 bg-slate-50 uppercase"
+              />
+            </div>
+            <div>
+              <Label htmlFor="prenom" className="text-base">Prénom</Label>
+              <Input
+                id="prenom"
+                readOnly
+                value={prenom}
+                placeholder="—"
+                className="mt-1 bg-slate-50"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="sexe" className="text-base">Sexe *</Label>
               <Select value={sexe} onValueChange={(value) => setSexe(value as 'M' | 'F')}>
@@ -193,56 +300,19 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="sm:col-span-2">
-              <Label htmlFor="nom" className="text-base">Nom *</Label>
-              <Input
-                id="nom"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                placeholder="Ex: MARTIN"
-                className="mt-1 uppercase"
-              />
-            </div>
-
             <div>
-              <Label htmlFor="prenom" className="text-base">Prénom *</Label>
-              <Input
-                id="prenom"
-                value={prenom}
-                onChange={(e) => setPrenom(e.target.value)}
-                placeholder="Ex: Sophie"
-                className="mt-1"
-              />
+              <Label htmlFor="statutMilitaire" className="text-base">Statut militaire</Label>
+              <Select value={statutMilitaire} onValueChange={(value) => setStatutMilitaire(value as 'Militaire' | 'Civil')}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Militaire">Militaire</SelectItem>
+                  <SelectItem value="Civil">Civil</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">À titre indicatif pour le suivi médical</p>
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="nombreEnfants" className="text-base">Nombre d'enfants</Label>
-            <Input
-              id="nombreEnfants"
-              type="number"
-              min="0"
-              value={nombreEnfants}
-              onChange={(e) => setNombreEnfants(e.target.value)}
-              placeholder="0"
-              className="mt-1 w-full sm:w-40"
-            />
-            <p className="text-xs text-gray-500 mt-1">Nombre d'enfants à charge</p>
-          </div>
-
-          <div>
-            <Label htmlFor="statutMilitaire" className="text-base">Statut militaire</Label>
-            <Select value={statutMilitaire} onValueChange={(value) => setStatutMilitaire(value as 'Militaire' | 'Civil')}>
-              <SelectTrigger className="mt-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Militaire">Militaire</SelectItem>
-                <SelectItem value="Civil">Civil</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-gray-500 mt-1">Statut militaire de l'agent</p>
           </div>
         </CardContent>
       </Card>
@@ -255,135 +325,41 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
             Informations administratives et poste
           </CardTitle>
           <CardDescription className="text-blue-700">
-            Grade, poste, structure et données de paie
+            Ces champs proviennent de la fiche utilisateur sélectionnée (non modifiables ici).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="departement" className="text-base">Département *</Label>
-              <Select value={departement} onValueChange={setDepartement}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Sélectionner un département" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bouches-du-Rhône (13)">Bouches-du-Rhône (13)</SelectItem>
-                  <SelectItem value="Var (83)">Var (83)</SelectItem>
-                  <SelectItem value="Alpes-Maritimes (06)">Alpes-Maritimes (06)</SelectItem>
-                  <SelectItem value="Corse-du-Sud (2A)">Corse-du-Sud (2A)</SelectItem>
-                  <SelectItem value="Haute-Corse (2B)">Haute-Corse (2B)</SelectItem>
-                  <SelectItem value="Pyrénées-Orientales (66)">Pyrénées-Orientales (66)</SelectItem>
-                  <SelectItem value="Aude (11)">Aude (11)</SelectItem>
-                  <SelectItem value="Hérault (34)">Hérault (34)</SelectItem>
-                  <SelectItem value="Gard (30)">Gard (30)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="structureDetaillee" className="text-base">Structure détaillée *</Label>
-              <Input
-                id="structureDetaillee"
-                value={structureDetaillee}
-                onChange={(e) => setStructureDetaillee(e.target.value)}
-                placeholder="Ex: DIRM MED - Service Aménagement Littoral"
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="gradeNNE" className="text-base">Grade (Libellé NNE) *</Label>
-            <Input
-              id="gradeNNE"
-              value={gradeNNE}
-              onChange={(e) => setGradeNNE(e.target.value)}
-              placeholder="Ex: Ingénieur des Ponts, des Eaux et des Forêts"
-              className="mt-1"
-            />
-            <p className="text-xs text-gray-500 mt-1">Libellé complet du grade selon nomenclature NNE</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="libellePoste" className="text-base">Libellé de poste *</Label>
-              <Input
-                id="libellePoste"
-                value={libellePoste}
-                onChange={(e) => setLibellePoste(e.target.value)}
-                placeholder="Ex: Chef du service Aménagement Littoral"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="echelon" className="text-base">Échelon</Label>
-              <Input
-                id="echelon"
-                value={echelon}
-                onChange={(e) => setEchelon(e.target.value)}
-                placeholder="Ex: HEA, Principal, 2ème classe..."
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          <Separator />
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="inm" className="text-base">INM</Label>
+              <Label htmlFor="domaine" className="text-base">Domaine</Label>
               <Input
-                id="inm"
-                value={inm}
-                onChange={(e) => setInm(e.target.value)}
-                placeholder="Ex: 821"
-                className="mt-1"
+                id="domaine"
+                readOnly
+                value={domaine}
+                placeholder="—"
+                className="mt-1 bg-slate-50"
               />
-              <p className="text-xs text-gray-500 mt-1">Indice de rémunération</p>
             </div>
-
             <div>
-              <Label htmlFor="nombreHeuresRemunerees" className="text-base">Heures rémunérées</Label>
+              <Label htmlFor="lieu" className="text-base">Lieu</Label>
               <Input
-                id="nombreHeuresRemunerees"
-                type="number"
-                min="0"
-                value={nombreHeuresRemunerees}
-                onChange={(e) => setNombreHeuresRemunerees(e.target.value)}
-                placeholder="Ex: 1607"
-                className="mt-1"
+                id="lieu"
+                readOnly
+                value={lieu}
+                placeholder="—"
+                className="mt-1 bg-slate-50"
               />
-              <p className="text-xs text-gray-500 mt-1">Nombre annuel d'heures</p>
             </div>
-
             <div>
-              <Label htmlFor="etpe" className="text-base">ETPE</Label>
+              <Label htmlFor="service" className="text-base">Service</Label>
               <Input
-                id="etpe"
-                type="number"
-                min="0"
-                max="1"
-                step="0.01"
-                value={etpe}
-                onChange={(e) => setEtpe(e.target.value)}
-                placeholder="Ex: 1.00"
-                className="mt-1"
+                id="service"
+                readOnly
+                value={service}
+                placeholder="—"
+                className="mt-1 bg-slate-50"
               />
-              <p className="text-xs text-gray-500 mt-1">Équivalent temps plein (0 à 1)</p>
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="service" className="text-base">Service</Label>
-            <Input
-              id="service"
-              value={service}
-              onChange={(e) => setService(e.target.value)}
-              placeholder="Ex: Service Aménagement Littoral"
-              className="mt-1"
-            />
-            <p className="text-xs text-gray-500 mt-1">Service auquel appartient l'agent</p>
           </div>
         </CardContent>
       </Card>
@@ -441,6 +417,91 @@ export function MedicalVisitForm({ medicalVisit, risks, onSave, onCancel }: Medi
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-500 mt-1">Fréquence réglementaire des visites médicales</p>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-green-200 bg-green-50/60 p-4">
+            <div>
+              <Label className="text-base">Joindre le compte rendu de la visite</Label>
+              <p className="text-xs text-green-900/80 mt-1">
+                Document issu de la visite médicale (compte rendu, avis du médecin, PDF ou scan).
+              </p>
+            </div>
+            <input
+              ref={compteRenduInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.PDF,image/jpeg,image/png,image/webp,.doc,.docx,application/msword"
+              onChange={(e) => {
+                onCompteRenduFiles(e.target.files);
+                e.currentTarget.value = "";
+              }}
+            />
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto border-green-300 bg-white"
+                onClick={() => compteRenduInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {compteRenduVisite?.dataUrl ? "Remplacer le fichier" : "Joindre le compte rendu"}
+              </Button>
+              {compteRenduVisite?.name ? (
+                <div className="flex flex-1 flex-wrap items-center gap-2 text-sm text-gray-800 min-w-0">
+                  <FileText className="h-4 w-4 shrink-0 text-green-700" />
+                  <span className="truncate font-medium">{compteRenduVisite.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      setCompteRenduVisite(undefined);
+                      toast.success("Fichier retiré.");
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Retirer
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-4 space-y-4">
+            <div className="flex items-start gap-2">
+              <Bell className="h-5 w-5 text-teal-700 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-teal-950">Transmission — interlocuteurs</p>
+                <p className="text-xs text-teal-900/85 mt-1">
+                  Cochez les destinataires à prévenir. Le choix est enregistré sur la fiche (envoi réel selon vos process internes).
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3 pl-0 sm:pl-1">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="prevenir-conseiller-prevention"
+                  checked={prevenirConseillerPrevention}
+                  onCheckedChange={(c) => setPrevenirConseillerPrevention(c === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="prevenir-conseiller-prevention" className="text-sm font-normal cursor-pointer leading-snug">
+                  Prévenir le <span className="font-semibold">conseiller de prévention</span>
+                </Label>
+              </div>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="prevenir-secretaire-general"
+                  checked={prevenirSecretaireGeneral}
+                  onCheckedChange={(c) => setPrevenirSecretaireGeneral(c === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="prevenir-secretaire-general" className="text-sm font-normal cursor-pointer leading-snug">
+                  Prévenir le <span className="font-semibold">secrétaire général</span>
+                </Label>
+              </div>
+            </div>
           </div>
 
           <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded">

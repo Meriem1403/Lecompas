@@ -23,6 +23,8 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
+import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from '@/app/services/externalLinkGuard';
 
 interface Document {
   id: string;
@@ -79,6 +81,14 @@ export function ActualiteDetailPage({
   onDelete,
   userRole = 'agent',
 }: ActualiteDetailPageProps) {
+  const openSafeLink = (url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      toast.error(getBlockedExternalLinkMessage(url));
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'info':
@@ -278,6 +288,10 @@ export function ActualiteDetailPage({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between group"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openSafeLink(lien.url);
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <LinkIcon className="h-5 w-5 text-blue-600" />

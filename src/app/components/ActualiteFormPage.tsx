@@ -28,6 +28,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from '@/app/services/externalLinkGuard';
 
 interface Document {
   id: string;
@@ -108,6 +109,14 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
     lieux: actualite?.destinataires.lieux || ([] as string[]),
     categories: actualite?.destinataires.categories || ([] as string[]),
   });
+
+  const openSafeLink = (url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      toast.error(getBlockedExternalLinkMessage(url));
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   const handleToggleRole = (role: string) => {
     setDestinataires((prev) => ({
@@ -389,7 +398,15 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                         <div>
                           <p className="font-medium text-gray-900">{lien.titre}</p>
                           <p className="text-sm text-blue-600 hover:underline">
-                            <a href={lien.url} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={lien.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                openSafeLink(lien.url);
+                              }}
+                            >
                               {lien.url}
                             </a>
                           </p>

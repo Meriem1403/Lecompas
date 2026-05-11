@@ -22,6 +22,7 @@ import {
   Building2,
   Calculator
 } from 'lucide-react';
+import { computeRiskValues, computeRiskWorkflowStatus, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 interface Risk {
   id: string;
@@ -50,7 +51,7 @@ interface Risk {
     completedDate?: string;
     effectiveness?: string;
   }>;
-  status: 'identifié' | 'en_cours' | 'traité';
+  status: RiskWorkflowStatus;
   echeance: string;
   retourAction: string;
   observation: string;
@@ -117,17 +118,17 @@ export function RiskEditView({
     site: '',
     situation: '',
     associatedRisk: '',
-    category: 'mécanique',
+    category: 'risque',
     responsable: '',
     severity: 1,
     probability: 1,
     riskLevel: 1,
     existingMeasures: [],
-    moyenMaitrise: '',
+    moyenMaitrise: '1',
     calculPriorite: 0,
     prioriteFinale: 1,
     plannedMeasures: [],
-    status: 'identifié',
+    status: 'a_traiter',
     echeance: new Date().toISOString().split('T')[0],
     retourAction: '',
     observation: '',
@@ -135,19 +136,10 @@ export function RiskEditView({
     updatedAt: ''
   });
 
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [isCustomTitle, setIsCustomTitle] = useState(false);
-  const predefinedCategories = ['mécanique', 'chimique', 'électrique', 'psychosocial', 'ergonomique'];
 
   // Obtenir la liste des titres uniques des risques existants
   const existingTitles = Array.from(new Set(existingRisks.map(r => r.title).filter(t => t && t.trim())));
-
-  // Initialiser isCustomCategory si la catégorie n'est pas prédéfinie
-  React.useEffect(() => {
-    if (risk && risk.category && !predefinedCategories.includes(risk.category)) {
-      setIsCustomCategory(true);
-    }
-  }, [risk]);
 
   const splitCsv = (value?: string) =>
     (value || '')
@@ -273,7 +265,22 @@ export function RiskEditView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const computed = computeRiskValues(
+      formData.severity,
+      formData.probability,
+      formData.moyenMaitrise || '',
+    );
+    onSave({
+      ...formData,
+      category: 'risque',
+      riskLevel: computed.riskLevel,
+      calculPriorite: computed.calculPriorite,
+      prioriteFinale: computed.prioriteFinale,
+      status: computeRiskWorkflowStatus(
+        computed.riskLevel,
+        formData.plannedMeasures || [],
+      ),
+    });
   };
 
   const addExistingMeasure = () => {
@@ -324,11 +331,24 @@ export function RiskEditView({
     });
   };
 
-  // Calculer le niveau de risque
+  // Calcul automatique: priorite initiale puis priorite finale residuelle.
   React.useEffect(() => {
-    const calculatedLevel = formData.severity * formData.probability;
-    setFormData(prev => ({ ...prev, riskLevel: calculatedLevel }));
-  }, [formData.severity, formData.probability]);
+    const computed = computeRiskValues(
+      formData.severity,
+      formData.probability,
+      formData.moyenMaitrise || '',
+    );
+    setFormData(prev => ({
+      ...prev,
+      riskLevel: computed.riskLevel,
+      calculPriorite: computed.calculPriorite,
+      prioriteFinale: computed.prioriteFinale,
+      status: computeRiskWorkflowStatus(
+        computed.riskLevel,
+        prev.plannedMeasures || [],
+      ),
+    }));
+  }, [formData.severity, formData.probability, formData.moyenMaitrise, formData.plannedMeasures]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -592,11 +612,11 @@ export function RiskEditView({
 
             <Separator />
 
-            {/* Risques associés */}
+            {/* Dommages associés */}
             <div>
               <Label htmlFor="associatedRisk" className="text-sm font-bold text-gray-700 mb-2 flex items-center">
                 <Shield className="h-4 w-4 mr-2 text-red-500" />
-                Risques Associés
+                Dommages associés
               </Label>
               <Textarea
                 id="associatedRisk"
@@ -704,33 +724,30 @@ export function RiskEditView({
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <Label className="text-xs">Responsable</Label>
-                            <Select
-                              value={measure.responsible || "__empty__"}
-                              onValueChange={(value) =>
-                                updatePlannedMeasure(
-                                  idx,
-                                  "responsible",
-                                  value === "__empty__"
-                                    ? ""
-                                    : value,
-                                )
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Responsable de l'action" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__empty__">
-                                  Non renseigné
-                                </SelectItem>
-                                {filteredResponsibleOptions.map((person) => (
-                                  <SelectItem key={person} value={person}>
-                                    {person}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <Label className="text-xs">Responsables</Label>
+                            <div className="space-y-2 rounded-md border border-gray-200 bg-white p-3">
+                              <div className="max-h-28 space-y-1 overflow-y-auto">
+                                {filteredResponsibleOptions.map((person) => {
+                                  const selectedResponsible = splitCsv(measure.responsible);
+                                  const isChecked = selectedResponsible.includes(person);
+                                  return (
+                                    <label key={person} className="flex items-center gap-2 text-sm text-gray-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          const nextValues = e.target.checked
+                                            ? [...selectedResponsible, person]
+                                            : selectedResponsible.filter((value) => value !== person);
+                                          updatePlannedMeasure(idx, "responsible", nextValues.join(", "));
+                                        }}
+                                      />
+                                      {person}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           </div>
                           <div>
                             <Label className="text-xs">Échéance</Label>
@@ -827,59 +844,6 @@ export function RiskEditView({
             </CardContent>
           </Card>
 
-          {/* Category Card */}
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <Tag className="h-5 w-5 mr-2 text-purple-500" />
-                Catégorie
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <Label className="text-xs text-gray-600 mb-1">Sélectionner</Label>
-                <Select
-                  value={isCustomCategory ? 'custom' : formData.category}
-                  onValueChange={(value) => {
-                    if (value === 'custom') {
-                      setIsCustomCategory(true);
-                      setFormData({ ...formData, category: '' });
-                    } else {
-                      setIsCustomCategory(false);
-                      setFormData({ ...formData, category: value });
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mécanique">Mécanique</SelectItem>
-                    <SelectItem value="chimique">Chimique</SelectItem>
-                    <SelectItem value="électrique">Électrique</SelectItem>
-                    <SelectItem value="psychosocial">Psychosocial</SelectItem>
-                    <SelectItem value="ergonomique">Ergonomique</SelectItem>
-                    <SelectItem value="custom">Autre...</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {isCustomCategory && (
-                <div>
-                  <Label className="text-xs text-gray-600 mb-1">Nouvelle catégorie</Label>
-                  <Input
-                    value={formData.category}
-                    onChange={(e) => {
-                      setFormData({ ...formData, category: e.target.value });
-                    }}
-                    placeholder="Ex: Biologique, Radiologique..."
-                    className="border-purple-300 focus:border-purple-500"
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Status Card */}
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
             <CardHeader>
@@ -889,19 +853,7 @@ export function RiskEditView({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value as any })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="identifié">Identifié</SelectItem>
-                  <SelectItem value="en_cours">En cours de traitement</SelectItem>
-                  <SelectItem value="traité">Traité</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={getRiskWorkflowStatusLabel(formData.status)} readOnly disabled />
             </CardContent>
           </Card>
 
@@ -915,14 +867,20 @@ export function RiskEditView({
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <Label htmlFor="moyenMaitrise" className="text-sm font-semibold">Moyen de maîtrise *</Label>
-                <Input
-                  id="moyenMaitrise"
-                  value={formData.moyenMaitrise}
-                  onChange={(e) => setFormData({ ...formData, moyenMaitrise: e.target.value })}
-                  placeholder="Ex: EPI, ventilation, formation"
-                  required
-                />
+                <Label htmlFor="moyenMaitrise" className="text-sm font-semibold">Niveau de maîtrise *</Label>
+                <Select
+                  value={formData.moyenMaitrise || "1"}
+                  onValueChange={(value) => setFormData({ ...formData, moyenMaitrise: value })}
+                >
+                  <SelectTrigger id="moyenMaitrise">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Aucun (coefficient 1)</SelectItem>
+                    <SelectItem value="0.75">En cours (coefficient 0,75)</SelectItem>
+                    <SelectItem value="0.5">Finalisé (coefficient 0,5)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="prioriteFinale" className="text-sm font-semibold">Priorité finale (1 à 16) *</Label>
@@ -932,13 +890,16 @@ export function RiskEditView({
                   min="1"
                   max="16"
                   value={formData.prioriteFinale}
-                  onChange={(e) => setFormData({ ...formData, prioriteFinale: parseInt(e.target.value) || 1 })}
-                  required
+                  readOnly
+                  disabled
                 />
               </div>
               <div className="bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
                 <p className="text-xs text-gray-600 font-semibold mb-1">Calcul de la priorité</p>
                 <p className="font-bold text-2xl text-yellow-800">{formData.calculPriorite}</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Priorité finale = priorité initiale × coefficient de maîtrise
+                </p>
               </div>
             </CardContent>
           </Card>

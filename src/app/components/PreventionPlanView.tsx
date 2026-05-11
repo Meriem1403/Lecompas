@@ -180,8 +180,8 @@ const defaultProtocolFields = (risk?: RiskInput, currentUserName?: string): Plan
 });
 
 function toPriority(level: number): "haute" | "moyenne" | "basse" {
-  if (level >= 12) return "haute";
-  if (level >= 6) return "moyenne";
+  if (level > 9) return "haute";
+  if (level >= 4) return "moyenne";
   return "basse";
 }
 
@@ -512,34 +512,39 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
   if (viewMode === "detail" && selectedPlan && selectedProtocol) {
     return (
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button
-            variant="outline"
-            onClick={() => handleDownloadPlan(selectedPlan)}
-            className="w-full sm:w-auto border-teal-300 text-teal-700 hover:bg-teal-50"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Télécharger
-          </Button>
-          {canEdit ? (
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <Button
-              onClick={() => openEdit(selectedPlan)}
-              className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
+              variant="outline"
+              onClick={() => handleDownloadPlan(selectedPlan)}
+              className="w-full sm:w-auto border-teal-300 text-teal-700 hover:bg-teal-50"
             >
-              Modifier
+              <Download className="h-4 w-4 mr-2" />
+              Télécharger
             </Button>
-          ) : null}
-          <Button
-            variant="outline"
-            onClick={() => {
-              setViewMode("list");
-              setSelectedPlanSnapshot(null);
-            }}
-            className="w-full sm:w-auto"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
+            {canEdit ? (
+              <Button
+                onClick={() => openEdit(selectedPlan)}
+                className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
+              >
+                Modifier
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex justify-end pt-3 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => {
+                setViewMode("list");
+                setSelectedPlanSnapshot(null);
+              }}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-emerald-900 to-teal-900 text-white">
@@ -704,24 +709,27 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
   if ((viewMode === "create" || viewMode === "edit") && canEdit) {
     return (
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-3">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
               {viewMode === "create" ? "Nouveau plan de prevention" : "Modifier le plan de prevention"}
             </h2>
             <p className="text-slate-600 mt-1">Edition en page complete, style premium.</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setViewMode("list");
-              setSelectedPlanSnapshot(null);
-            }}
-            className="w-full sm:w-auto"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => {
+                setViewMode("list");
+                setSelectedPlanSnapshot(null);
+              }}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-2xl bg-white">

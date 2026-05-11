@@ -47,7 +47,7 @@ interface Risk {
     completedDate?: string;
     effectiveness?: string;
   }>;
-  status: 'identifié' | 'en_cours' | 'traité';
+  status: 'a_traiter' | 'en_traitement' | 'maitrise' | 'supprime';
   echeance: string;
   retourAction: string;
   observation: string;
@@ -234,20 +234,25 @@ export function RetourActionView({
                 {getRiskLevelLabel(risk.riskLevel)}
               </Badge>
               <Badge variant="outline" className="text-sm flex items-center gap-1">
-                {risk.status === 'identifié' ? (
+                {risk.status === 'a_traiter' ? (
                   <>
                     <AlertCircle className="h-3 w-3" />
-                    Identifié
+                    A traiter
                   </>
-                ) : risk.status === 'en_cours' ? (
+                ) : risk.status === 'en_traitement' ? (
                   <>
                     <Clock className="h-3 w-3" />
-                    Surveillé
+                    En traitement
+                  </>
+                ) : risk.status === 'maitrise' ? (
+                  <>
+                    <CheckCircle className="h-3 w-3" />
+                    Maitrise
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="h-3 w-3" />
-                    Traité
+                    <XCircle className="h-3 w-3" />
+                    Supprime
                   </>
                 )}
               </Badge>

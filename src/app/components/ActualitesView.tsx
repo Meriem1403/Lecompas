@@ -46,6 +46,7 @@ import { toast } from 'sonner';
 import { ActualiteFormPage } from '@/app/components/ActualiteFormPage';
 import { ActualiteDetailPage } from '@/app/components/ActualiteDetailPage';
 import { ListPaginationBar } from '@/app/components/ui/list-pagination-bar';
+import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from '@/app/services/externalLinkGuard';
 
 interface Document {
   id: string;
@@ -404,6 +405,14 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
     (a) => a.estPublie && !a.vuesPar.includes(currentUserId)
   ).length;
 
+  const openSafeLink = (url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      toast.error(getBlockedExternalLinkMessage(url));
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   // Affichage des pages dédiées
   if (viewMode === 'new' || viewMode === 'edit') {
     return (
@@ -636,7 +645,7 @@ export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'c
                                       className="bg-blue-50 border-blue-300 text-blue-800 px-3 py-1 cursor-pointer hover:bg-blue-100"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        window.open(lien.url, '_blank');
+                                        openSafeLink(lien.url);
                                       }}
                                     >
                                       <LinkIcon className="h-3 w-3 mr-1" />

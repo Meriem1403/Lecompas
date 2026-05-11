@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Separator } from '../ui/separator';
@@ -18,7 +19,6 @@ import {
   AlertTriangle,
   User,
   Activity,
-  Users,
   Stethoscope,
   TrendingUp,
   AlertCircle,
@@ -27,7 +27,7 @@ import {
   ChevronUp,
   Building2,
   Shield,
-  Target
+  Target,
 } from 'lucide-react';
 import { MedicalVisit } from '../MedicalVisitsView';
 import {
@@ -56,6 +56,9 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
   const [filterService, setFilterService] = useState<string>('all');
   const [filterStatutMilitaire, setFilterStatutMilitaire] = useState<string>('all');
   const [filterAmenagement, setFilterAmenagement] = useState<string>('all');
+  /** Filtre inclusif sur prochaineVisiteMedicale (format input date YYYY-MM-DD) */
+  const [filterNextVisitFrom, setFilterNextVisitFrom] = useState('');
+  const [filterNextVisitTo, setFilterNextVisitTo] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [visitToDelete, setVisitToDelete] = useState<MedicalVisit | null>(null);
   
@@ -121,15 +124,21 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
   }));
 
   // Extraction des listes pour les filtres
-  const services = Array.from(new Set(medicalVisits.map(v => v.service))).sort();
+  const services = Array.from(
+    new Set(medicalVisits.map((v) => v.service).filter(Boolean) as string[]),
+  ).sort();
 
   const filteredVisits = visitsWithCalculatedStatus.filter(visit => {
-    const matchesSearch = visit.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.prenom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.libellePoste.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.structureDetaillee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      visit.gradeNNE.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = searchTerm.toLowerCase();
+    const serviceText = (visit.service || '').toLowerCase();
+    const domaineText = (visit.domaine || '').toLowerCase();
+    const lieuText = (visit.lieu || '').toLowerCase();
+    const matchesSearch =
+      visit.nom.toLowerCase().includes(q) ||
+      visit.prenom.toLowerCase().includes(q) ||
+      serviceText.includes(q) ||
+      domaineText.includes(q) ||
+      lieuText.includes(q);
     
     const matchesService = filterService === 'all' || visit.service === filterService;
     const matchesStatutMilitaire = filterStatutMilitaire === 'all' || visit.statutMilitaire === filterStatutMilitaire;
@@ -139,8 +148,17 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
       (filterAmenagement === 'avec_amenagement' && visit.amenagementPoste && visit.amenagementPoste !== 'Aucun') ||
       (filterAmenagement === 'avec_surveillance' && visit.surveillanceParticuliere) ||
       (filterAmenagement === 'sans_amenagement' && (!visit.amenagementPoste || visit.amenagementPoste === 'Aucun') && !visit.surveillanceParticuliere);
+
+    const pv = visit.prochaineVisiteMedicale;
+    const hasDateFilter = Boolean(filterNextVisitFrom || filterNextVisitTo);
+    const matchesNextVisitRange =
+      !hasDateFilter ||
+      (pv !== undefined &&
+        pv !== '' &&
+        (!filterNextVisitFrom || pv >= filterNextVisitFrom) &&
+        (!filterNextVisitTo || pv <= filterNextVisitTo));
     
-    return matchesSearch && matchesService && matchesStatutMilitaire && matchesAmenagement;
+    return matchesSearch && matchesService && matchesStatutMilitaire && matchesAmenagement && matchesNextVisitRange;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredVisits.length / DEFAULT_LIST_PAGE_SIZE));
@@ -159,7 +177,7 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterService, filterStatutMilitaire, filterAmenagement]);
+  }, [searchTerm, filterService, filterStatutMilitaire, filterAmenagement, filterNextVisitFrom, filterNextVisitTo]);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -234,9 +252,15 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                 <div className="flex items-start gap-2 min-w-0">
                   <Building2 className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Service</p>
-                    <p className="font-semibold text-gray-900 break-words leading-snug">{visit.service}</p>
-                    <p className="text-xs text-gray-600 break-words leading-snug">{visit.libellePoste}</p>
+                    <p className="text-xs text-gray-500">Affectation</p>
+                    <p className="font-semibold text-gray-900 break-words leading-snug">
+                      {visit.service || '—'}
+                    </p>
+                    {(visit.domaine || visit.lieu) ? (
+                      <p className="text-xs text-gray-600 mt-1 break-words leading-snug">
+                        {[visit.domaine, visit.lieu].filter(Boolean).join(' · ')}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -472,7 +496,44 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
               </Select>
             </div>
 
-            {(searchTerm || filterService !== 'all' || filterStatutMilitaire !== 'all' || filterAmenagement !== 'all') && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-800 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-teal-600 shrink-0" />
+                Prochaine visite médicale — période
+              </p>
+              <p className="text-xs text-gray-500">
+                Filtre inclusif entre deux dates (ex. du 01/01/2025 au 15/05/2026). Les fiches sans date de prochaine visite sont exclues si un filtre de dates est défini.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="visit-date-from" className="text-xs text-gray-600">
+                    À partir du
+                  </Label>
+                  <Input
+                    id="visit-date-from"
+                    type="date"
+                    value={filterNextVisitFrom}
+                    onChange={(e) => setFilterNextVisitFrom(e.target.value)}
+                    className="bg-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="visit-date-to" className="text-xs text-gray-600">
+                    Jusqu&apos;au
+                  </Label>
+                  <Input
+                    id="visit-date-to"
+                    type="date"
+                    value={filterNextVisitTo}
+                    onChange={(e) => setFilterNextVisitTo(e.target.value)}
+                    className="bg-white"
+                    min={filterNextVisitFrom || undefined}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(searchTerm || filterService !== 'all' || filterStatutMilitaire !== 'all' || filterAmenagement !== 'all' || filterNextVisitFrom || filterNextVisitTo) && (
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <span className="font-semibold">{filteredVisits.length}</span> résultat{filteredVisits.length > 1 ? 's' : ''}
                 <Button
@@ -483,6 +544,8 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
                     setFilterService('all');
                     setFilterStatutMilitaire('all');
                     setFilterAmenagement('all');
+                    setFilterNextVisitFrom('');
+                    setFilterNextVisitTo('');
                   }}
                   className="text-xs"
                 >
@@ -654,11 +717,11 @@ export function MedicalVisitsListView({ medicalVisits, onCreateNew, onViewDetail
             <Stethoscope className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucun agent trouvé</h3>
             <p className="text-gray-600 mb-6">
-              {searchTerm || filterService !== 'all' || filterStatutMilitaire !== 'all' || filterAmenagement !== 'all'
+              {searchTerm || filterService !== 'all' || filterStatutMilitaire !== 'all' || filterAmenagement !== 'all' || filterNextVisitFrom || filterNextVisitTo
                 ? 'Aucun agent ne correspond à vos critères de recherche.'
                 : 'Commencez par ajouter votre premier agent au suivi médical.'}
             </p>
-            {!searchTerm && filterService === 'all' && filterStatutMilitaire === 'all' && filterAmenagement === 'all' && (
+            {!searchTerm && filterService === 'all' && filterStatutMilitaire === 'all' && filterAmenagement === 'all' && !filterNextVisitFrom && !filterNextVisitTo && (
               <Button
                 onClick={onCreateNew}
                 className="bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white"

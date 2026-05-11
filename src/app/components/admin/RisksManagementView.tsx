@@ -20,6 +20,7 @@ import { AlertTriangle, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Target, Trendi
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { computeRiskValues, computeRiskWorkflowStatus, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 export interface Risk {
   id: string;
@@ -48,7 +49,7 @@ export interface Risk {
     completedDate?: string;
     effectiveness?: string;
   }>;
-  status: 'identifié' | 'en_cours' | 'traité';
+  status: RiskWorkflowStatus;
   echeance: string;
   retourAction: string;
   observation: string;
@@ -220,17 +221,26 @@ export function RisksManagementView({
     });
   };
 
-  // Calculer automatiquement le niveau de risque
+  // Calcul automatique: priorite initiale puis priorite finale residuelle.
   useEffect(() => {
     if (formData.severity && formData.probability) {
-      const calculatedLevel = formData.severity * formData.probability;
+      const computed = computeRiskValues(
+        formData.severity,
+        formData.probability,
+        formData.moyenMaitrise || '',
+      );
       setFormData(prev => ({
         ...prev,
-        riskLevel: calculatedLevel,
-        calculPriorite: calculatedLevel
+        riskLevel: computed.riskLevel,
+        calculPriorite: computed.calculPriorite,
+        prioriteFinale: computed.prioriteFinale,
+        status: computeRiskWorkflowStatus(
+          computed.riskLevel,
+          prev.plannedMeasures || [],
+        ),
       }));
     }
-  }, [formData.severity, formData.probability]);
+  }, [formData.severity, formData.probability, formData.moyenMaitrise, formData.plannedMeasures]);
 
   const handleView = (risk: Risk) => {
     setSelectedRisk(risk);
@@ -252,10 +262,11 @@ export function RisksManagementView({
       riskLevel: 1,
       calculPriorite: 1,
       prioriteFinale: 1,
+      moyenMaitrise: '1',
       existingMeasures: [],
       plannedMeasures: [],
-      status: 'identifié',
-      category: 'mécanique'
+      status: 'a_traiter',
+      category: 'risque'
     });
     setViewMode('create');
   };
@@ -267,7 +278,8 @@ export function RisksManagementView({
 
   const confirmDelete = () => {
     if (riskToDelete) {
-      setRisks(risks.filter(r => r.id !== riskToDelete));
+      const targetId = String(riskToDelete);
+      setRisks(risks.filter(r => String(r.id) !== targetId));
       toast.success('Risque supprimé avec succès');
       setDeleteDialogOpen(false);
       setRiskToDelete(null);
@@ -292,21 +304,48 @@ export function RisksManagementView({
         domain: formData.domain || formData.unite || '',
         situation: formData.situation || '',
         associatedRisk: formData.associatedRisk || '',
-        category: formData.category || '',
+        category: 'risque',
         responsable: formData.responsable || '',
         severity: formData.severity || 1,
         probability: formData.probability || 1,
-        riskLevel: (formData.severity || 1) * (formData.probability || 1),
+        riskLevel: computeRiskValues(
+          formData.severity || 1,
+          formData.probability || 1,
+          formData.moyenMaitrise || '',
+        ).riskLevel,
         existingMeasures: formData.existingMeasures || [],
         moyenMaitrise: formData.moyenMaitrise || '',
-        calculPriorite: formData.calculPriorite || 1,
-        prioriteFinale: formData.prioriteFinale || 1,
+        calculPriorite: computeRiskValues(
+          formData.severity || 1,
+          formData.probability || 1,
+          formData.moyenMaitrise || '',
+        ).calculPriorite,
+        prioriteFinale: computeRiskValues(
+          formData.severity || 1,
+          formData.probability || 1,
+          formData.moyenMaitrise || '',
+        ).prioriteFinale,
         plannedMeasures: formData.plannedMeasures || [],
-        status: formData.status || 'identifié',
+        status: computeRiskWorkflowStatus(
+          computeRiskValues(
+            formData.severity || 1,
+            formData.probability || 1,
+            formData.moyenMaitrise || '',
+          ).riskLevel,
+          formData.plannedMeasures || [],
+        ),
         echeance: formData.echeance || '',
         retourAction: formData.retourAction || '',
         observation: formData.observation || '',
         createdAt: new Date().toISOString(),
+        status: computeRiskWorkflowStatus(
+          computeRiskValues(
+            formData.severity || selectedRisk.severity,
+            formData.probability || selectedRisk.probability,
+            formData.moyenMaitrise || selectedRisk.moyenMaitrise || '',
+          ).riskLevel,
+          (formData.plannedMeasures as any) || selectedRisk.plannedMeasures || [],
+        ),
         updatedAt: new Date().toISOString()
       };
       setRisks([...risks, newRisk]);
@@ -315,7 +354,22 @@ export function RisksManagementView({
       const updatedRisk = {
         ...selectedRisk,
         ...formData,
-        riskLevel: (formData.severity || selectedRisk.severity) * (formData.probability || selectedRisk.probability),
+        category: 'risque',
+        riskLevel: computeRiskValues(
+          formData.severity || selectedRisk.severity,
+          formData.probability || selectedRisk.probability,
+          formData.moyenMaitrise || selectedRisk.moyenMaitrise || '',
+        ).riskLevel,
+        calculPriorite: computeRiskValues(
+          formData.severity || selectedRisk.severity,
+          formData.probability || selectedRisk.probability,
+          formData.moyenMaitrise || selectedRisk.moyenMaitrise || '',
+        ).calculPriorite,
+        prioriteFinale: computeRiskValues(
+          formData.severity || selectedRisk.severity,
+          formData.probability || selectedRisk.probability,
+          formData.moyenMaitrise || selectedRisk.moyenMaitrise || '',
+        ).prioriteFinale,
         updatedAt: new Date().toISOString()
       };
       setRisks(risks.map(r => r.id === selectedRisk.id ? updatedRisk as Risk : r));
@@ -340,8 +394,7 @@ export function RisksManagementView({
           'Site': risk.site,
           'Responsable': risk.responsable,
           'Situation dangereuse': risk.situation,
-          'Risques associés': risk.associatedRisk,
-          'Catégorie': risk.category,
+          'Dommages associés': risk.associatedRisk,
           'Gravité': risk.severity,
           'Probabilité': risk.probability,
           'Niveau de risque': risk.riskLevel,
@@ -352,7 +405,7 @@ export function RisksManagementView({
           'Échéance': risk.echeance ? new Date(risk.echeance).toLocaleDateString('fr-FR') : '-',
           'Retour d\'action': risk.retourAction || '-',
           'Observation': risk.observation || '-',
-          'Statut': risk.status === 'traité' ? 'Traité' : risk.status === 'en_cours' ? 'En cours' : 'Identifié'
+          'Statut': getRiskWorkflowStatusLabel(risk.status)
         };
       });
 
@@ -370,8 +423,7 @@ export function RisksManagementView({
         { wch: 15 }, // Site
         { wch: 20 }, // Responsable
         { wch: 40 }, // Situation dangereuse
-        { wch: 40 }, // Risques associés
-        { wch: 15 }, // Catégorie
+        { wch: 40 }, // Dommages associés
         { wch: 10 }, // Gravité
         { wch: 12 }, // Probabilité
         { wch: 15 }, // Niveau de risque
@@ -398,19 +450,19 @@ export function RisksManagementView({
   };
 
   const getRiskLevelColor = (level: number) => {
-    if (level >= 16) return 'bg-red-100 text-red-800 border-red-300';
-    if (level >= 8) return 'bg-orange-100 text-orange-800 border-orange-300';
-    if (level >= 4) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    if (level > 9) return 'bg-red-100 text-red-800 border-red-300';
+    if (level >= 4) return 'bg-orange-100 text-orange-800 border-orange-300';
     return 'bg-green-100 text-green-800 border-green-300';
   };
 
   const getStatusBadge = (status: string) => {
     const config = {
-      'identifié': { color: 'bg-blue-100 text-blue-800 border-blue-300', label: 'Identifié' },
-      'en_cours': { color: 'bg-orange-100 text-orange-800 border-orange-300', label: 'En cours' },
-      'traité': { color: 'bg-green-100 text-green-800 border-green-300', label: 'Traité' }
+      'a_traiter': { color: 'bg-blue-100 text-blue-800 border-blue-300', label: 'A traiter' },
+      'en_traitement': { color: 'bg-orange-100 text-orange-800 border-orange-300', label: 'En traitement' },
+      'maitrise': { color: 'bg-green-100 text-green-800 border-green-300', label: 'Maitrise' },
+      'supprime': { color: 'bg-slate-200 text-slate-800 border-slate-300', label: 'Supprime' }
     };
-    const c = config[status as keyof typeof config] || config['identifié'];
+    const c = config[status as keyof typeof config] || config['a_traiter'];
     return <Badge className={c.color}>{c.label}</Badge>;
   };
 
@@ -495,9 +547,10 @@ export function RisksManagementView({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tous les statuts</SelectItem>
-                    <SelectItem value="identifié">Identifié</SelectItem>
-                    <SelectItem value="en_cours">En cours</SelectItem>
-                    <SelectItem value="traité">Traité</SelectItem>
+                    <SelectItem value="a_traiter">A traiter</SelectItem>
+                    <SelectItem value="en_traitement">En traitement</SelectItem>
+                    <SelectItem value="maitrise">Maitrise</SelectItem>
+                    <SelectItem value="supprime">Supprime</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -518,8 +571,7 @@ export function RisksManagementView({
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Site</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Responsable</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Situation dangereuse</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Risques associés</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Catégorie</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Dommages associés</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[80px]">Gravité</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Probabilité</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Niveau de risque</th>
@@ -576,11 +628,6 @@ export function RisksManagementView({
                               <div className="max-w-[250px] bg-red-50 p-2 rounded border-l-2 border-red-500">
                                 <p className="text-xs text-gray-700 line-clamp-2">{risk.associatedRisk}</p>
                               </div>
-                            </td>
-                            <td className="px-4 py-4 whitespace-nowrap">
-                              <Badge className="bg-purple-50 text-purple-700 border-purple-200 capitalize">
-                                {risk.category}
-                              </Badge>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-center">
                               <Badge className="bg-red-100 text-red-800 border-red-300 font-bold">
@@ -792,10 +839,6 @@ export function RisksManagementView({
                     <p className="font-mono font-semibold text-gray-900">{selectedRisk.numeroRisque}</p>
                   </div>
                   <div>
-                    <Label className="text-gray-600">Catégorie</Label>
-                    <p className="font-semibold text-gray-900">{selectedRisk.category}</p>
-                  </div>
-                  <div>
                     <Label className="text-gray-600">Services</Label>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {(selectedRisk.service || '')
@@ -866,7 +909,7 @@ export function RisksManagementView({
                   <div>
                     <Label className="text-gray-600 font-semibold flex items-center gap-2">
                       <Shield className="h-4 w-4 text-red-500" />
-                      Risques associés (dommage)
+                      Dommages associés
                     </Label>
                     <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500 mt-2">
                       <p className="text-gray-700">{selectedRisk.associatedRisk}</p>
@@ -897,22 +940,9 @@ export function RisksManagementView({
                   <Label className="text-gray-600 text-xs font-semibold mb-1">Niveau de risque (calculé)</Label>
                   <p className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mt-2">{selectedRisk.riskLevel}</p>
                   <p className="text-sm font-semibold text-gray-600 mt-2">
-                    {selectedRisk.riskLevel >= 12 ? 'Critique' : selectedRisk.riskLevel >= 8 ? 'Élevé' : selectedRisk.riskLevel >= 4 ? 'Moyen' : 'Faible'}
+                    {selectedRisk.riskLevel > 9 ? 'P1' : selectedRisk.riskLevel >= 4 ? 'P2' : 'P3'}
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Catégorie */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Tag className="h-5 w-5 text-purple-600" />
-                  Catégorie
-                </h3>
-                <Badge className="w-full justify-center capitalize font-bold text-base py-3 bg-blue-100 text-blue-800 border-blue-300">
-                  {selectedRisk.category}
-                </Badge>
               </CardContent>
             </Card>
 
@@ -924,11 +954,12 @@ export function RisksManagementView({
                   Statut du risque
                 </h3>
                 <Badge className={`w-full justify-center font-bold text-base py-3 ${
-                  selectedRisk.status === 'traité' ? 'bg-green-100 text-green-800 border-green-300' :
-                  selectedRisk.status === 'en_cours' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                  selectedRisk.status === 'maitrise' ? 'bg-green-100 text-green-800 border-green-300' :
+                  selectedRisk.status === 'en_traitement' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                  selectedRisk.status === 'supprime' ? 'bg-slate-200 text-slate-800 border-slate-300' :
                   'bg-blue-100 text-blue-800 border-blue-300'
                 }`}>
-                  {selectedRisk.status === 'traité' ? 'Traité' : selectedRisk.status === 'en_cours' ? 'En cours de traitement' : 'Identifié'}
+                  {getRiskWorkflowStatusLabel(selectedRisk.status)}
                 </Badge>
               </CardContent>
             </Card>
@@ -1124,25 +1155,6 @@ export function RisksManagementView({
                     onChange={(e) => setFormData({ ...formData, numeroRisque: e.target.value })}
                     placeholder="R-001"
                   />
-                </div>
-                <div>
-                  <Label>Catégorie *</Label>
-                  <Select
-                    value={formData.category || ''}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mécanique">Mécanique</SelectItem>
-                      <SelectItem value="chimique">Chimique</SelectItem>
-                      <SelectItem value="électrique">Électrique</SelectItem>
-                      <SelectItem value="biologique">Biologique</SelectItem>
-                      <SelectItem value="psychosocial">Psychosocial</SelectItem>
-                      <SelectItem value="ergonomique">Ergonomique</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div>
                   <Label>Service *</Label>
@@ -1343,12 +1355,22 @@ export function RisksManagementView({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <Label>Moyen de maîtrise *</Label>
-                  <Input
-                    value={formData.moyenMaitrise || ''}
-                    onChange={(e) => setFormData({ ...formData, moyenMaitrise: e.target.value })}
-                    placeholder="Ex: EPI, ventilation, formation"
-                  />
+                  <Label>Niveau de maîtrise *</Label>
+                  <Select
+                    value={(formData.moyenMaitrise as string) || "1"}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, moyenMaitrise: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Aucun (coefficient 1)</SelectItem>
+                      <SelectItem value="0.75">En cours (coefficient 0,75)</SelectItem>
+                      <SelectItem value="0.5">Finalisé (coefficient 0,5)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Priorité finale (1 à 16) *</Label>
@@ -1357,13 +1379,17 @@ export function RisksManagementView({
                     min="1"
                     max="16"
                     value={formData.prioriteFinale || 1}
-                    onChange={(e) => setFormData({ ...formData, prioriteFinale: parseInt(e.target.value) || 1 })}
+                    readOnly
+                    disabled
                   />
                 </div>
               </div>
               <div className="p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500 mt-4">
                 <p className="text-xs text-gray-600 font-semibold mb-1">Calcul de la priorité</p>
-                <p className="text-2xl font-bold text-yellow-800">{(formData.severity || 1) * (formData.probability || 1)}</p>
+                <p className="text-2xl font-bold text-yellow-800">{formData.calculPriorite || 1}</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Priorité finale = priorité initiale × coefficient de maîtrise
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -1494,35 +1520,32 @@ export function RisksManagementView({
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-xs">Responsable</Label>
-                          <Select
-                            value={measure.responsible || "__empty__"}
-                            onValueChange={(value: string) => {
-                              const newMeasures = [...(formData.plannedMeasures || [])];
-                              newMeasures[idx] = {
-                                ...newMeasures[idx],
-                                responsible:
-                                  value === "__empty__"
-                                    ? ""
-                                    : value,
-                              };
-                              setFormData({ ...formData, plannedMeasures: newMeasures });
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Responsable de l'action" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__empty__">
-                                Non renseigné
-                              </SelectItem>
-                              {filteredResponsibleOptions.map((person) => (
-                                <SelectItem key={person} value={person}>
-                                  {person}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label className="text-xs">Responsables</Label>
+                          <div className="space-y-2 rounded-md border border-gray-200 bg-white p-3">
+                            <div className="max-h-28 space-y-1 overflow-y-auto">
+                              {filteredResponsibleOptions.map((person) => {
+                                const selectedResponsible = splitCsv(measure.responsible);
+                                const isChecked = selectedResponsible.includes(person);
+                                return (
+                                  <label key={person} className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        const nextValues = e.target.checked
+                                          ? [...selectedResponsible, person]
+                                          : selectedResponsible.filter((value) => value !== person);
+                                        const newMeasures = [...(formData.plannedMeasures || [])];
+                                        newMeasures[idx] = { ...newMeasures[idx], responsible: nextValues.join(", ") };
+                                        setFormData({ ...formData, plannedMeasures: newMeasures });
+                                      }}
+                                    />
+                                    {person}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
                         <div>
                           <Label className="text-xs">Échéance</Label>
@@ -1575,16 +1598,17 @@ export function RisksManagementView({
                 <div>
                   <Label>Statut *</Label>
                   <Select
-                    value={formData.status || 'identifié'}
+                    value={formData.status || 'a_traiter'}
                     onValueChange={(value: any) => setFormData({ ...formData, status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="identifié">Identifié</SelectItem>
-                      <SelectItem value="en_cours">En cours</SelectItem>
-                      <SelectItem value="traité">Traité</SelectItem>
+                      <SelectItem value="a_traiter">A traiter</SelectItem>
+                      <SelectItem value="en_traitement">En traitement</SelectItem>
+                      <SelectItem value="maitrise">Maitrise</SelectItem>
+                      <SelectItem value="supprime">Supprime</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

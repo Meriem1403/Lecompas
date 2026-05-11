@@ -36,6 +36,9 @@ interface AccidentCreateViewProps {
     domain?: string;
     witnesses: string[];
     measures: string;
+    lesionSites: string[];
+    lesionNatures: string[];
+    correctiveActions: string[];
   }) => void;
   onCancel: () => void;
   agents: Array<{
@@ -59,6 +62,10 @@ export function AccidentCreateView({
   domainOptions,
   locationOptions
 }: AccidentCreateViewProps) {
+  const DEFAULT_LESION_SITE_OPTIONS = ['Tête', 'Cou', 'Dos', 'Membre supérieur', 'Membre inférieur', 'Main', 'Pied', 'Yeux', 'Voies respiratoires'];
+  const DEFAULT_LESION_NATURE_OPTIONS = ['Contusion', 'Coupure', 'Brûlure', 'Fracture', 'Entorse', 'Irritation', 'Lombalgie', 'Plaie', 'Traumatisme'];
+  const DEFAULT_CORRECTIVE_ACTION_OPTIONS = ['Analyse des causes', 'Mise à jour consigne sécurité', 'Formation complémentaire', 'Ajout EPI', 'Balisage de zone', 'Maintenance corrective', 'Contrôle périodique renforcé'];
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     title: '',
@@ -70,8 +77,17 @@ export function AccidentCreateView({
     domain: '',
     location: '',
     witnesses: [] as string[],
-    measures: ''
+    measures: '',
+    lesionSites: [] as string[],
+    lesionNatures: [] as string[],
+    correctiveActions: [] as string[],
   });
+  const [lesionSiteOptions, setLesionSiteOptions] = useState(DEFAULT_LESION_SITE_OPTIONS);
+  const [lesionNatureOptions, setLesionNatureOptions] = useState(DEFAULT_LESION_NATURE_OPTIONS);
+  const [correctiveActionOptions, setCorrectiveActionOptions] = useState(DEFAULT_CORRECTIVE_ACTION_OPTIONS);
+  const [newLesionSiteOption, setNewLesionSiteOption] = useState('');
+  const [newLesionNatureOption, setNewLesionNatureOption] = useState('');
+  const [newCorrectiveActionOption, setNewCorrectiveActionOption] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +112,20 @@ export function AccidentCreateView({
       ...formData,
       witnesses: formData.witnesses.filter((_, i) => i !== index)
     });
+  };
+
+  const addOption = (
+    value: string,
+    options: string[],
+    setOptions: React.Dispatch<React.SetStateAction<string[]>>,
+    reset: () => void,
+  ) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    if (!options.includes(trimmed)) {
+      setOptions((prev) => [...prev, trimmed]);
+    }
+    reset();
   };
 
   const getSeverityGradient = (severity: string) => {
@@ -165,32 +195,31 @@ export function AccidentCreateView({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Déclarer un accident</h2>
-        <p className="text-gray-600 mt-1">Créez une nouvelle déclaration d’accident.</p>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button 
-          type="button"
-          variant="outline" 
-          onClick={onCancel}
-          className="w-full sm:w-auto border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-semibold"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour à la liste
-        </Button>
-        <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
-          <Button 
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            className="w-full sm:w-auto"
-          >
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold text-gray-900">Déclarer un accident</h2>
+            <p className="text-gray-600 mt-1">Créez une nouvelle déclaration d’accident.</p>
+          </div>
+          <div className="flex justify-end shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              onClick={onCancel}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-gray-300"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour à la liste
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:flex-wrap pt-4 border-t border-gray-200">
+          <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
-          <Button 
+          <Button
             type="submit"
             className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
           >
@@ -257,6 +286,213 @@ export function AccidentCreateView({
                     <SelectItem value="maladie_pro">Maladie professionnelle</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="bg-gradient-to-br from-red-50 to-pink-50 p-4 rounded-xl space-y-4">
+              <h3 className="font-bold text-lg text-red-700">🩺 Lésions et actions correctives</h3>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-bold text-red-900">Siège(s) de lésion</Label>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                  <Input
+                    value={newLesionSiteOption}
+                    onChange={(e) => setNewLesionSiteOption(e.target.value)}
+                    placeholder="Ajouter un siège de lésion"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      addOption(newLesionSiteOption, lesionSiteOptions, setLesionSiteOptions, () => setNewLesionSiteOption(''))
+                    }
+                  >
+                    Ajouter à la liste
+                  </Button>
+                </div>
+                {formData.lesionSites.map((value, idx) => (
+                  <div key={`lesion-site-${idx}`} className="flex gap-2">
+                    <Select
+                      value={value}
+                      onValueChange={(selected) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lesionSites: prev.lesionSites.map((item, i) => (i === idx ? selected : item)),
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Sélectionner un siège de lésion" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lesionSiteOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-red-600"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lesionSites: prev.lesionSites.filter((_, i) => i !== idx),
+                        }))
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, lesionSites: [...prev.lesionSites, lesionSiteOptions[0] || ''] }))
+                  }
+                >
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Ajouter un siège
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-bold text-red-900">Nature(s) de lésion</Label>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                  <Input
+                    value={newLesionNatureOption}
+                    onChange={(e) => setNewLesionNatureOption(e.target.value)}
+                    placeholder="Ajouter une nature de lésion"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      addOption(newLesionNatureOption, lesionNatureOptions, setLesionNatureOptions, () => setNewLesionNatureOption(''))
+                    }
+                  >
+                    Ajouter à la liste
+                  </Button>
+                </div>
+                {formData.lesionNatures.map((value, idx) => (
+                  <div key={`lesion-nature-${idx}`} className="flex gap-2">
+                    <Select
+                      value={value}
+                      onValueChange={(selected) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lesionNatures: prev.lesionNatures.map((item, i) => (i === idx ? selected : item)),
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Sélectionner une nature de lésion" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {lesionNatureOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-red-600"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lesionNatures: prev.lesionNatures.filter((_, i) => i !== idx),
+                        }))
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, lesionNatures: [...prev.lesionNatures, lesionNatureOptions[0] || ''] }))
+                  }
+                >
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Ajouter une nature
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-bold text-red-900">Action(s) corrective(s)</Label>
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                  <Input
+                    value={newCorrectiveActionOption}
+                    onChange={(e) => setNewCorrectiveActionOption(e.target.value)}
+                    placeholder="Ajouter une action corrective"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      addOption(newCorrectiveActionOption, correctiveActionOptions, setCorrectiveActionOptions, () => setNewCorrectiveActionOption(''))
+                    }
+                  >
+                    Ajouter à la liste
+                  </Button>
+                </div>
+                {formData.correctiveActions.map((value, idx) => (
+                  <div key={`corrective-action-${idx}`} className="flex gap-2">
+                    <Select
+                      value={value}
+                      onValueChange={(selected) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          correctiveActions: prev.correctiveActions.map((item, i) => (i === idx ? selected : item)),
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Sélectionner une action corrective" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {correctiveActionOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-red-600"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          correctiveActions: prev.correctiveActions.filter((_, i) => i !== idx),
+                        }))
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, correctiveActions: [...prev.correctiveActions, correctiveActionOptions[0] || ''] }))
+                  }
+                >
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Ajouter une action corrective
+                </Button>
               </div>
             </div>
 
