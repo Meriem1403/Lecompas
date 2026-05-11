@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   Edit,
   Trash2,
+  Download,
+  Eye,
   Calendar,
   CheckCircle2,
   AlertTriangle,
@@ -17,9 +19,9 @@ import {
   Activity,
   Clock,
   AlertCircle,
-  Users,
-  Building2,
-  Target
+  Target,
+  FileText,
+  Bell,
 } from 'lucide-react';
 import { MedicalVisit, Risk } from '../MedicalVisitsView';
 import {
@@ -34,6 +36,10 @@ import {
   AlertDialogTrigger,
 } from '../ui/alert-dialog';
 import { toast } from 'sonner';
+import {
+  downloadVisitReportFile,
+  openVisitReportInNewTab,
+} from './medicalVisitReportFile';
 
 interface MedicalVisitDetailProps {
   medicalVisit: MedicalVisit;
@@ -108,41 +114,101 @@ export function MedicalVisitDetail({ medicalVisit, risks, onBack, onEdit, onDele
 
   const nextVisitInfo = getDaysUntilNextVisit();
 
+  const handleDownloadCompteRendu = () => {
+    const c = medicalVisit.compteRenduVisite;
+    if (!c?.dataUrl) {
+      toast.error('Aucun compte rendu joint sur cette fiche.');
+      return;
+    }
+    try {
+      downloadVisitReportFile(c);
+      toast.success('Téléchargement lancé.');
+    } catch {
+      toast.error('Impossible de télécharger le fichier.');
+    }
+  };
+
+  const handleOpenCompteRendu = () => {
+    const c = medicalVisit.compteRenduVisite;
+    if (!c?.dataUrl) {
+      toast.error('Aucun compte rendu joint sur cette fiche.');
+      return;
+    }
+    try {
+      openVisitReportInNewTab(c);
+    } catch {
+      toast.error('Impossible d\'ouvrir le fichier. Vérifiez les popups du navigateur.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour à la liste
-          </Button>
-          <div>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-3xl font-bold text-gray-900">{medicalVisit.prenom} {medicalVisit.nom}</h1>
-              <Badge className={`bg-gradient-to-r ${config.color} text-white border-0 text-sm px-3 py-1`}>
-                {config.label}
+            <h1 className="text-3xl font-bold text-gray-900">{medicalVisit.prenom} {medicalVisit.nom}</h1>
+            <Badge className={`bg-gradient-to-r ${config.color} text-white border-0 text-sm px-3 py-1`}>
+              {config.label}
+            </Badge>
+            <Badge variant="outline" className="bg-gray-100 text-gray-700 text-sm px-3 py-1">
+              {medicalVisit.sexe === 'M' ? 'Homme' : 'Femme'}
+            </Badge>
+            {medicalVisit.amenagementPoste && medicalVisit.amenagementPoste !== 'Aucun' && (
+              <Badge className="bg-purple-600 text-white text-sm px-3 py-1">
+                <Activity className="h-3 w-3 mr-1" />
+                Aménagement
               </Badge>
-              <Badge variant="outline" className="bg-gray-100 text-gray-700 text-sm px-3 py-1">
-                {medicalVisit.sexe === 'M' ? 'Homme' : 'Femme'}
+            )}
+            {medicalVisit.surveillanceParticuliere && (
+              <Badge className="bg-amber-600 text-white text-sm px-3 py-1">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Surveillance particulière
               </Badge>
-              {medicalVisit.amenagementPoste && medicalVisit.amenagementPoste !== 'Aucun' && (
-                <Badge className="bg-purple-600 text-white text-sm px-3 py-1">
-                  <Activity className="h-3 w-3 mr-1" />
-                  Aménagement
-                </Badge>
-              )}
-              {medicalVisit.surveillanceParticuliere && (
-                <Badge className="bg-amber-600 text-white text-sm px-3 py-1">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Surveillance particulière
-                </Badge>
-              )}
+            )}
             </div>
-            <p className="text-gray-600">{medicalVisit.libellePoste}</p>
+            {(medicalVisit.domaine || medicalVisit.lieu || medicalVisit.service) ? (
+              <div className="text-gray-600 text-sm space-y-0.5">
+                {medicalVisit.domaine ? <p>Domaine : {medicalVisit.domaine}</p> : null}
+                {medicalVisit.lieu ? <p>Lieu : {medicalVisit.lieu}</p> : null}
+                {medicalVisit.service ? <p>Service : {medicalVisit.service}</p> : null}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex justify-end shrink-0">
+            <Button variant="outline" size="default" onClick={onBack} className="w-full sm:w-auto font-semibold shadow-sm border-2 border-gray-300">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour à la liste
+            </Button>
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end pt-4 border-t border-gray-200">
+          {medicalVisit.compteRenduVisite?.dataUrl ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleOpenCompteRendu}
+                className="border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:bg-emerald-100"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Visualiser le compte rendu
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownloadCompteRendu}
+                className="border-cyan-200 bg-cyan-50/80 text-cyan-950 hover:bg-cyan-100"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Télécharger le compte rendu
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" disabled className="text-gray-500">
+              Aucun compte rendu joint
+            </Button>
+          )}
           <Button variant="outline" onClick={onEdit}>
             <Edit className="h-4 w-4 mr-2" />
             Modifier
@@ -187,7 +253,7 @@ export function MedicalVisitDetail({ medicalVisit, risks, onBack, onEdit, onDele
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <p className="text-sm text-gray-500 mb-1">Sexe</p>
               <p className="text-base font-semibold text-gray-900">
@@ -205,17 +271,6 @@ export function MedicalVisitDetail({ medicalVisit, risks, onBack, onEdit, onDele
               <p className="text-base font-semibold text-gray-900">{medicalVisit.prenom}</p>
             </div>
 
-            {medicalVisit.nombreEnfants !== undefined && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Nombre d'enfants</p>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-pink-600" />
-                  <p className="text-base font-semibold text-gray-900">
-                    {medicalVisit.nombreEnfants} enfant{medicalVisit.nombreEnfants > 1 ? 's' : ''}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -229,69 +284,25 @@ export function MedicalVisitDetail({ medicalVisit, risks, onBack, onEdit, onDele
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Département</p>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-blue-600" />
-                <p className="text-base font-semibold text-gray-900">{medicalVisit.departement}</p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Structure détaillée</p>
-              <p className="text-base font-semibold text-gray-900">{medicalVisit.structureDetaillee}</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div>
-            <p className="text-sm text-gray-500 mb-1">Grade (Libellé NNE)</p>
-            <p className="text-base font-semibold text-gray-900">{medicalVisit.gradeNNE}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Libellé de poste</p>
-              <p className="text-base font-semibold text-gray-900">{medicalVisit.libellePoste}</p>
-            </div>
-
-            {medicalVisit.echelon && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Échelon</p>
-                <Badge variant="outline" className="bg-blue-50 text-blue-900 border-blue-300">
-                  {medicalVisit.echelon}
-                </Badge>
-              </div>
-            )}
-          </div>
-
-          <Separator />
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {medicalVisit.inm && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">INM</p>
-                <p className="text-base font-semibold text-gray-900">{medicalVisit.inm}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Indice de rémunération</p>
-              </div>
-            )}
-
-            {medicalVisit.nombreHeuresRemunerees !== undefined && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Heures rémunérées</p>
-                <p className="text-base font-semibold text-gray-900">{medicalVisit.nombreHeuresRemunerees} h/an</p>
-              </div>
-            )}
-
-            {medicalVisit.etpe !== undefined && (
-              <div>
-                <p className="text-sm text-gray-500 mb-1">ETPE</p>
-                <p className="text-base font-semibold text-gray-900">{medicalVisit.etpe.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Équivalent temps plein</p>
-              </div>
-            )}
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Domaine</p>
+              <p className="text-base font-semibold text-gray-900">
+                {medicalVisit.domaine || '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Lieu</p>
+              <p className="text-base font-semibold text-gray-900">
+                {medicalVisit.lieu || '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Service</p>
+              <p className="text-base font-semibold text-gray-900">
+                {medicalVisit.service || '—'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -376,6 +387,70 @@ export function MedicalVisitDetail({ medicalVisit, risks, onBack, onEdit, onDele
               </div>
             </>
           )}
+
+          <Separator />
+          <div>
+            <p className="text-sm text-gray-500 mb-2">Compte rendu de visite médicale</p>
+            {medicalVisit.compteRenduVisite?.dataUrl ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border-2 border-green-200 bg-green-50/70 p-4">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-5 w-5 shrink-0 text-green-800" />
+                  <span className="font-semibold text-gray-900 truncate">{medicalVisit.compteRenduVisite.name}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={handleOpenCompteRendu}>
+                    <Eye className="h-4 w-4 mr-1" />
+                    Visualiser
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={handleDownloadCompteRendu}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Télécharger
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">Aucun document joint. Vous pouvez en ajouter depuis la modification de la fiche.</p>
+            )}
+          </div>
+
+          <Separator />
+          <div className="rounded-lg border border-teal-200 bg-teal-50/80 p-4">
+            <div className="flex items-start gap-2 mb-3">
+              <Bell className="h-5 w-5 shrink-0 mt-0.5 text-teal-700" />
+              <div>
+                <p className="text-sm font-semibold text-teal-950">Transmission — interlocuteurs</p>
+                <p className="text-xs text-teal-900/85 mt-1">
+                  Souhaits enregistrés sur la fiche pour le conseiller de prévention et le secrétaire général.
+                </p>
+              </div>
+            </div>
+            <ul className="space-y-2 text-sm text-gray-800">
+              <li className="flex items-center gap-2">
+                {medicalVisit.prevenirConseillerPrevention ? (
+                  <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" aria-hidden />
+                ) : (
+                  <span className="h-4 w-4 shrink-0 rounded-full border border-gray-300" aria-hidden />
+                )}
+                <span>
+                  <span className="font-medium">Conseiller de prévention</span>
+                  {' — '}
+                  {medicalVisit.prevenirConseillerPrevention ? 'À prévenir' : 'Non demandé'}
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                {medicalVisit.prevenirSecretaireGeneral ? (
+                  <CheckCircle2 className="h-4 w-4 text-teal-600 shrink-0" aria-hidden />
+                ) : (
+                  <span className="h-4 w-4 shrink-0 rounded-full border border-gray-300" aria-hidden />
+                )}
+                <span>
+                  <span className="font-medium">Secrétaire général</span>
+                  {' — '}
+                  {medicalVisit.prevenirSecretaireGeneral ? 'À prévenir' : 'Non demandé'}
+                </span>
+              </li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
 

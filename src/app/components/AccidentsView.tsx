@@ -32,6 +32,9 @@ interface Accident {
   location: string;
   witnesses: string[];
   measures: string;
+  lesionSites?: string[];
+  lesionNatures?: string[];
+  correctiveActions?: string[];
   createdAt: string;
   service?: string;
   domain?: string;
@@ -188,34 +191,38 @@ export function AccidentsView({
     return (
       <>
         <div className="space-y-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Détail de la déclaration</h2>
-            <p className="text-gray-600 mt-1">Visualisez le détail complet de la déclaration.</p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={() => setViewingAccident(null)}
-              className="w-full sm:w-auto border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-semibold"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour à la liste
-            </Button>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold text-gray-900">Détail de la déclaration</h2>
+                <p className="text-gray-600 mt-1">Visualisez le détail complet de la déclaration.</p>
+              </div>
+              <div className="flex justify-end shrink-0">
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => setViewingAccident(null)}
+                  className="w-full sm:w-auto font-semibold shadow-sm border-2 border-gray-300"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Retour à la liste
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:flex-wrap pt-4 border-t border-gray-200">
               <Button
                 onClick={() => {
                   setEditingAccident(viewingAccident);
                   setViewingAccident(null);
                 }}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Modifier
               </Button>
               <Button
                 onClick={() => handleDeleteClick(viewingAccident.id)}
-                className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
+                className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Supprimer
@@ -333,6 +340,26 @@ export function AccidentsView({
                   {viewingAccident.measures || 'Aucune mesure renseignée.'}
                 </p>
               </div>
+
+              {((viewingAccident.lesionSites && viewingAccident.lesionSites.length > 0) ||
+                (viewingAccident.lesionNatures && viewingAccident.lesionNatures.length > 0) ||
+                (viewingAccident.correctiveActions && viewingAccident.correctiveActions.length > 0)) && (
+                <div className="mt-4 space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-sm font-bold text-rose-900">Lésions et actions correctives</p>
+                  <p className="text-sm text-slate-700">
+                    <span className="font-semibold">Siège(s) de lésion : </span>
+                    {(viewingAccident.lesionSites || []).join(', ') || '—'}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    <span className="font-semibold">Nature(s) de lésion : </span>
+                    {(viewingAccident.lesionNatures || []).join(', ') || '—'}
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    <span className="font-semibold">Action(s) corrective(s) : </span>
+                    {(viewingAccident.correctiveActions || []).join(', ') || '—'}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p className="text-sm font-bold text-slate-800 mb-2">Synthèse consultation</p>

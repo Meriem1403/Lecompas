@@ -190,7 +190,7 @@ interface Risk {
     completedDate?: string;
     effectiveness?: string;
   }>; // Mesures A proposer
-  status: "identifié" | "en_cours" | "traité"; // Etat d'avancement
+  status: "a_traiter" | "en_traitement" | "maitrise" | "supprime"; // Etat d'avancement
   echeance: string; // Échéance
   retourAction: string; // Retour d'action
   observation: string; // Observation
@@ -231,6 +231,9 @@ interface Accident {
   domain?: string;
   witnesses: string[];
   measures: string;
+  lesionSites?: string[];
+  lesionNatures?: string[];
+  correctiveActions?: string[];
   createdAt: string;
 }
 
@@ -280,7 +283,7 @@ const FAKE_RISKS: Risk[] = [
           "Temps de séchage réduit de 40%, aucune chute constatée depuis",
       },
     ],
-    status: "en_cours",
+    status: "en_traitement",
     echeance: "2026-03-31",
     retourAction:
       "Formation effectuée avec succès. Installation en cours.",
@@ -338,7 +341,7 @@ const FAKE_RISKS: Risk[] = [
         status: "in_progress",
       },
     ],
-    status: "identifié",
+    status: "a_traiter",
     echeance: "2026-06-30",
     retourAction:
       "Surveillance médicale en cours. Étude de substitution lancée.",
@@ -390,7 +393,7 @@ const FAKE_RISKS: Risk[] = [
         status: "pending",
       },
     ],
-    status: "en_cours",
+    status: "en_traitement",
     echeance: "2026-05-31",
     retourAction:
       "Travaux de sécurisation en cours. Livraison prévue dans les délais.",
@@ -451,7 +454,7 @@ const FAKE_RISKS: Risk[] = [
         status: "in_progress",
       },
     ],
-    status: "en_cours",
+    status: "en_traitement",
     echeance: "2026-03-31",
     retourAction:
       "Mesures en cours d'application. Amélioration déjà constatée.",
@@ -509,7 +512,7 @@ const FAKE_RISKS: Risk[] = [
         status: "in_progress",
       },
     ],
-    status: "identifié",
+    status: "a_traiter",
     echeance: "2026-04-30",
     retourAction:
       "Audit en cours. Commandes prévues selon recommandations.",
@@ -560,7 +563,7 @@ const FAKE_RISKS: Risk[] = [
         status: "in_progress",
       },
     ],
-    status: "identifié",
+    status: "a_traiter",
     echeance: "2026-06-30",
     retourAction:
       "Appel d'offres lancé pour le remplacement. Sécurisation temporaire en cours.",
@@ -749,8 +752,6 @@ export default function App() {
     useState("all");
   const [riskStatusFilter, setRiskStatusFilter] =
     useState("all");
-  const [riskCategoryFilter, setRiskCategoryFilter] =
-    useState("all");
   const [riskLevelFilter, setRiskLevelFilter] =
     useState("all");
   const [riskNumberFilter, setRiskNumberFilter] =
@@ -768,9 +769,6 @@ export default function App() {
       const matchesStatus =
         riskStatusFilter === "all" ||
         risk.status === riskStatusFilter;
-      const matchesCategory =
-        riskCategoryFilter === "all" ||
-        risk.category === riskCategoryFilter;
       const matchesRiskLevel =
         riskLevelFilter === "all" ||
         String(risk.riskLevel) === riskLevelFilter;
@@ -796,7 +794,6 @@ export default function App() {
       return (
         matchesService &&
         matchesStatus &&
-        matchesCategory &&
         matchesRiskLevel &&
         matchesRiskNumber &&
         matchesSearch
@@ -806,7 +803,6 @@ export default function App() {
     visibleRisks,
     riskServiceFilter,
     riskStatusFilter,
-    riskCategoryFilter,
     riskLevelFilter,
     riskNumberFilter,
     riskSearchQuery,
@@ -826,7 +822,6 @@ export default function App() {
   }, [
     riskServiceFilter,
     riskStatusFilter,
-    riskCategoryFilter,
     riskLevelFilter,
     riskNumberFilter,
     riskSearchQuery,
@@ -1000,21 +995,24 @@ export default function App() {
     });
 
     setRiskAwarenessRecords((previous) => {
-      const previousByKey = new Map(
-        previous.map((record) => [record.riskKey, record]),
-      );
+      const previousByRiskKey = new Map<string, RiskAwarenessRecord[]>();
+      previous.forEach((record) => {
+        const bucket = previousByRiskKey.get(record.riskKey) || [];
+        bucket.push(record);
+        previousByRiskKey.set(record.riskKey, bucket);
+      });
 
-      return Array.from(sourceByKey.entries()).map(
-        ([riskKey, source]) => {
-          const existing = previousByKey.get(riskKey);
-          if (existing) {
-            return {
-              ...existing,
-              riskNumber: source.riskNumber,
-              riskTitle: source.riskTitle,
-            };
-          }
-          return {
+      return Array.from(sourceByKey.entries()).flatMap(([riskKey, source]) => {
+        const existingRecords = previousByRiskKey.get(riskKey) || [];
+        if (existingRecords.length > 0) {
+          return existingRecords.map((existing) => ({
+            ...existing,
+            riskNumber: source.riskNumber,
+            riskTitle: source.riskTitle,
+          }));
+        }
+        return [
+          {
             id: crypto.randomUUID(),
             riskKey,
             riskNumber: source.riskNumber,
@@ -1024,9 +1022,9 @@ export default function App() {
             links: [],
             documents: [],
             status: "a_completer",
-          };
-        },
-      );
+          },
+        ];
+      });
     });
   }, [riskReferences, risks]);
 
@@ -1075,8 +1073,8 @@ export default function App() {
         name: "Marie MARTIN",
         role: "chef_service" as const,
         service: "Maintenance",
-        domain: "Informatique",
-        location: "Marseille",
+        domain: "",
+        location: "",
       },
       {
         email: "agent@dirm-med.gouv.fr",
@@ -1422,13 +1420,14 @@ export default function App() {
 
   const handleDeleteRiskConfirm = () => {
     if (riskToDelete) {
+      const targetId = String(riskToDelete);
       setRisks((prev) =>
-        prev.filter((r) => r.id !== riskToDelete),
+        prev.filter((r) => String(r.id) !== targetId),
       );
       toast.success("Risque supprimé avec succès");
       setRiskDeleteDialogOpen(false);
       setRiskToDelete(null);
-      if (selectedRisk?.id === riskToDelete) {
+      if (String(selectedRisk?.id) === targetId) {
         setSelectedRisk(null);
       }
     }
@@ -1657,17 +1656,15 @@ export default function App() {
   };
 
   const getRiskLevelColor = (level: number) => {
-    if (level >= 12) return "from-red-500 to-rose-600";
-    if (level >= 8) return "from-orange-500 to-amber-600";
-    if (level >= 4) return "from-yellow-400 to-orange-400";
-    return "from-green-400 to-emerald-500";
+    if (level > 9) return "from-red-500 to-rose-600"; // P1
+    if (level >= 4) return "from-orange-500 to-amber-600"; // P2
+    return "from-green-400 to-emerald-500"; // P3
   };
 
   const getRiskLevelLabel = (level: number) => {
-    if (level >= 12) return "Critique";
-    if (level >= 8) return "Élevé";
-    if (level >= 4) return "Moyen";
-    return "Faible";
+    if (level > 9) return "P1";
+    if (level >= 4) return "P2";
+    return "P3";
   };
 
   const stats = [
@@ -1679,8 +1676,8 @@ export default function App() {
       bgGradient: "from-blue-50 to-cyan-50",
     },
     {
-      title: "Risques Critiques",
-      value: risks.filter((r) => r.riskLevel >= 12).length,
+      title: "Risques P1",
+      value: risks.filter((r) => r.riskLevel > 9).length,
       icon: AlertCircle,
       gradient: "from-red-500 to-pink-500",
       bgGradient: "from-red-50 to-pink-50",
@@ -2482,7 +2479,7 @@ export default function App() {
 
           {/* Medical Visits View */}
           {activeView === "medical-visits" && (
-            <MedicalVisitsView risks={risks} />
+            <MedicalVisitsView risks={risks} users={adminUsers} />
           )}
 
           {/* SST Registry View */}
@@ -2626,38 +2623,18 @@ export default function App() {
                             <SelectItem value="all">
                               Tous les statuts
                             </SelectItem>
-                            <SelectItem value="identifié">
-                              Identifié
+                            <SelectItem value="a_traiter">
+                              A traiter
                             </SelectItem>
-                            <SelectItem value="en_cours">
-                              En cours
+                            <SelectItem value="en_traitement">
+                              En traitement
                             </SelectItem>
-                            <SelectItem value="traité">
-                              Traité
+                            <SelectItem value="maitrise">
+                              Maitrise
                             </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={riskCategoryFilter}
-                          onValueChange={setRiskCategoryFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Catégorie" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              Toutes catégories
+                            <SelectItem value="supprime">
+                              Supprime
                             </SelectItem>
-                            {[...new Set(visibleRisks.map((r) => r.category))]
-                              .sort()
-                              .map((category) => (
-                                <SelectItem
-                                  key={category}
-                                  value={category}
-                                >
-                                  {category}
-                                </SelectItem>
-                              ))}
                           </SelectContent>
                         </Select>
                         <Select
@@ -2729,7 +2706,6 @@ export default function App() {
                           onClick={() => {
                             setRiskServiceFilter("all");
                             setRiskStatusFilter("all");
-                            setRiskCategoryFilter("all");
                             setRiskLevelFilter("all");
                             setRiskNumberFilter("all");
                             setRiskSearchQuery("");
@@ -2765,11 +2741,8 @@ export default function App() {
                       </Card>
                     ) : (
                       paginatedRisks.map((risk) => {
-                        const Icon = getCategoryIcon(
-                          risk.category,
-                        );
-                        const gradient = getCategoryColor(
-                          risk.category,
+                        const priorityGradient = getRiskLevelColor(
+                          risk.riskLevel,
                         );
                         const completedActions =
                           risk.plannedMeasures.filter(
@@ -2794,7 +2767,7 @@ export default function App() {
                             }}
                           >
                             <div
-                              className={`h-2 bg-gradient-to-r ${gradient}`}
+                              className={`h-2 bg-gradient-to-r ${priorityGradient}`}
                             ></div>
 
                             {/* Action Buttons - Visible on hover */}
@@ -2828,10 +2801,13 @@ export default function App() {
 
                             <CardHeader>
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div
-                                  className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform`}
-                                >
-                                  <Icon className="h-7 w-7 text-white" />
+                                <div className="text-center p-3 rounded-xl bg-white border-2 border-slate-200 shadow-sm min-w-[130px]">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                    Priorité finale
+                                  </p>
+                                  <p className={`text-3xl font-extrabold mt-1 bg-gradient-to-r ${priorityGradient} bg-clip-text text-transparent`}>
+                                    {risk.prioriteFinale}
+                                  </p>
                                 </div>
                                 <Badge
                                   className={`bg-gradient-to-r ${getRiskLevelColor(risk.riskLevel)} text-white border-0 shadow-lg flex items-center`}
@@ -2947,18 +2923,15 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <Badge
-                                  variant="outline"
-                                  className={`w-full justify-center capitalize font-bold border-2 bg-gradient-to-r ${gradient} text-white border-0 py-2 flex items-center gap-2`}
-                                >
-                                  {React.createElement(
-                                    getCategoryIcon(
-                                      risk.category,
-                                    ),
-                                    { className: "h-4 w-4" },
-                                  )}
-                                  {risk.category}
-                                </Badge>
+                                <div className={`rounded-xl border-2 p-4 text-center bg-gradient-to-r ${priorityGradient} text-white shadow-md`}>
+                                  <p className="text-xs font-semibold uppercase tracking-wide opacity-90">
+                                    Priorisation
+                                  </p>
+                                  <p className="text-2xl font-extrabold">
+                                    {getRiskLevelLabel(risk.riskLevel)}
+                                  </p>
+                                </div>
+
                               </div>
                             </CardContent>
                           </Card>
@@ -3026,18 +2999,13 @@ export default function App() {
                       <CardHeader>
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
-                            <div
-                              className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${getCategoryColor(selectedRisk.category)} flex items-center justify-center shadow-lg`}
-                            >
-                              {React.createElement(
-                                getCategoryIcon(
-                                  selectedRisk.category,
-                                ),
-                                {
-                                  className:
-                                    "h-8 w-8 text-white",
-                                },
-                              )}
+                            <div className={`rounded-2xl border-2 border-slate-200 bg-white px-5 py-3 shadow-lg text-center min-w-[150px]`}>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                Priorité finale
+                              </p>
+                              <p className={`text-3xl font-extrabold mt-1 bg-gradient-to-r ${getRiskLevelColor(selectedRisk.riskLevel)} bg-clip-text text-transparent`}>
+                                {selectedRisk.prioriteFinale}
+                              </p>
                             </div>
                             <div>
                               <CardTitle className="text-2xl font-bold">
@@ -3207,11 +3175,11 @@ export default function App() {
 
                         <Separator />
 
-                        {/* Risques associés */}
+                        {/* Dommages associés */}
                         <div>
                           <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
                             <Shield className="h-4 w-4 mr-2 text-red-500" />
-                            Risques associés
+                            Dommages associés
                           </h4>
                           <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
                             <p className="text-gray-700">
@@ -3446,29 +3414,6 @@ export default function App() {
                               )}
                             </p>
                           </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Category Card */}
-                      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-                        <CardHeader>
-                          <CardTitle className="text-lg flex items-center">
-                            <Tag className="h-5 w-5 mr-2 text-purple-500" />
-                            Catégorie
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <Badge
-                            className={`w-full justify-center capitalize font-bold border-0 bg-gradient-to-r ${getCategoryColor(selectedRisk.category)} text-white py-3 text-base`}
-                          >
-                            {React.createElement(
-                              getCategoryIcon(
-                                selectedRisk.category,
-                              ),
-                              { className: "h-5 w-5 mr-2" },
-                            )}
-                            {selectedRisk.category}
-                          </Badge>
                         </CardContent>
                       </Card>
 

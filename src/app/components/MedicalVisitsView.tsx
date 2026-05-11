@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { MedicalVisitsListView } from './medical/MedicalVisitsListView';
 import { MedicalVisitForm } from './medical/MedicalVisitForm';
 import { MedicalVisitDetail } from './medical/MedicalVisitDetail';
+import { AppUser } from '@/app/components/admin/UserManagementView';
+import type { MedicalVisitReportFile } from './medical/medicalVisitReportFile';
 
 export interface Risk {
   id: string;
@@ -20,24 +23,23 @@ export interface MedicalVisit {
   sexe: 'M' | 'F';
   nom: string;
   prenom: string;
-  nombreEnfants?: number;
   statutMilitaire: 'Militaire' | 'Civil'; // Nouveau champ
   
   // Informations administratives
-  departement: string;
-  gradeNNE: string; // Libellé du grade NNE
-  libellePoste: string;
-  echelon?: string;
-  structureDetaillee: string;
-  service: string; // Service pour filtrage
-  inm?: string; // Indice de rémunération
-  nombreHeuresRemunerees?: number;
-  etpe?: number; // Équivalent Temps Plein
+  domaine?: string;
+  lieu?: string;
+  service?: string; // Service pour filtrage / affichage
   
   // Visites médicales
   derniereVisiteMedicale?: string;
   prochaineVisiteMedicale?: string;
   surveillanceMedicaleAnnee?: number; // Périodicité en années
+  /** Compte rendu de visite médicale (fichier joint : PDF, scan, etc.) */
+  compteRenduVisite?: MedicalVisitReportFile;
+  /** Indique si le conseiller de prévention doit être prévenu (enregistré sur la fiche ; envoi réel hors périmètre UI). */
+  prevenirConseillerPrevention?: boolean;
+  /** Indique si le secrétaire général doit être prévenu. */
+  prevenirSecretaireGeneral?: boolean;
   
   // Aménagements
   amenagementPoste?: string;
@@ -45,6 +47,9 @@ export interface MedicalVisit {
   
   // Liaison avec les risques - IDs des risques auxquels l'agent est exposé
   risquesExposition?: string[]; // Array d'IDs de risques
+
+  // Lien avec l'annuaire Utilisateurs (Administration)
+  employeeId?: string;
   
   // Statut calculé
   statut: 'a_jour' | 'a_planifier' | 'en_retard' | 'urgent';
@@ -62,17 +67,10 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'F',
     nom: 'MARTIN',
     prenom: 'Sophie',
-    nombreEnfants: 2,
     statutMilitaire: 'Civil',
-    departement: 'Bouches-du-Rhône (13)',
-    gradeNNE: 'Ingénieur des Ponts, des Eaux et des Forêts',
-    libellePoste: 'Chef du service Aménagement Littoral',
-    echelon: 'HEA',
-    structureDetaillee: 'DIRM MED - Service Aménagement Littoral',
+    domaine: 'Méditerranée occidentale',
+    lieu: 'Marseille',
     service: 'Aménagement Littoral',
-    inm: '821',
-    nombreHeuresRemunerees: 1607,
-    etpe: 1.0,
     derniereVisiteMedicale: '2024-03-15',
     prochaineVisiteMedicale: '2026-03-15',
     surveillanceMedicaleAnnee: 2,
@@ -88,17 +86,10 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'M',
     nom: 'BERNARD',
     prenom: 'Jean-Pierre',
-    nombreEnfants: 3,
     statutMilitaire: 'Civil',
-    departement: 'Var (83)',
-    gradeNNE: 'Technicien supérieur développement durable',
-    libellePoste: 'Technicien Sécurité Maritime',
-    echelon: 'Principal',
-    structureDetaillee: 'DIRM MED - Centre de Sécurité Maritime',
+    domaine: 'Méditerranée orientale',
+    lieu: 'Toulon',
     service: 'Sécurité Maritime',
-    inm: '567',
-    nombreHeuresRemunerees: 1607,
-    etpe: 1.0,
     derniereVisiteMedicale: '2023-11-20',
     prochaineVisiteMedicale: '2024-11-20',
     surveillanceMedicaleAnnee: 1,
@@ -115,17 +106,10 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'F',
     nom: 'DUBOIS',
     prenom: 'Marie',
-    nombreEnfants: 0,
     statutMilitaire: 'Civil',
-    departement: 'Alpes-Maritimes (06)',
-    gradeNNE: 'Attaché d\'administration de l\'État',
-    libellePoste: 'Gestionnaire Ressources Humaines',
-    echelon: 'Principal',
-    structureDetaillee: 'DIRM MED - Service RH',
+    domaine: 'Méditerranée orientale',
+    lieu: 'Nice',
     service: 'Ressources Humaines',
-    inm: '498',
-    nombreHeuresRemunerees: 1400,
-    etpe: 0.87,
     derniereVisiteMedicale: '2022-06-10',
     prochaineVisiteMedicale: '2024-06-10',
     surveillanceMedicaleAnnee: 2,
@@ -140,22 +124,17 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'M',
     nom: 'ROUSSEAU',
     prenom: 'Thomas',
-    nombreEnfants: 1,
     statutMilitaire: 'Civil',
-    departement: 'Bouches-du-Rhône (13)',
-    gradeNNE: 'Adjoint technique principal',
-    libellePoste: 'Agent d\'entretien et de maintenance',
-    echelon: '2ème classe',
-    structureDetaillee: 'DIRM MED - Service Moyens Généraux',
+    domaine: 'Méditerranée occidentale',
+    lieu: 'Marseille',
     service: 'Moyens Généraux',
-    inm: '345',
-    nombreHeuresRemunerees: 1607,
-    etpe: 1.0,
     derniereVisiteMedicale: '2024-01-08',
     prochaineVisiteMedicale: '2024-07-08',
     surveillanceMedicaleAnnee: 0.5,
     amenagementPoste: 'Port de charges limité à 10kg',
     surveillanceParticuliere: 'Reconnaissance travailleur handicapé (RQTH) - Invalidité 2ème catégorie - Visite médicale semestrielle obligatoire',
+    prevenirConseillerPrevention: true,
+    prevenirSecretaireGeneral: false,
     risquesExposition: ['1', '5', '6'], // Chimique, manutention, électrique
     statut: 'a_planifier',
     createdBy: 'Jean Martin',
@@ -167,17 +146,10 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'F',
     nom: 'LAURENT',
     prenom: 'Isabelle',
-    nombreEnfants: 2,
     statutMilitaire: 'Civil',
-    departement: 'Var (83)',
-    gradeNNE: 'Secrétaire administrative',
-    libellePoste: 'Assistante de direction',
-    echelon: 'Classe supérieure',
-    structureDetaillee: 'DIRM MED - Direction',
+    domaine: 'Corse',
+    lieu: 'Ajaccio',
     service: 'Direction',
-    inm: '412',
-    nombreHeuresRemunerees: 1280,
-    etpe: 0.80,
     derniereVisiteMedicale: '2020-09-15',
     prochaineVisiteMedicale: '2022-09-15',
     surveillanceMedicaleAnnee: 2,
@@ -194,17 +166,10 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'M',
     nom: 'PETIT',
     prenom: 'Alexandre',
-    nombreEnfants: 0,
     statutMilitaire: 'Militaire',
-    departement: 'Bouches-du-Rhône (13)',
-    gradeNNE: 'Officier de Port',
-    libellePoste: 'Inspecteur Contrôle Navigation Plaisance',
-    echelon: 'Divisionnaire',
-    structureDetaillee: 'DIRM MED - Service Contrôle Sécurité',
+    domaine: 'Méditerranée occidentale',
+    lieu: 'Sète',
     service: 'Contrôle Sécurité',
-    inm: '642',
-    nombreHeuresRemunerees: 1607,
-    etpe: 1.0,
     derniereVisiteMedicale: '2024-10-22',
     prochaineVisiteMedicale: '2026-10-22',
     surveillanceMedicaleAnnee: 2,
@@ -217,19 +182,13 @@ const initialMedicalVisits: MedicalVisit[] = [
   {
     id: '7',
     sexe: 'M',
-    nom: 'LEFEVRE',
-    prenom: 'Marc',
-    nombreEnfants: 1,
-    statutMilitaire: 'Militaire',
-    departement: 'Var (83)',
-    gradeNNE: 'Officier marinier',
-    libellePoste: 'Chef de quart surveillance maritime',
-    echelon: 'Premier maître',
-    structureDetaillee: 'DIRM MED - Centre Opérations Maritimes',
-    service: 'Opérations Maritimes',
-    inm: '589',
-    nombreHeuresRemunerees: 1607,
-    etpe: 1.0,
+    nom: 'Leclerc',
+    prenom: 'Pierre',
+    statutMilitaire: 'Civil',
+    employeeId: '3',
+    domaine: 'Technique',
+    lieu: 'Site Lyon',
+    service: 'Maintenance',
     derniereVisiteMedicale: '2024-01-10',
     prochaineVisiteMedicale: '2025-01-10',
     surveillanceMedicaleAnnee: 1,
@@ -244,17 +203,10 @@ const initialMedicalVisits: MedicalVisit[] = [
     sexe: 'F',
     nom: 'MOREAU',
     prenom: 'Céline',
-    nombreEnfants: 0,
     statutMilitaire: 'Civil',
-    departement: 'Bouches-du-Rhône (13)',
-    gradeNNE: 'Technicien supérieur en laboratoire',
-    libellePoste: 'Analyste Environnement Marin',
-    echelon: 'Principal',
-    structureDetaillee: 'DIRM MED - Service Environnement',
+    domaine: 'Méditerranée occidentale',
+    lieu: 'Marseille',
     service: 'Environnement',
-    inm: '523',
-    nombreHeuresRemunerees: 1607,
-    etpe: 1.0,
     derniereVisiteMedicale: '2023-08-20',
     prochaineVisiteMedicale: '2024-08-20',
     surveillanceMedicaleAnnee: 1,
@@ -272,20 +224,44 @@ type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
 interface MedicalVisitsViewProps {
   risks: Risk[];
+  users: AppUser[];
 }
 
-export function MedicalVisitsView({ risks }: MedicalVisitsViewProps) {
+export function MedicalVisitsView({ risks, users }: MedicalVisitsViewProps) {
   const [medicalVisits, setMedicalVisits] = useState<MedicalVisit[]>(initialMedicalVisits);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedVisit, setSelectedVisit] = useState<MedicalVisit | null>(null);
 
   const handleCreateVisit = (visit: MedicalVisit) => {
+    if (
+      visit.employeeId &&
+      medicalVisits.some(
+        (v) => v.employeeId && String(v.employeeId) === String(visit.employeeId),
+      )
+    ) {
+      toast.error('Un suivi médical existe déjà pour cet agent dans l’annuaire.');
+      return;
+    }
     setMedicalVisits([...medicalVisits, visit]);
+    toast.success('Suivi médical créé.');
     setViewMode('list');
   };
 
   const handleUpdateVisit = (updatedVisit: MedicalVisit) => {
+    if (
+      updatedVisit.employeeId &&
+      medicalVisits.some(
+        (v) =>
+          v.id !== updatedVisit.id &&
+          v.employeeId &&
+          String(v.employeeId) === String(updatedVisit.employeeId),
+      )
+    ) {
+      toast.error('Un autre suivi est déjà associé à cet agent.');
+      return;
+    }
     setMedicalVisits(medicalVisits.map(v => v.id === updatedVisit.id ? updatedVisit : v));
+    toast.success('Suivi médical mis à jour.');
     setViewMode('list');
   };
 
@@ -318,6 +294,8 @@ export function MedicalVisitsView({ risks }: MedicalVisitsViewProps) {
 
       {viewMode === 'create' && (
         <MedicalVisitForm
+          key="medical-create"
+          users={users}
           risks={risks}
           onSave={handleCreateVisit}
           onCancel={() => setViewMode('list')}
@@ -326,7 +304,9 @@ export function MedicalVisitsView({ risks }: MedicalVisitsViewProps) {
 
       {viewMode === 'edit' && selectedVisit && (
         <MedicalVisitForm
+          key={`medical-edit-${selectedVisit.id}`}
           medicalVisit={selectedVisit}
+          users={users}
           risks={risks}
           onSave={handleUpdateVisit}
           onCancel={() => setViewMode('list')}

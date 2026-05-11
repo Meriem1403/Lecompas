@@ -30,6 +30,12 @@ interface ProtocolRecord {
   urgence: string;
   signatures: string;
   circulation: string;
+  documents: string[];
+}
+
+interface DeletedProtocolRecord {
+  deletedAt: string;
+  protocol: ProtocolRecord;
 }
 
 interface SafetyProtocolViewProps {
@@ -75,6 +81,7 @@ const defaultProtocols: ProtocolRecord[] = [
     urgence: "SAMU 15, Pompiers 18, Police/Gendarmerie 17, numéro unique 112.",
     signatures: "DIRM Med / SPBM / COB Ajaccio, APB, SIP",
     circulation: "Zone de manutention quai du commerce (cf plan de circulation).",
+    documents: [],
   },
   {
     id: "proto-2023-09-19",
@@ -93,6 +100,7 @@ const defaultProtocols: ProtocolRecord[] = [
     urgence: "Chaîne d'alerte locale et services d'urgence.",
     signatures: "DIRM Med, APB, prestataire.",
     circulation: "Plan de circulation spécifique héliportage.",
+    documents: [],
   },
 ];
 
@@ -107,6 +115,7 @@ export function SafetyProtocolView({
   locationOptions,
 }: SafetyProtocolViewProps) {
   const [protocols, setProtocols] = useState<ProtocolRecord[]>(defaultProtocols);
+  const [deletedProtocols, setDeletedProtocols] = useState<DeletedProtocolRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [query, setQuery] = useState("");
@@ -132,7 +141,9 @@ export function SafetyProtocolView({
     urgence: "SAMU 15, Pompiers 18, Police/Gendarmerie 17, numéro unique 112.",
     signatures: "",
     circulation: "",
+    docsText: "",
   });
+  const [docDraft, setDocDraft] = useState("");
 
   const canEdit = currentUserRole !== "agent";
 
@@ -182,7 +193,9 @@ export function SafetyProtocolView({
       urgence: "SAMU 15, Pompiers 18, Police/Gendarmerie 17, numéro unique 112.",
       signatures: "",
       circulation: "",
+      docsText: "",
     });
+    setDocDraft("");
   };
 
   const openCreate = () => {
@@ -214,12 +227,18 @@ export function SafetyProtocolView({
       urgence: protocol.urgence,
       signatures: protocol.signatures,
       circulation: protocol.circulation,
+      docsText: (protocol.documents || []).join("\n"),
     });
+    setDocDraft("");
     setViewMode("edit");
   };
 
   const saveForm = () => {
     if (!form.title.trim()) return;
+    const documents = form.docsText
+      .split("\n")
+      .map((v) => v.trim())
+      .filter(Boolean);
 
     if (viewMode === "edit" && selectedId) {
       setProtocols((prev) =>
@@ -228,6 +247,7 @@ export function SafetyProtocolView({
             ? {
                 ...protocol,
                 ...form,
+                documents,
                 responsable: currentUserName,
               }
             : protocol,
@@ -239,6 +259,7 @@ export function SafetyProtocolView({
         {
           id: `proto-custom-${Date.now()}`,
           ...form,
+          documents,
           responsable: currentUserName,
         },
         ...prev,
@@ -258,12 +279,24 @@ export function SafetyProtocolView({
     const confirmed = window.confirm(`Supprimer le protocole "${protocol.title}" ?`);
     if (!confirmed) return;
 
+    setDeletedProtocols((prev) => [
+      { deletedAt: new Date().toISOString(), protocol },
+      ...prev,
+    ]);
     setProtocols((prev) => prev.filter((item) => item.id !== id));
     if (selectedId === id) {
       setSelectedId(null);
       setViewMode("list");
     }
     toast.success("Protocole supprimé.");
+  };
+
+  const restoreProtocol = (id: string) => {
+    const deleted = deletedProtocols.find((item) => item.protocol.id === id);
+    if (!deleted) return;
+    setProtocols((prev) => [deleted.protocol, ...prev]);
+    setDeletedProtocols((prev) => prev.filter((item) => item.protocol.id !== id));
+    toast.success("Protocole restauré.");
   };
 
   const handleDownloadProtocol = async (protocol: ProtocolRecord) => {
@@ -326,6 +359,7 @@ export function SafetyProtocolView({
       addBlock("5) Premiers secours", protocol.urgence);
       addBlock("8) Signatures", protocol.signatures);
       addBlock("10) Plan de circulation / dechargement", protocol.circulation);
+      addBlock("Documents associes", protocol.documents?.length ? protocol.documents.join("\n") : "-");
 
       doc.save(`protocole-securite-${protocol.id}.pdf`);
       toast.success("Protocole telecharge en PDF.");
@@ -344,20 +378,37 @@ export function SafetyProtocolView({
     }
   }, [currentPage, totalPages]);
 
+  React.useEffect(() => {
+    const now = Date.now();
+    const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    setDeletedProtocols((prev) =>
+      prev.filter(
+        (item) => now - new Date(item.deletedAt).getTime() < ONE_WEEK_MS,
+      ),
+    );
+  }, [deletedProtocols.length]);
+
   if ((viewMode === "create" || viewMode === "edit") && canEdit) {
     return (
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-3">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
               {viewMode === "create" ? "Nouveau protocole de sécurité" : "Modifier le protocole de sécurité"}
             </h2>
             <p className="text-slate-600 mt-1">Structure alignée sur la logique d'évaluation des risques.</p>
           </div>
-          <Button variant="outline" onClick={() => setViewMode("list")} className="w-full sm:w-auto">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => setViewMode("list")}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <Card className="xl:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
@@ -513,6 +564,70 @@ export function SafetyProtocolView({
                   </h4>
                   <Textarea className="border-2 border-slate-300 min-h-[88px]" value={form.circulation} onChange={(e) => setForm((prev) => ({ ...prev, circulation: e.target.value }))} />
                 </div>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-violet-500" />
+                    Documents associés
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                    <Input
+                      className="border-2 border-slate-300"
+                      placeholder="Nom du document / lien partagé"
+                      value={docDraft}
+                      onChange={(e) => setDocDraft(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const value = docDraft.trim();
+                        if (!value) return;
+                        const current = form.docsText
+                          .split("\n")
+                          .map((v) => v.trim())
+                          .filter(Boolean);
+                        if (current.includes(value)) return;
+                        setForm((prev) => ({
+                          ...prev,
+                          docsText: [...current, value].join("\n"),
+                        }));
+                        setDocDraft("");
+                      }}
+                    >
+                      Ajouter
+                    </Button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {form.docsText
+                      .split("\n")
+                      .map((v) => v.trim())
+                      .filter(Boolean)
+                      .map((doc) => (
+                        <div key={doc} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-sm">
+                          <span className="truncate">{doc}</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600"
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                docsText: prev.docsText
+                                  .split("\n")
+                                  .map((v) => v.trim())
+                                  .filter(Boolean)
+                                  .filter((v) => v !== doc)
+                                  .join("\n"),
+                              }))
+                            }
+                          >
+                            Retirer
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -579,38 +694,47 @@ export function SafetyProtocolView({
   if (viewMode === "detail" && selectedProtocol) {
     return (
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:flex-wrap">
-          <Button
-            variant="outline"
-            onClick={() => handleDownloadProtocol(selectedProtocol)}
-            className="w-full sm:w-auto border-teal-300 text-teal-700 hover:bg-teal-50"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Télécharger
-          </Button>
-          {canEdit ? (
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <Button
-              onClick={() => openEdit(selectedProtocol)}
-              className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
+              variant="outline"
+              onClick={() => handleDownloadProtocol(selectedProtocol)}
+              className="w-full sm:w-auto border-teal-300 text-teal-700 hover:bg-teal-50"
             >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Modifier
+              <Download className="h-4 w-4 mr-2" />
+              Télécharger
             </Button>
-          ) : null}
-          {canEdit ? (
+            {canEdit ? (
+              <Button
+                onClick={() => openEdit(selectedProtocol)}
+                className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
+              >
+                <Edit3 className="h-4 w-4 mr-2" />
+                Modifier
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button
+                variant="destructive"
+                onClick={() => deleteProtocol(selectedProtocol.id)}
+                className="w-full sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Supprimer
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex justify-end pt-3 border-t border-slate-200">
             <Button
-              variant="destructive"
-              onClick={() => deleteProtocol(selectedProtocol.id)}
-              className="w-full sm:w-auto"
+              variant="outline"
+              size="default"
+              onClick={() => setViewMode("list")}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Supprimer
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
             </Button>
-          ) : null}
-          <Button variant="outline" onClick={() => setViewMode("list")} className="w-full sm:w-auto">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-emerald-900 to-teal-900 text-white">
@@ -790,6 +914,22 @@ export function SafetyProtocolView({
           </CardHeader>
           <CardContent>
             <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedProtocol.circulation || "—"}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-2 border-violet-100 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base text-violet-900">Documents associés</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {(selectedProtocol.documents || []).length > 0 ? (
+              selectedProtocol.documents.map((doc) => (
+                <div key={doc} className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-slate-800">
+                  {doc}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">Aucun document associé.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -997,6 +1137,30 @@ export function SafetyProtocolView({
         onPageChange={setCurrentPage}
         itemLabel="protocole(s)"
       />
+
+      {deletedProtocols.length > 0 ? (
+        <Card className="border-2 border-dashed border-amber-300 bg-amber-50/60">
+          <CardHeader>
+            <CardTitle className="text-base text-amber-900">Corbeille protocoles (7 jours)</CardTitle>
+            <CardDescription>
+              Les protocoles supprimés sont conservés 7 jours puis purgés automatiquement.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {deletedProtocols.map((item) => (
+              <div key={item.protocol.id} className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">{item.protocol.title}</p>
+                  <p className="text-xs text-slate-500">Supprimé le {new Date(item.deletedAt).toLocaleString("fr-FR")}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => restoreProtocol(item.protocol.id)}>
+                  Restaurer
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {visibleProtocols.length === 0 ? (
         <Card className="border-2 border-dashed border-slate-300 bg-white/80">

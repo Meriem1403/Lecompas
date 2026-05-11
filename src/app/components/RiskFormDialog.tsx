@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ScrollArea } from './ui/scroll-area';
 import { PlusCircle, X, Save, Edit, FileText, BarChart3, Calendar, Droplet, Zap, Bug, Brain, Armchair, Cog, Search, Clock, CheckCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { computeRiskValues, computeRiskWorkflowStatus, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 interface Risk {
   id: string;
@@ -36,7 +37,7 @@ interface Risk {
     completedDate?: string;
     effectiveness?: string;
   }>;
-  status: 'identifié' | 'en_cours' | 'traité';
+  status: RiskWorkflowStatus;
   echeance: string;
   retourAction: string;
   observation: string;
@@ -92,13 +93,13 @@ export function RiskFormDialog({
     site: '',
     situation: '',
     associatedRisk: '',
-    category: 'mécanique',
+    category: 'risque',
     responsable: '',
     severity: 1,
     probability: 1,
-    moyenMaitrise: '',
+    moyenMaitrise: '1',
     prioriteFinale: 1,
-    status: 'identifié' as 'identifié' | 'en_cours' | 'traité',
+    status: 'a_traiter' as RiskWorkflowStatus,
     echeance: '',
     retourAction: '',
     observation: '',
@@ -150,13 +151,13 @@ export function RiskFormDialog({
         site: '',
         situation: '',
         associatedRisk: '',
-        category: 'mécanique',
+        category: 'risque',
         responsable: '',
         severity: 1,
         probability: 1,
-        moyenMaitrise: '',
+        moyenMaitrise: '1',
         prioriteFinale: 1,
-        status: 'identifié',
+        status: 'a_traiter',
         echeance: '',
         retourAction: '',
         observation: '',
@@ -287,8 +288,11 @@ export function RiskFormDialog({
       return;
     }
 
-    const riskLevel = formData.severity * formData.probability;
-    const calculPriorite = formData.severity * formData.probability;
+    const computed = computeRiskValues(
+      formData.severity,
+      formData.probability,
+      formData.moyenMaitrise || '',
+    );
     
     const riskData = {
       ...(risk && { id: risk.id }),
@@ -300,15 +304,18 @@ export function RiskFormDialog({
       site: formData.site,
       situation: formData.situation,
       associatedRisk: formData.associatedRisk,
-      category: formData.category,
+      category: 'risque',
       responsable: formData.responsable,
       severity: formData.severity,
       probability: formData.probability,
-      riskLevel,
+      riskLevel: computed.riskLevel,
       moyenMaitrise: formData.moyenMaitrise,
-      calculPriorite,
-      prioriteFinale: formData.prioriteFinale,
-      status: formData.status,
+      calculPriorite: computed.calculPriorite,
+      prioriteFinale: computed.prioriteFinale,
+      status: computeRiskWorkflowStatus(
+        computed.riskLevel,
+        formData.plannedMeasures.filter((m) => m.description.trim() !== ''),
+      ),
       echeance: formData.echeance,
       retourAction: formData.retourAction,
       observation: formData.observation,
@@ -369,6 +376,22 @@ export function RiskFormDialog({
       )
     }));
   };
+
+  useEffect(() => {
+    const computed = computeRiskValues(
+      formData.severity,
+      formData.probability,
+      formData.moyenMaitrise || '',
+    );
+    setFormData((prev) => ({
+      ...prev,
+      prioriteFinale: computed.prioriteFinale,
+      status: computeRiskWorkflowStatus(
+        computed.riskLevel,
+        prev.plannedMeasures.filter((m) => m.description.trim() !== ''),
+      ),
+    }));
+  }, [formData.severity, formData.probability, formData.moyenMaitrise, formData.plannedMeasures]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -550,7 +573,7 @@ export function RiskFormDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="associatedRisk">Risque associé *</Label>
+                <Label htmlFor="associatedRisk">Dommages associés *</Label>
                 <Textarea
                   id="associatedRisk"
                   value={formData.associatedRisk}
@@ -561,54 +584,15 @@ export function RiskFormDialog({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Catégorie *</Label>
-                  <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mécanique" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Cog className="h-4 w-4 inline" /> Mécanique</span>
-                      </SelectItem>
-                      <SelectItem value="chimique" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Droplet className="h-4 w-4 inline" /> Chimique</span>
-                      </SelectItem>
-                      <SelectItem value="électrique" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Zap className="h-4 w-4 inline" /> Électrique</span>
-                      </SelectItem>
-                      <SelectItem value="biologique" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Bug className="h-4 w-4 inline" /> Biologique</span>
-                      </SelectItem>
-                      <SelectItem value="psychosocial" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Brain className="h-4 w-4 inline" /> Psychosocial</span>
-                      </SelectItem>
-                      <SelectItem value="ergonomique" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Armchair className="h-4 w-4 inline" /> Ergonomique</span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">Statut *</Label>
-                  <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="identifié" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Search className="h-4 w-4 inline" /> Identifié</span>
-                      </SelectItem>
-                      <SelectItem value="en_cours" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><Clock className="h-4 w-4 inline" /> En cours</span>
-                      </SelectItem>
-                      <SelectItem value="traité" className="flex items-center gap-2">
-                        <span className="flex items-center gap-2"><CheckCircle className="h-4 w-4 inline" /> Traité</span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="status">Statut du risque (automatique)</Label>
+                  <Input
+                    id="status"
+                    value={getRiskWorkflowStatusLabel(formData.status)}
+                    readOnly
+                    disabled
+                  />
                 </div>
               </div>
             </div>
@@ -660,14 +644,22 @@ export function RiskFormDialog({
 
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="moyenMaitrise">Moyen de maîtrise *</Label>
-                  <Input
-                    id="moyenMaitrise"
-                    value={formData.moyenMaitrise}
-                    onChange={(e) => setFormData(prev => ({ ...prev, moyenMaitrise: e.target.value }))}
-                    placeholder="Ex: EPI, ventilation, formation"
-                    required
-                  />
+                  <Label htmlFor="moyenMaitrise">Niveau de maîtrise *</Label>
+                  <Select
+                    value={formData.moyenMaitrise || "1"}
+                    onValueChange={(value) =>
+                      setFormData((prev) => ({ ...prev, moyenMaitrise: value }))
+                    }
+                  >
+                    <SelectTrigger id="moyenMaitrise">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Aucun (coefficient 1)</SelectItem>
+                      <SelectItem value="0.75">En cours (coefficient 0,75)</SelectItem>
+                      <SelectItem value="0.5">Finalisé (coefficient 0,5)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -678,8 +670,8 @@ export function RiskFormDialog({
                     min="1"
                     max="16"
                     value={formData.prioriteFinale}
-                    onChange={(e) => setFormData(prev => ({ ...prev, prioriteFinale: parseInt(e.target.value) || 1 }))}
-                    required
+                    readOnly
+                    disabled
                   />
                 </div>
               </div>
@@ -786,30 +778,30 @@ export function RiskFormDialog({
                   />
 
                   <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={measure.responsible || "__empty__"}
-                      onValueChange={(value) =>
-                        updatePlannedMeasure(
-                          index,
-                          "responsible",
-                          value === "__empty__" ? "" : value,
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Responsable de l'action" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__empty__">
-                          Non renseigné
-                        </SelectItem>
-                        {filteredResponsibleOptions.map((person) => (
-                          <SelectItem key={person} value={person}>
-                            {person}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-2 rounded-md border border-gray-200 bg-white p-3">
+                      <Label className="text-xs">Responsables de l'action</Label>
+                      <div className="max-h-28 space-y-1 overflow-y-auto">
+                        {filteredResponsibleOptions.map((person) => {
+                          const selectedResponsible = splitCsv(measure.responsible);
+                          const isChecked = selectedResponsible.includes(person);
+                          return (
+                            <label key={person} className="flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const nextValues = e.target.checked
+                                    ? [...selectedResponsible, person]
+                                    : selectedResponsible.filter((value) => value !== person);
+                                  updatePlannedMeasure(index, "responsible", nextValues.join(", "));
+                                }}
+                              />
+                              {person}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <Input
                       type="date"
                       value={measure.deadline}

@@ -74,7 +74,7 @@ interface Risk {
     completedDate?: string;
     effectiveness?: string;
   }>;
-  status: 'identifié' | 'en_cours' | 'traité';
+  status: 'a_traiter' | 'en_traitement' | 'maitrise' | 'supprime';
   echeance: string;
   retourAction: string;
   observation: string;
@@ -126,9 +126,9 @@ export function DashboardView({
       change: '+12%',
       changeType: 'up'
     },
-    { 
-      title: 'Risques Critiques', 
-      value: risks.filter(r => r.riskLevel >= 12).length, 
+    {
+      title: 'Risques P1',
+      value: risks.filter(r => r.riskLevel > 9).length,
       icon: AlertCircle, 
       gradient: 'from-red-500 to-pink-500',
       bgGradient: 'from-red-50 to-pink-50',
@@ -155,12 +155,12 @@ export function DashboardView({
     }
   ];
 
-  // Données pour graphique par catégorie
-  const categoryData = Object.entries(
+  // Donnees pour graphique par risque
+  const riskData = Object.entries(
     risks.reduce((acc, risk) => {
-      if (risk.category && risk.category.trim()) {
-        const categoryName = risk.category.charAt(0).toUpperCase() + risk.category.slice(1);
-        acc[categoryName] = (acc[categoryName] || 0) + 1;
+      if (risk.title && risk.title.trim()) {
+        const riskName = risk.title.trim();
+        acc[riskName] = (acc[riskName] || 0) + 1;
       }
       return acc;
     }, {} as Record<string, number>)
@@ -170,10 +170,9 @@ export function DashboardView({
 
   // Données pour graphique de criticité
   const criticalityData = [
-    { id: 'crit-critique', name: 'Critique', value: risks.filter(r => r.riskLevel >= 12).length, color: '#ef4444' },
-    { id: 'crit-eleve', name: 'Élevé', value: risks.filter(r => r.riskLevel >= 8 && r.riskLevel < 12).length, color: '#f97316' },
-    { id: 'crit-moyen', name: 'Moyen', value: risks.filter(r => r.riskLevel >= 4 && r.riskLevel < 8).length, color: '#fbbf24' },
-    { id: 'crit-faible', name: 'Faible', value: risks.filter(r => r.riskLevel < 4).length, color: '#22c55e' }
+    { id: 'crit-p1', name: 'P1', value: risks.filter(r => r.riskLevel > 9).length, color: '#ef4444' },
+    { id: 'crit-p2', name: 'P2', value: risks.filter(r => r.riskLevel >= 4 && r.riskLevel <= 9).length, color: '#f97316' },
+    { id: 'crit-p3', name: 'P3', value: risks.filter(r => r.riskLevel < 4).length, color: '#22c55e' }
   ];
 
   // Données pour évolution mensuelle (simulation)
@@ -220,24 +219,24 @@ export function DashboardView({
     }
   ];
 
-  // Données radar par catégorie
+  // Donnees radar par risque
   const radarData = Object.entries(
     risks.reduce((acc, risk) => {
-      if (risk.category && risk.category.trim()) {
-        const categoryName = risk.category.charAt(0).toUpperCase() + risk.category.slice(1);
-        if (!acc[categoryName]) {
-          acc[categoryName] = { total: 0, critique: 0 };
+      if (risk.title && risk.title.trim()) {
+        const riskName = risk.title.trim();
+        if (!acc[riskName]) {
+          acc[riskName] = { total: 0, critique: 0 };
         }
-        acc[categoryName].total += 1;
-        if (risk.riskLevel >= 12) {
-          acc[categoryName].critique += 1;
+        acc[riskName].total += 1;
+        if (risk.riskLevel > 9) {
+          acc[riskName].critique += 1;
         }
       }
       return acc;
     }, {} as Record<string, { total: number; critique: number }>)
-  ).map(([category, data], index) => ({
-    id: `radar-${category}-${data.total}-${data.critique}-${index}`,
-    category,
+  ).map(([riskName, data], index) => ({
+    id: `radar-${riskName}-${data.total}-${data.critique}-${index}`,
+    riskName,
     total: data.total,
     critique: data.critique
   }));
@@ -285,13 +284,13 @@ export function DashboardView({
           <CardHeader>
             <CardTitle className="flex items-center text-xl">
               <BarChart3 className="h-6 w-6 mr-2 text-purple-500" />
-              Répartition par Catégorie
+              Repartition par risque
             </CardTitle>
             <CardDescription>Nombre de risques par type</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={categoryData} id="category-chart">
+              <BarChart data={riskData} id="category-chart">
                 <defs>
                   <linearGradient id="categoryBarGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.9}/>
@@ -431,7 +430,7 @@ export function DashboardView({
           <CardHeader>
             <CardTitle className="flex items-center text-xl">
               <Target className="h-6 w-6 mr-2 text-indigo-500" />
-              Vue d'ensemble par Catégorie
+              Vue d'ensemble par risque
             </CardTitle>
             <CardDescription>Total vs Critiques par catégorie</CardDescription>
           </CardHeader>
@@ -439,7 +438,7 @@ export function DashboardView({
             <ResponsiveContainer width="100%" height={300}>
               <RadarChart data={radarData} id="radar-overview-chart">
                 <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis dataKey="category" stroke="#6b7280" style={{ fontSize: '12px' }} />
+                <PolarAngleAxis dataKey="riskName" stroke="#6b7280" style={{ fontSize: '12px' }} />
                 <PolarRadiusAxis stroke="#6b7280" />
                 <Radar key="radar-total" name="Total" dataKey="total" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
                 <Radar key="radar-critique" name="Critiques" dataKey="critique" stroke="#ef4444" fill="#ef4444" fillOpacity={0.5} />

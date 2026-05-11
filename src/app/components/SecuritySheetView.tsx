@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
+import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from "@/app/services/externalLinkGuard";
 
 export interface ControleRow {
   id: string;
@@ -57,6 +58,7 @@ export interface SecuritySheetRecord {
   referentielAnnee: string;
   titreFiche: string;
   nomSite: string;
+  lieuElementsControles: string;
   dateCreation: string;
   dateMiseAJour: string;
   effectif: string;
@@ -104,6 +106,7 @@ export function newSecuritySheet(overrides?: Partial<SecuritySheetRecord>): Secu
     referentielAnnee: "DIRM Méditerranée 2023",
     titreFiche: "Fiche sécurité secteur des Bouches du Rhône",
     nomSite: "COB Marseille",
+    lieuElementsControles: "",
     dateCreation: new Date().toISOString().slice(0, 10),
     dateMiseAJour: new Date().toISOString().slice(0, 10),
     effectif: "",
@@ -136,6 +139,7 @@ export function newSecuritySheet(overrides?: Partial<SecuritySheetRecord>): Secu
 export const defaultSecuritySheetsState: SecuritySheetRecord[] = [
   newSecuritySheet({
     id: "fiche-demo-cob-marseille",
+    lieuElementsControles: "Bâtiments techniques, ateliers et zones de stockage",
     dateCreation: "2021-05-07",
     dateMiseAJour: "2024-05-07",
     effectif: "11 (COB) + 3 (BPST) + 1 (BAAF) + 1 (adj SPB) + marins (~13)",
@@ -231,6 +235,44 @@ async function downloadFicheSecuritePdf(record: SecuritySheetRecord) {
     doc.text(lines, margin, y);
     y += lines.length * 4 + 2;
   };
+  const addSectionTitle = (title: string) => {
+    ensure(10);
+    doc.setFillColor(244, 63, 94);
+    doc.rect(margin, y, contentW, 6, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(title, margin + 2, y + 4.2);
+    doc.setTextColor(0, 0, 0);
+    y += 8;
+  };
+  const addControlRow = (
+    row: ControleRow,
+    withInspector: boolean,
+    index: number,
+  ) => {
+    const lines: string[] = [
+      `Ligne ${index + 1}`,
+      `Action: ${row.action || "—"}`,
+      `Site: ${row.site || "—"}`,
+      `Date rapport: ${row.dateRapport || "—"}`,
+      `Référence: ${row.reference || "—"}`,
+      `Observation: ${row.observation || "—"}`,
+    ];
+    if (withInspector) {
+      lines.push(`Date de passage: ${row.datePassage || "—"}`);
+      lines.push(`Inspecteur: ${row.nomInspecteur || "—"}`);
+    }
+    const blockLines = doc.splitTextToSize(lines.join(" | "), contentW - 4);
+    ensure(blockLines.length * 4 + 6);
+    doc.setDrawColor(251, 113, 133);
+    doc.setFillColor(255, 241, 242);
+    doc.rect(margin, y, contentW, blockLines.length * 4 + 4, "FD");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(blockLines, margin + 2, y + 3.5);
+    y += blockLines.length * 4 + 6;
+  };
 
   doc.setFillColor(190, 24, 93);
   doc.rect(0, 0, 210, 12, "F");
@@ -241,6 +283,7 @@ async function downloadFicheSecuritePdf(record: SecuritySheetRecord) {
   doc.setTextColor(0, 0, 0);
   y = 18;
   addT(`${record.nomSite} — ${record.titreFiche}`);
+  addB("Lieu ou elements controles", record.lieuElementsControles);
   addB("Referentiel", record.referentielAnnee);
   addB("Dates", `Creation: ${record.dateCreation} | MAJ: ${record.dateMiseAJour}`);
   addB("Effectif", record.effectif);
@@ -249,7 +292,29 @@ async function downloadFicheSecuritePdf(record: SecuritySheetRecord) {
   addB("Activites", record.activitesPrincipales);
   addB("Horaires", record.cyclesHoraires);
   addB("Correspondant prevention", record.correspondantPrevention);
+  addB("Registre SST", record.registreSst);
+  addB("Protocole d'accueil", record.protocoleAccueil);
+  addB("Registre des controles / emplacement", record.registreControlesLieu);
+  addB("Personnel habilite electrique", record.personnelHabilitationElectrique);
+  addB("Procedure evacuation incendie", record.procedureEvacuationIncendie);
   addB("Autres complement", record.autresComplement);
+
+  for (const section of SECTIONS) {
+    const rows = (record[section.key] as ControleRow[]).filter(
+      (row) =>
+        row.action ||
+        row.site ||
+        row.dateRapport ||
+        row.reference ||
+        row.observation ||
+        row.datePassage ||
+        row.nomInspecteur,
+    );
+    if (!rows.length) continue;
+    addSectionTitle(`Controles — ${section.label}`);
+    rows.forEach((row, idx) => addControlRow(row, section.withInspector, idx));
+  }
+
   doc.save(`fiche-securite-${record.nomSite.replace(/\s+/g, "-") || record.id}.pdf`);
 }
 
@@ -288,6 +353,7 @@ export function SecuritySheetView({
         r.duerpTitre,
         r.titreFiche,
         r.nomSite,
+        r.lieuElementsControles,
         r.referentielAnnee,
         r.adresse,
         r.activitesPrincipales,
@@ -583,6 +649,10 @@ export function SecuritySheetView({
                   <span className="font-bold uppercase tracking-wide text-rose-800">Site :</span>
                   <span className="text-sm font-semibold text-rose-900">{r.nomSite || "—"}</span>
                 </div>
+                <div className="flex items-center gap-2 bg-rose-50/60 border border-rose-200 rounded-lg px-3 py-2">
+                  <span className="font-bold uppercase tracking-wide text-rose-800">Lieu / éléments :</span>
+                  <span className="text-sm font-semibold text-rose-900 line-clamp-2">{r.lieuElementsControles || "—"}</span>
+                </div>
                 <div className="flex items-center gap-2 bg-pink-50 border border-pink-200 rounded-lg px-3 py-2">
                   <span className="font-bold uppercase tracking-wide text-pink-800">Referentiel :</span>
                   <span className="text-sm font-semibold text-pink-900">{r.referentielAnnee || "—"}</span>
@@ -707,6 +777,15 @@ function IdentityFields({ form, patch }: { form: SecuritySheetRecord; patch: (p:
         <div>
           <Label>Site (ex. COB)</Label>
           <Input value={form.nomSite} onChange={(e) => patch({ nomSite: e.target.value })} className="mt-1 border-2 border-slate-300" />
+        </div>
+        <div>
+          <Label>Lieu ou éléments contrôlés</Label>
+          <Input
+            value={form.lieuElementsControles}
+            onChange={(e) => patch({ lieuElementsControles: e.target.value })}
+            className="mt-1 border-2 border-slate-300"
+            placeholder="Ex : atelier PB, local technique, toiture, quai"
+          />
         </div>
         <div>
           <Label>Date création fiche</Label>
@@ -953,17 +1032,24 @@ function EditBody({
 }) {
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">
             {isCreate ? "Nouvelle fiche securite" : "Modifier la fiche securite"}
           </h2>
           <p className="text-slate-600 mt-1">Edition en page complete, alignee sur le plan de prevention.</p>
         </div>
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour
-        </Button>
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="default"
+            onClick={onBack}
+            className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour
+          </Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-2xl bg-white">
@@ -1093,23 +1179,40 @@ function DetailBody({
   canEdit: boolean;
   readSection: (r: SecuritySheetRecord, k: SheetArrayKey) => ControleRow[];
 }) {
+  const openSafeLink = (url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      toast.error(getBlockedExternalLinkMessage(url));
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <Button variant="outline" onClick={onDownload} className="w-full sm:w-auto border-pink-300 text-pink-800 hover:bg-pink-50">
-          <Download className="h-4 w-4 mr-2" />
-          Telecharger
-        </Button>
-        {canEdit ? (
-          <Button onClick={onEdit} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700">
-            <Pencil className="h-4 w-4 mr-2" />
-            Modifier
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <Button variant="outline" onClick={onDownload} className="w-full sm:w-auto border-pink-300 text-pink-800 hover:bg-pink-50">
+            <Download className="h-4 w-4 mr-2" />
+            Telecharger
           </Button>
-        ) : null}
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour
-        </Button>
+          {canEdit ? (
+            <Button onClick={onEdit} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700">
+              <Pencil className="h-4 w-4 mr-2" />
+              Modifier
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex justify-end pt-3 border-t border-slate-200">
+          <Button
+            variant="outline"
+            size="default"
+            onClick={onBack}
+            className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Retour
+          </Button>
+        </div>
       </div>
 
       <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-rose-900 to-pink-900 text-white">
@@ -1203,7 +1306,16 @@ function DetailBody({
             <p>
               <span className="text-slate-500">Lien :</span>{" "}
               {record.lienIntranet ? (
-                <a className="text-pink-700 underline" href={record.lienIntranet} target="_blank" rel="noreferrer">
+                <a
+                  className="text-pink-700 underline"
+                  href={record.lienIntranet}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    openSafeLink(record.lienIntranet);
+                  }}
+                >
                   Acces intranet
                 </a>
               ) : (
@@ -1212,6 +1324,9 @@ function DetailBody({
             </p>
             <p>
               <span className="text-slate-500">Protocole :</span> {record.protocoleAccueil || "—"}
+            </p>
+            <p>
+              <span className="text-slate-500">Lieu / éléments contrôlés :</span> {record.lieuElementsControles || "—"}
             </p>
             <p>
               <span className="text-slate-500">Registre controles :</span> {record.registreControlesLieu || "—"}

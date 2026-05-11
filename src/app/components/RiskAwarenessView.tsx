@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -29,19 +29,27 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from "@/app/services/externalLinkGuard";
 
 export interface RiskAwarenessRecord {
   id: string;
   riskKey: string;
   riskNumber: string;
   riskTitle: string;
+  location?: string;
   summary: string;
   content: string;
   links: string[];
-  documents: string[];
+  documents: AwarenessDocument[];
   status: "a_completer" | "complete";
   updatedBy?: string;
   updatedAt?: string;
+}
+
+export interface AwarenessDocument {
+  name: string;
+  dataUrl?: string;
+  mimeType?: string;
 }
 
 interface RiskAwarenessViewProps {
@@ -61,19 +69,31 @@ export function RiskAwarenessView({
   setRecords,
   exposedRiskKeys,
 }: RiskAwarenessViewProps) {
+  const canManageAwareness = userRole === "admin" || userRole === "chef_service";
+
+  const openSafeLink = (url: string) => {
+    if (!isAllowedExternalUrl(url)) {
+      toast.error(getBlockedExternalLinkMessage(url));
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [form, setForm] = useState({
     riskKey: "",
+    location: "",
     summary: "",
     content: "",
     linksText: "",
-    docsText: "",
+    documents: [] as AwarenessDocument[],
   });
   const [linkDraft, setLinkDraft] = useState("");
   const [docDraft, setDocDraft] = useState("");
+  const documentInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
@@ -115,14 +135,26 @@ export function RiskAwarenessView({
     }
   }, [currentPage, totalPages]);
 
+  const normalizeDocuments = (
+    docs: Array<string | AwarenessDocument>,
+  ): AwarenessDocument[] =>
+    docs
+      .map((doc) => (typeof doc === "string" ? { name: doc } : doc))
+      .filter((doc) => doc.name && doc.name.trim().length > 0)
+      .map((doc) => ({
+        ...doc,
+        name: doc.name.trim(),
+      }));
+
   const selected = records.find((r) => r.id === selectedId) || null;
   const openCreate = () => {
     setForm({
       riskKey: "",
+      location: "",
       summary: "",
       content: "",
       linksText: "",
-      docsText: "",
+      documents: [],
     });
     setSelectedId(null);
     setLinkDraft("");
@@ -134,10 +166,11 @@ export function RiskAwarenessView({
     setSelectedId(record.id);
     setForm({
       riskKey: record.riskKey,
+      location: record.location || "",
       summary: record.summary,
       content: record.content,
       linksText: record.links.join("\n"),
-      docsText: record.documents.join("\n"),
+      documents: normalizeDocuments(record.documents),
     });
     setLinkDraft("");
     setDocDraft("");
@@ -154,10 +187,7 @@ export function RiskAwarenessView({
       .split("\n")
       .map((v) => v.trim())
       .filter(Boolean);
-    const documents = form.docsText
-      .split("\n")
-      .map((v) => v.trim())
-      .filter(Boolean);
+    const documents = normalizeDocuments(form.documents);
 
     if (!form.riskKey) {
       toast.error("Sélectionnez un risque.");
@@ -174,6 +204,7 @@ export function RiskAwarenessView({
           record.id === selected.id
             ? {
                 ...record,
+                location: form.location.trim(),
                 summary: form.summary,
                 content: form.content,
                 links,
@@ -187,9 +218,14 @@ export function RiskAwarenessView({
       );
       toast.success("Fiche mise à jour.");
     } else {
-      const existing = records.find((r) => r.riskKey === form.riskKey);
+      const targetLocation = form.location.trim().toLowerCase();
+      const existing = records.find(
+        (r) =>
+          r.riskKey === form.riskKey &&
+          (r.location || "").trim().toLowerCase() === targetLocation,
+      );
       if (existing) {
-        toast.error("Une fiche existe déjà pour ce risque.");
+        toast.error("Une fiche existe déjà pour ce risque et cette localisation.");
         return;
       }
       const [riskNumber, ...titleParts] = form.riskKey.split("::");
@@ -199,6 +235,7 @@ export function RiskAwarenessView({
           riskKey: form.riskKey,
           riskNumber: riskNumber || "",
           riskTitle: titleParts.join("::") || "",
+          location: form.location.trim(),
           summary: form.summary,
           content: form.content,
           links,
@@ -246,52 +283,145 @@ export function RiskAwarenessView({
 
   const addDocument = () => {
     const value = docDraft.trim();
-    if (!value) return;
-    const current = form.docsText
-      .split("\n")
-      .map((v) => v.trim())
-      .filter(Boolean);
-    if (current.includes(value)) {
+    if (!value) {
+      toast.error("Saisissez un document avant d'ajouter.");
+      return;
+    }
+    let added = false;
+    setForm((prev) => {
+      const current = normalizeDocuments(prev.documents);
+      if (current.some((doc) => doc.name === value)) {
+        return prev;
+      }
+      added = true;
+      return {
+        ...prev,
+        documents: [...current, { name: value }],
+      };
+    });
+    if (!added) {
       toast.error("Ce document est déjà ajouté.");
       return;
     }
-    setForm((prev) => ({
-      ...prev,
-      docsText: [...current, value].join("\n"),
-    }));
     setDocDraft("");
+    toast.success("Document ajouté.");
   };
 
   const removeDocument = (value: string) => {
-    const next = form.docsText
-      .split("\n")
-      .map((v) => v.trim())
-      .filter(Boolean)
-      .filter((v) => v !== value);
+    const next = normalizeDocuments(form.documents).filter((doc) => doc.name !== value);
     setForm((prev) => ({
       ...prev,
-      docsText: next.join("\n"),
+      documents: next,
     }));
   };
 
-  const resetRecord = (id: string) => {
-    setRecords((prev) =>
-      prev.map((record) =>
-        record.id === id
-          ? {
-              ...record,
-              summary: "",
-              content: "",
-              links: [],
-              documents: [],
-              status: "a_completer",
-              updatedBy: currentUserName,
-              updatedAt: new Date().toISOString(),
-            }
-          : record,
-      ),
-    );
-    toast.success("Fiche réinitialisée.");
+  const addUploadedDocuments = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const selectedFiles = Array.from(files);
+    const readFileAsDataUrl = (file: File) =>
+      new Promise<AwarenessDocument>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          resolve({
+            name: file.name.trim(),
+            dataUrl: typeof reader.result === "string" ? reader.result : undefined,
+            mimeType: file.type || undefined,
+          });
+        reader.onerror = () =>
+          resolve({
+            name: file.name.trim(),
+            mimeType: file.type || undefined,
+          });
+        reader.readAsDataURL(file);
+      });
+
+    Promise.all(selectedFiles.map(readFileAsDataUrl)).then((uploadedDocs) => {
+      const current = normalizeDocuments(form.documents);
+      const uniqueToAdd = uploadedDocs.filter(
+        (doc) => doc.name && !current.some((existing) => existing.name === doc.name),
+      );
+
+      if (uniqueToAdd.length === 0) {
+        toast.error("Ce(s) document(s) est/sont déjà ajouté(s).");
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        documents: [...normalizeDocuments(prev.documents), ...uniqueToAdd],
+      }));
+      setDocDraft(uniqueToAdd[uniqueToAdd.length - 1].name);
+      toast.success(uniqueToAdd.length > 1 ? `${uniqueToAdd.length} documents ajoutés.` : "Document ajouté.");
+    });
+  };
+
+  const openDocument = (doc: AwarenessDocument) => {
+    if (!doc.dataUrl) {
+      toast.error("Ce document n'a pas de fichier associé (ancien enregistrement).");
+      return;
+    }
+    const [meta, base64] = doc.dataUrl.split(",");
+    if (!meta || !base64) {
+      toast.error("Impossible de visualiser ce document.");
+      return;
+    }
+    try {
+      const mimeMatch = meta.match(/data:(.*?);base64/);
+      const mimeType = doc.mimeType || mimeMatch?.[1] || "application/octet-stream";
+      const bytes = atob(base64);
+      const buffer = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i += 1) {
+        buffer[i] = bytes.charCodeAt(i);
+      }
+      const blob = new Blob([buffer], { type: mimeType });
+      const objectUrl = URL.createObjectURL(blob);
+      const opened = window.open(objectUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        URL.revokeObjectURL(objectUrl);
+        toast.error("Le navigateur a bloqué l'ouverture. Autorisez les popups.");
+        return;
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch {
+      toast.error("Impossible de visualiser ce document.");
+    }
+  };
+
+  const downloadDocument = (doc: AwarenessDocument) => {
+    if (!doc.dataUrl) {
+      toast.error("Ce document n'a pas de fichier téléchargeable (ancien enregistrement).");
+      return;
+    }
+    const [meta, base64] = doc.dataUrl.split(",");
+    if (!meta || !base64) {
+      toast.error("Impossible de télécharger ce document.");
+      return;
+    }
+    try {
+      const mimeMatch = meta.match(/data:(.*?);base64/);
+      const mimeType = doc.mimeType || mimeMatch?.[1] || "application/octet-stream";
+      const bytes = atob(base64);
+      const buffer = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i += 1) {
+        buffer[i] = bytes.charCodeAt(i);
+      }
+      const blob = new Blob([buffer], { type: mimeType });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = doc.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      toast.error("Impossible de télécharger ce document.");
+    }
+  };
+
+  const deleteRecord = (id: string) => {
+    setRecords((prev) => prev.filter((record) => record.id !== id));
+    toast.success("Fiche supprimée.");
   };
 
   if (viewMode === "detail" && selected) {
@@ -300,24 +430,29 @@ export function RiskAwarenessView({
     const docsCount = selected.documents.length;
     return (
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          {userRole === "admin" ? (
-            <Button
-              className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
-              onClick={() => openEdit(selected)}
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Modifier la fiche
-            </Button>
+        <div className="space-y-3">
+          {canManageAwareness ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
+                onClick={() => openEdit(selected)}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Modifier la fiche
+              </Button>
+            </div>
           ) : null}
-          <Button
-            variant="outline"
-            onClick={() => setViewMode("list")}
-            className="w-full sm:w-auto border-slate-300 hover:bg-slate-50"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
+          <div className={`flex justify-end ${canManageAwareness ? "pt-3 border-t border-slate-200" : ""}`}>
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => setViewMode("list")}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300 hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-2xl overflow-hidden bg-gradient-to-br from-slate-950 via-orange-950 to-amber-950 text-white">
@@ -344,7 +479,7 @@ export function RiskAwarenessView({
                     : "bg-amber-100 text-amber-800 border-amber-300"
                 }
               >
-                {isComplete ? "Complétée" : "À compléter par l'admin"}
+                {isComplete ? "Complétée" : "À compléter"}
               </Badge>
             </div>
           </CardHeader>
@@ -378,6 +513,9 @@ export function RiskAwarenessView({
               <p className="text-slate-800 whitespace-pre-wrap leading-relaxed">
                 {selected.summary || "Aucun résumé saisi."}
               </p>
+              {selected.location ? (
+                <p className="text-sm text-slate-500 mt-2">Localisation : {selected.location}</p>
+              ) : null}
             </div>
             <Separator />
             <div>
@@ -406,6 +544,10 @@ export function RiskAwarenessView({
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white p-3 text-sm text-amber-950 hover:bg-amber-50/90"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openSafeLink(link);
+                    }}
                   >
                     <span className="truncate">{link}</span>
                     <ExternalLink className="h-4 w-4 shrink-0 text-orange-600" />
@@ -426,13 +568,21 @@ export function RiskAwarenessView({
             </CardHeader>
             <CardContent className="space-y-2">
               {docsCount > 0 ? (
-                selected.documents.map((doc) => (
+                normalizeDocuments(selected.documents).map((doc) => (
                   <div
-                    key={doc}
+                    key={doc.name}
                     className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-3"
                   >
-                    <span className="text-sm text-stone-800 truncate">{doc}</span>
-                    <FileText className="h-4 w-4 shrink-0 text-stone-600" />
+                    <span className="text-sm text-stone-800 truncate">{doc.name}</span>
+                    <div className="flex items-center gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => openDocument(doc)}>
+                        Visualiser
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => downloadDocument(doc)}>
+                        Télécharger
+                      </Button>
+                      <FileText className="h-4 w-4 shrink-0 text-stone-600" />
+                    </div>
                   </div>
                 ))
               ) : (
@@ -452,33 +602,35 @@ export function RiskAwarenessView({
     );
   }
 
-  if ((viewMode === "edit" || viewMode === "create") && userRole === "admin") {
-    const availableRiskKeys = records.map((r) => r.riskKey);
+  if ((viewMode === "edit" || viewMode === "create") && canManageAwareness) {
+    const availableRiskKeys = Array.from(
+      new Set([...exposedRiskKeys, ...records.map((r) => r.riskKey)]),
+    );
     const links = form.linksText
       .split("\n")
       .map((v) => v.trim())
       .filter(Boolean);
-    const docs = form.docsText
-      .split("\n")
-      .map((v) => v.trim())
-      .filter(Boolean);
+    const docs = normalizeDocuments(form.documents);
     return (
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-3">
           <div>
             <h3 className="text-2xl font-bold text-gray-900">
               {viewMode === "create" ? "Nouvelle fiche de sensibilisation" : "Modifier la fiche"}
             </h3>
             <p className="text-gray-600">CRUD en page complète, sans popup.</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setViewMode("list")}
-            className="w-full sm:w-auto border-slate-300 hover:bg-slate-50"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => setViewMode("list")}
+              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300 hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur">
@@ -512,6 +664,15 @@ export function RiskAwarenessView({
               <Input
                 value={form.summary}
                 onChange={(e) => setForm((prev) => ({ ...prev, summary: e.target.value }))}
+                className="bg-white border-2 border-slate-300"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Localisation (optionnel)</Label>
+              <Input
+                value={form.location}
+                onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))}
+                placeholder="Ex: COB de Sète"
                 className="bg-white border-2 border-slate-300"
               />
             </div>
@@ -579,21 +740,31 @@ export function RiskAwarenessView({
                 <Paperclip className="h-5 w-5 text-stone-600" />
                 Documents et fiches
               </h4>
+              <input
+                ref={documentInputRef}
+                type="file"
+                className="hidden"
+                multiple
+                onChange={(e) => {
+                  addUploadedDocuments(e.target.files);
+                  e.currentTarget.value = "";
+                }}
+              />
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
                 <Input
                   value={docDraft}
-                  onChange={(e) => setDocDraft(e.target.value)}
-                  placeholder="Nom du document ou fiche"
+                  readOnly
+                  placeholder="Le nom du document se remplit automatiquement"
                   className="bg-white border-2 border-slate-300"
                 />
                 <Button
                   type="button"
-                  onClick={addDocument}
+                  onClick={() => documentInputRef.current?.click()}
                   variant="outline"
                   className="border-2 border-dashed border-stone-300 text-stone-700 hover:bg-stone-100"
                 >
                   <Upload className="h-4 w-4 mr-1" />
-                  Ajouter
+                  Téléverser
                 </Button>
               </div>
               <div className="space-y-2">
@@ -602,19 +773,19 @@ export function RiskAwarenessView({
                 ) : null}
                 {docs.map((doc) => (
                   <div
-                    key={doc}
+                    key={doc.name}
                     className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-stone-100 border-2 border-stone-200 rounded-lg"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Paperclip className="h-4 w-4 text-stone-600 shrink-0" />
-                      <p className="text-sm text-stone-900 break-all">{doc}</p>
+                      <p className="text-sm text-stone-900 break-all">{doc.name}</p>
                     </div>
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       className="text-red-600 border-red-200 hover:bg-red-50"
-                      onClick={() => removeDocument(doc)}
+                      onClick={() => removeDocument(doc.name)}
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -714,7 +885,7 @@ export function RiskAwarenessView({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="a_completer">À compléter par l'admin</SelectItem>
+                  <SelectItem value="a_completer">À compléter</SelectItem>
                   <SelectItem value="complete">Complétée</SelectItem>
                 </SelectContent>
               </Select>
@@ -723,7 +894,7 @@ export function RiskAwarenessView({
               <Filter className="h-4 w-4" />
               Filtres actifs
             </div>
-            {userRole === "admin" ? (
+            {canManageAwareness ? (
               <Button
                 className="w-full xl:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
                 onClick={openCreate}
@@ -753,6 +924,9 @@ export function RiskAwarenessView({
                     <p className="text-lg font-semibold text-slate-900 break-words leading-snug">
                       {record.summary || "Résumé à compléter"}
                     </p>
+                    {record.location ? (
+                      <p className="text-xs text-slate-500 mt-1">Localisation : {record.location}</p>
+                    ) : null}
                   </div>
                 </div>
                 <Badge
@@ -795,7 +969,7 @@ export function RiskAwarenessView({
                   <Eye className="h-4 w-4 mr-2" />
                   Consulter
                 </Button>
-                {userRole === "admin" ? (
+                {canManageAwareness ? (
                   <>
                     <Button
                       className="w-full sm:flex-1 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700"
@@ -807,7 +981,7 @@ export function RiskAwarenessView({
                     <Button
                       variant="outline"
                       className="w-full sm:w-auto text-red-600 hover:bg-red-50"
-                      onClick={() => resetRecord(record.id)}
+                      onClick={() => deleteRecord(record.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
