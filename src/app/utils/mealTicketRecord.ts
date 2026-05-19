@@ -1,5 +1,13 @@
-import { AppUser } from "../components/admin/UserManagementView";
+import { AppUser, Location } from "../components/admin/UserManagementView";
 import { isMealTicketRecipient, MealProviderIdentity } from "./userRoles";
+import {
+  AgentMealSubsidyBreakdown,
+  MealSubsidyConfig,
+  UserInmHistoryEntry,
+  computeAgentMealSubsidy,
+  getInmForMonth,
+  resolveLocationId,
+} from "./mealSubsidyRecord";
 
 export type MealTicketStatus = "active" | "used" | "cancelled";
 
@@ -24,6 +32,11 @@ export interface MealTicket {
   usedAt?: string;
   usedByProviderId?: string;
   usedByProviderName?: string;
+  /** INM retenu pour le mois du ticket */
+  agentInm?: number;
+  subsidyMinisterial?: number;
+  subsidyInterministerial?: number;
+  subsidyTotal?: number;
 }
 
 export interface MealTicketFilters {
@@ -83,7 +96,12 @@ export function getCurrentMonth(): string {
 }
 
 function generateQrToken(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
+  }
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+    .toUpperCase()
+    .slice(0, 16);
 }
 
 function generateTicketNumber(month: string, sequence: number): string {
@@ -91,24 +109,118 @@ function generateTicketNumber(month: string, sequence: number): string {
   return `TR-${compactMonth}-${String(sequence).padStart(5, "0")}`;
 }
 
-export function buildQrPayload(ticket: MealTicket): string {
-  return `${QR_PREFIX}|${ticket.id}|${ticket.qrToken}|${ticket.ticketNumber}`;
+/** Données compactes embarquées dans le QR (scan depuis un autre appareil). */
+interface QrTicketSnapshotCompact {
+  i: string;
+  t: string;
+  n: string;
+  u: string;
+  a: string;
+  e: string;
+  s: string;
+  d: string;
+  l: string;
+  m: string;
+  x?: number;
+  g?: string;
 }
 
-export function parseQrPayload(payload: string): {
+export interface ParsedQrPayload {
   ticketId: string;
   qrToken: string;
   ticketNumber: string;
-} | null {
+  snapshot?: QrTicketSnapshotCompact;
+}
+
+function encodeSnapshot(ticket: MealTicket): string {
+  const compact: QrTicketSnapshotCompact = {
+    i: ticket.id,
+    t: ticket.qrToken,
+    n: ticket.ticketNumber,
+    u: ticket.userId,
+    a: ticket.agentName,
+    e: ticket.agentEmail,
+    s: ticket.service,
+    d: ticket.domain,
+    l: ticket.location,
+    m: ticket.month,
+    ...(ticket.mealIndex != null ? { x: ticket.mealIndex } : {}),
+    g: ticket.generatedAt,
+  };
+  const json = JSON.stringify(compact);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeSnapshot(encoded: string): QrTicketSnapshotCompact | null {
+  try {
+    const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const json = atob(padded);
+    const bytes = Uint8Array.from(json, (c) => c.charCodeAt(0));
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as QrTicketSnapshotCompact;
+    if (!parsed?.i || !parsed?.t || !parsed?.n) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function ticketFromSnapshot(snapshot: QrTicketSnapshotCompact): MealTicket {
+  return {
+    id: snapshot.i,
+    qrToken: snapshot.t,
+    ticketNumber: snapshot.n,
+    userId: snapshot.u,
+    agentName: snapshot.a,
+    agentEmail: snapshot.e,
+    service: snapshot.s,
+    domain: snapshot.d ?? "",
+    location: snapshot.l ?? "",
+    month: snapshot.m,
+    mealCount: 1,
+    mealIndex: snapshot.x,
+    status: "active",
+    generatedAt: snapshot.g ?? new Date().toISOString(),
+    generatedBy: "QR",
+  };
+}
+
+export function buildQrPayload(ticket: MealTicket): string {
+  const snapshot = encodeSnapshot(ticket);
+  return `${QR_PREFIX}|${ticket.id}|${ticket.qrToken}|${ticket.ticketNumber}|${snapshot}`;
+}
+
+export function parseQrPayload(payload: string): ParsedQrPayload | null {
   const trimmed = payload.trim();
   if (!trimmed.startsWith(QR_PREFIX)) return null;
   const parts = trimmed.split("|");
   if (parts.length < 4) return null;
+  const snapshotEncoded = parts[4];
+  const snapshot = snapshotEncoded ? decodeSnapshot(snapshotEncoded) : undefined;
   return {
     ticketId: parts[1],
     qrToken: parts[2],
     ticketNumber: parts[3],
+    snapshot,
   };
+}
+
+/** Importe un ticket depuis le QR si absent du stockage local (autre appareil). */
+export function mergeTicketFromQrPayload(
+  tickets: MealTicket[],
+  parsed: ParsedQrPayload,
+): MealTicket[] {
+  if (tickets.some((t) => t.id === parsed.ticketId)) return tickets;
+  if (!parsed.snapshot) return tickets;
+  if (parsed.snapshot.t !== parsed.qrToken || parsed.snapshot.i !== parsed.ticketId) {
+    return tickets;
+  }
+  return [...tickets, ticketFromSnapshot(parsed.snapshot)];
 }
 
 export function filterMealTicketRecipients(
@@ -245,6 +357,9 @@ export interface GenerateTicketsOptions {
   generatedBy: string;
   filters: Pick<MealTicketFilters, "service" | "domain" | "location">;
   selectedUserIds?: string[];
+  subsidyConfig?: MealSubsidyConfig;
+  inmHistory?: UserInmHistoryEntry[];
+  locationCatalog?: Pick<Location, "id" | "name" | "regionCode">[];
 }
 
 export function generateMonthlyTickets({
@@ -255,6 +370,9 @@ export function generateMonthlyTickets({
   generatedBy,
   filters,
   selectedUserIds,
+  subsidyConfig,
+  inmHistory = [],
+  locationCatalog = [],
 }: GenerateTicketsOptions): { tickets: MealTicket[]; created: number; skipped: number } {
   let eligibleRecipients = filterMealTicketRecipients(agents, filters);
   if (selectedUserIds && selectedUserIds.length > 0) {
@@ -284,6 +402,19 @@ export function generateMonthlyTickets({
       continue;
     }
 
+    const locationId = resolveLocationId(locationCatalog, agent.location);
+    let subsidy: AgentMealSubsidyBreakdown | null = null;
+    if (subsidyConfig) {
+      const inm = getInmForMonth(inmHistory, agent.id, month, agent.inm);
+      subsidy = computeAgentMealSubsidy(subsidyConfig, {
+        month,
+        locationId,
+        locationName: agent.location,
+        inm,
+        locationCatalog,
+      });
+    }
+
     for (let i = 0; i < toCreate; i += 1) {
       const mealIndex = existingCount + i + 1;
       const ticket: MealTicket = {
@@ -302,6 +433,14 @@ export function generateMonthlyTickets({
         status: "active",
         generatedAt: new Date().toISOString(),
         generatedBy,
+        ...(subsidy
+          ? {
+              agentInm: subsidy.inm ?? undefined,
+              subsidyMinisterial: subsidy.ministerialAmount,
+              subsidyInterministerial: subsidy.interministerialAmount,
+              subsidyTotal: subsidy.totalPerMeal,
+            }
+          : {}),
       };
       newTickets.push(ticket);
       sequence += 1;
@@ -321,15 +460,38 @@ export interface ValidateTicketResult {
   ticket?: MealTicket;
 }
 
+export function validateMealTicketScan(
+  tickets: MealTicket[],
+  parsed: ParsedQrPayload,
+  provider: MealProviderIdentity,
+): { tickets: MealTicket[]; result: ValidateTicketResult } {
+  const merged = mergeTicketFromQrPayload(tickets, parsed);
+  return validateMealTicket(merged, parsed.ticketId, parsed.qrToken, provider, {
+    hadLocalCopy: tickets.some((t) => t.id === parsed.ticketId),
+    hadSnapshot: Boolean(parsed.snapshot),
+  });
+}
+
 export function validateMealTicket(
   tickets: MealTicket[],
   ticketId: string,
   qrToken: string,
   provider: MealProviderIdentity,
+  context?: { hadLocalCopy?: boolean; hadSnapshot?: boolean },
 ): { tickets: MealTicket[]; result: ValidateTicketResult } {
   const ticket = tickets.find((t) => t.id === ticketId);
   if (!ticket) {
-    return { tickets, result: { success: false, message: "Ticket introuvable." } };
+    let hint = "";
+    if (context?.hadSnapshot === false) {
+      hint =
+        " Ce QR date d'avant la mise à jour : regénérez les tickets (admin) puis scannez le nouveau QR.";
+    } else if (!context?.hadLocalCopy) {
+      hint = " Impossible d'importer les données du QR — regénérez le ticket.";
+    }
+    return {
+      tickets,
+      result: { success: false, message: `Ticket introuvable.${hint}` },
+    };
   }
   if (ticket.qrToken !== qrToken) {
     return { tickets, result: { success: false, message: "Code QR invalide ou falsifié." } };

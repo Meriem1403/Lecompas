@@ -201,6 +201,12 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Tickets repas mensuels avec QR code et validation prestataire.",
   },
   {
+    id: "tarifs-repas",
+    label: "Tarifs repas",
+    section: "Comptabilité",
+    description: "Barèmes subventions ministérielle et interministérielle, tranches INM.",
+  },
+  {
     id: "settings",
     label: "Paramètres",
     section: "Systeme",

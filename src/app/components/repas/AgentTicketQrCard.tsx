@@ -65,7 +65,7 @@ export function AgentTicketQrCard({ ticket }: { ticket: MealTicket }) {
                 isUsed ? "border-gray-200 opacity-50" : "border-blue-200"
               }`}
             >
-              <QRCodeSVG value={payload} size={180} level="H" includeMargin />
+              <QRCodeSVG value={payload} size={200} level="M" includeMargin />
               {isUsed && (
                 <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl">
                   <div className="text-center">

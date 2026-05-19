@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { ArrowLeft, ChevronRight, Calculator, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, ChevronRight, Calculator, Coins, UtensilsCrossed } from "lucide-react";
 
 interface Module {
   id: string;
@@ -13,11 +13,13 @@ interface Module {
 interface ComptabiliteModulesViewProps {
   onSelectModule: (moduleId: string) => void;
   onGoBack: () => void;
+  isAdmin?: boolean;
 }
 
 export function ComptabiliteModulesView({
   onSelectModule,
   onGoBack,
+  isAdmin = false,
 }: ComptabiliteModulesViewProps) {
   const modules: Module[] = [
     {
@@ -28,6 +30,18 @@ export function ComptabiliteModulesView({
       icon: UtensilsCrossed,
       gradient: "from-emerald-600 via-teal-500 to-cyan-500",
     },
+    ...(isAdmin
+      ? [
+          {
+            id: "tarifs-repas",
+            title: "Tarifs & subventions",
+            description:
+              "Barèmes ministériels par lieu, tranches INM et montants interministériels par période",
+            icon: Coins,
+            gradient: "from-violet-600 via-purple-500 to-fuchsia-500",
+          } as Module,
+        ]
+      : []),
   ];
 
   return (

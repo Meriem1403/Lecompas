@@ -92,6 +92,16 @@ import {
 import { ACCESS_MODULES } from "./components/access-management/constants";
 import { loadMealTickets, MealTicket, saveMealTickets } from "./utils/mealTicketRecord";
 import {
+  loadMealSubsidyConfig,
+  loadUserInmHistory,
+  MealSubsidyConfig,
+  repairMealSubsidyConfig,
+  saveMealSubsidyConfig,
+  saveUserInmHistory,
+  UserInmHistoryEntry,
+} from "./utils/mealSubsidyRecord";
+import { MealSubsidyManagementView } from "./components/repas/MealSubsidyManagementView";
+import {
   appUserDisplayName,
   appUserToMealProvider,
   resolvePrestataireByEmail,
@@ -173,6 +183,7 @@ import {
   Menu,
   FileCheck,
   UtensilsCrossed,
+  Coins,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -834,6 +845,12 @@ export default function App() {
   const [mealTickets, setMealTickets] = useState<MealTicket[]>(() =>
     loadMealTickets(),
   );
+  const [mealSubsidyConfig, setMealSubsidyConfig] = useState<MealSubsidyConfig>(() =>
+    loadMealSubsidyConfig(FAKE_LOCATIONS),
+  );
+  const [userInmHistory, setUserInmHistory] = useState<UserInmHistoryEntry[]>(() =>
+    loadUserInmHistory(),
+  );
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(
     null,
   );
@@ -1354,6 +1371,18 @@ export default function App() {
   React.useEffect(() => {
     saveMealTickets(mealTickets);
   }, [mealTickets]);
+
+  React.useEffect(() => {
+    setMealSubsidyConfig((prev) => repairMealSubsidyConfig(prev, adminLocations));
+  }, [adminLocations]);
+
+  React.useEffect(() => {
+    saveMealSubsidyConfig(mealSubsidyConfig);
+  }, [mealSubsidyConfig]);
+
+  React.useEffect(() => {
+    saveUserInmHistory(userInmHistory);
+  }, [userInmHistory]);
 
   const currentMealProvider = useMemo(() => {
     if (!user || user.role !== "prestataire") return null;
@@ -2162,6 +2191,12 @@ export default function App() {
           icon: UtensilsCrossed,
           color: "text-emerald-600",
         },
+        {
+          id: "tarifs-repas",
+          label: "Tarifs repas",
+          icon: Coins,
+          color: "text-violet-600",
+        },
       ],
     },
     {
@@ -2214,7 +2249,10 @@ export default function App() {
   const filteredSidebarItems = sidebarItems
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => hasViewAccess(item.id)),
+      items: section.items.filter((item) => {
+        if (item.id === "tarifs-repas" && user?.role !== "admin") return false;
+        return hasViewAccess(item.id);
+      }),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -2343,6 +2381,7 @@ export default function App() {
         <>
           <Toaster position="top-right" />
           <ComptabiliteModulesView
+            isAdmin={user?.role === "admin"}
             onSelectModule={(moduleId) => {
               setActiveView(moduleId);
               setCategoryView(null);
@@ -4016,6 +4055,17 @@ export default function App() {
               locationsData={adminLocations}
               setLocationsData={setAdminLocations}
               adminDisplayName={user?.name}
+              inmHistory={userInmHistory}
+              onInmHistoryChange={setUserInmHistory}
+            />
+          )}
+
+          {activeView === "tarifs-repas" && user?.role === "admin" && (
+            <MealSubsidyManagementView
+              config={mealSubsidyConfig}
+              setConfig={setMealSubsidyConfig}
+              locations={adminLocations}
+              onGoBack={() => setCategoryView("comptabilite")}
             />
           )}
 
@@ -4065,9 +4115,13 @@ export default function App() {
               services={serviceNames}
               domains={domainNames}
               locations={locationNames}
+              locationCatalog={adminLocations}
               mealTickets={mealTickets}
               setMealTickets={setMealTickets}
               currentProvider={currentMealProvider}
+              mealSubsidyConfig={mealSubsidyConfig}
+              setMealSubsidyConfig={setMealSubsidyConfig}
+              userInmHistory={userInmHistory}
             />
           )}
 

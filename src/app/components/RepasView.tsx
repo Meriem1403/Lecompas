@@ -5,10 +5,11 @@ import { RepasPrestataireView } from "./repas/RepasPrestataireView";
 import { RepasAgentView } from "./repas/RepasAgentView";
 import { RepasChefServiceView } from "./repas/RepasChefServiceView";
 import { RepasAdminView } from "./repas/RepasAdminView";
-import { AppUser } from "./admin/UserManagementView";
+import { AppUser, Location } from "./admin/UserManagementView";
 import { MealProviderIdentity } from "../utils/userRoles";
 import { resolveLinkedAppUser } from "../utils/demoAccounts";
 import { MealTicket } from "../utils/mealTicketRecord";
+import { MealSubsidyConfig, UserInmHistoryEntry } from "../utils/mealSubsidyRecord";
 
 interface RepasViewProps {
   currentUser: {
@@ -24,9 +25,13 @@ interface RepasViewProps {
   services: string[];
   domains: string[];
   locations: string[];
+  locationCatalog?: Location[];
   mealTickets: MealTicket[];
   setMealTickets: React.Dispatch<React.SetStateAction<MealTicket[]>>;
   currentProvider?: MealProviderIdentity | null;
+  mealSubsidyConfig?: MealSubsidyConfig;
+  setMealSubsidyConfig?: React.Dispatch<React.SetStateAction<MealSubsidyConfig>>;
+  userInmHistory?: UserInmHistoryEntry[];
 }
 
 export function RepasView({
@@ -38,6 +43,10 @@ export function RepasView({
   mealTickets,
   setMealTickets,
   currentProvider,
+  locationCatalog = [],
+  mealSubsidyConfig,
+  setMealSubsidyConfig,
+  userInmHistory = [],
 }: RepasViewProps) {
   const linkedUser = resolveLinkedAppUser(adminUsers, currentUser);
 
@@ -119,9 +128,13 @@ export function RepasView({
       services={services}
       domains={domains}
       locations={locations}
+      locationCatalog={locationCatalog}
       mealTickets={mealTickets}
       setMealTickets={setMealTickets}
       generatedBy={currentUser.name}
+      mealSubsidyConfig={mealSubsidyConfig}
+      setMealSubsidyConfig={setMealSubsidyConfig}
+      userInmHistory={userInmHistory}
     />
   );
 }

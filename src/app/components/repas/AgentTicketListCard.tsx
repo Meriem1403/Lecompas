@@ -6,6 +6,7 @@ import {
   formatMonthLabel,
   formatTicketDate,
 } from "../../utils/mealTicketRecord";
+import { formatEuro } from "../../utils/mealSubsidyRecord";
 import { MealTicketStatusBadge } from "./MealTicketStatusBadge";
 
 interface AgentTicketListCardProps {
@@ -48,6 +49,11 @@ export function AgentTicketListCard({ ticket, onSelect }: AgentTicketListCardPro
               <p className="text-xs text-gray-600 mt-1 truncate">
                 Validé le {formatTicketDate(ticket.usedAt)}
                 {ticket.usedByProviderName && ` — ${ticket.usedByProviderName}`}
+              </p>
+            )}
+            {ticket.subsidyTotal != null && ticket.subsidyTotal > 0 && (
+              <p className="text-xs text-emerald-700 mt-1 font-medium">
+                Subvention {formatEuro(ticket.subsidyTotal)}
               </p>
             )}
             {ticket.status === "active" && (

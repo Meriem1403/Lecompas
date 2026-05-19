@@ -3,128 +3,13 @@ import { UserManagementView, AppUser } from '@/app/components/admin/UserManageme
 import { RoleManagementView, Role } from '@/app/components/admin/RoleManagementView';
 import { ServiceManagementView, Service } from '@/app/components/admin/ServiceManagementView';
 import { SimpleEntityManagementView } from '@/app/components/admin/SimpleEntityManagementView';
+import { LocationManagementView } from '@/app/components/admin/LocationManagementView';
+import { UserInmHistoryEntry } from '@/app/utils/mealSubsidyRecord';
 import { Layers, MapPin, Tag } from 'lucide-react';
+import { PERSONNEL_USER_FIXTURES } from '@/app/fixtures/personnelUserFixtures';
 import { PRESTATAIRE_FIXTURES } from '@/app/fixtures/prestataireFixtures';
 
-const FAKE_PERSONNEL_USERS: AppUser[] = [
-  {
-    id: '0',
-    firstName: 'Jean-Marc',
-    lastName: 'DUBOIS',
-    email: 'admin@dirm-med.gouv.fr',
-    password: 'admin123',
-    position: 'Directeur interrégional',
-    service: 'Direction',
-    domain: 'Pilotage',
-    location: 'Siège Paris',
-    category: 'Cadre dirigeant',
-    role: 'ROLE_ADMIN',
-    createdAt: '2025-01-01T08:00:00Z',
-    createdBy: 'Système'
-  },
-  {
-    id: '1',
-    firstName: 'Jean',
-    lastName: 'Dupont',
-    email: 'jean.dupont@example.com',
-    position: 'Responsable HSE',
-    service: 'Sécurité',
-    domain: 'Prévention',
-    location: 'Siège Paris',
-    category: 'Cadre',
-    role: 'ROLE_ADMIN',
-    createdAt: '2025-01-15T10:00:00Z',
-    createdBy: 'Système'
-  },
-  {
-    id: '2',
-    firstName: 'Marie',
-    lastName: 'Martin',
-    email: 'chef@dirm-med.gouv.fr',
-    password: 'chef123',
-    position: 'Chef de service Maintenance',
-    service: 'Maintenance',
-    domain: 'Technique',
-    location: 'Site Lyon',
-    category: 'Cadre',
-    role: 'ROLE_CHEF',
-    createdAt: '2025-02-01T09:00:00Z',
-    createdBy: 'Jean Dupont'
-  },
-  {
-    id: '4',
-    firstName: 'Sophie',
-    lastName: 'Bernard',
-    email: 'sophie.bernard@example.com',
-    position: 'Chef de service Maintenance',
-    service: 'Maintenance',
-    domain: 'Informatique',
-    location: 'Marseille',
-    category: 'Cadre',
-    role: 'ROLE_CHEF',
-    createdAt: '2025-03-05T09:30:00Z',
-    createdBy: 'Jean-Marc DUBOIS'
-  },
-  {
-    id: '3',
-    firstName: 'Pierre',
-    lastName: 'Leclerc',
-    email: 'agent@dirm-med.gouv.fr',
-    password: 'agent123',
-    position: 'Technicien maintenance',
-    service: 'Maintenance',
-    domain: 'Technique',
-    location: 'Site Lyon',
-    category: 'Agent de maîtrise',
-    role: 'ROLE_AGENT',
-    createdAt: '2025-02-10T14:00:00Z',
-    createdBy: 'Marie Martin'
-  },
-  {
-    id: '5',
-    firstName: 'Thomas',
-    lastName: 'Lambert',
-    email: 'thomas.lambert@example.com',
-    position: 'Technicien maintenance',
-    service: 'Maintenance',
-    domain: 'Technique',
-    location: 'Site Lyon',
-    category: 'Agent de maîtrise',
-    role: 'ROLE_AGENT',
-    createdAt: '2025-03-01T10:00:00Z',
-    createdBy: 'Marie Martin'
-  },
-  {
-    id: '6',
-    firstName: 'Claire',
-    lastName: 'Dubois',
-    email: 'claire.dubois@example.com',
-    position: 'Technicienne maintenance',
-    service: 'Maintenance',
-    domain: 'Technique',
-    location: 'Site Marseille',
-    category: 'Agent de maîtrise',
-    role: 'ROLE_AGENT',
-    createdAt: '2025-03-15T11:00:00Z',
-    createdBy: 'Marie Martin'
-  },
-  {
-    id: '7',
-    firstName: 'Nicolas',
-    lastName: 'Petit',
-    email: 'nicolas.petit@example.com',
-    position: 'Agent sécurité',
-    service: 'Sécurité',
-    domain: 'Prévention',
-    location: 'Siège Paris',
-    category: 'Agent',
-    role: 'ROLE_AGENT',
-    createdAt: '2025-04-01T09:00:00Z',
-    createdBy: 'Jean Dupont'
-  }
-];
-
-export const FAKE_USERS: AppUser[] = [...FAKE_PERSONNEL_USERS, ...PRESTATAIRE_FIXTURES];
+export const FAKE_USERS: AppUser[] = [...PERSONNEL_USER_FIXTURES, ...PRESTATAIRE_FIXTURES];
 
 const FAKE_ROLES: Role[] = [
   { id: 1, code: 'ROLE_ADMIN', displayName: 'Administrateur' },
@@ -189,23 +74,45 @@ export const FAKE_LOCATIONS = [
   {
     id: '1',
     name: 'Siège Paris',
-    services: ['Sécurité']
+    services: ['Sécurité'],
+    regionCode: '13',
   },
   {
     id: '2',
     name: 'Site Lyon',
-    services: ['Sécurité', 'Maintenance', 'Production']
+    services: ['Sécurité', 'Maintenance', 'Production'],
+    regionCode: '13',
   },
   {
     id: '3',
     name: 'Site Marseille',
-    services: ['Maintenance', 'Production']
+    services: ['Maintenance', 'Production'],
+    regionCode: '13',
   },
   {
     id: '4',
     name: 'Site Bordeaux',
-    services: ['Production']
-  }
+    services: ['Production'],
+    regionCode: '33',
+  },
+  {
+    id: '5',
+    name: 'Ajaccio',
+    services: ['Maintenance', 'Sécurité'],
+    regionCode: '2A',
+  },
+  {
+    id: '6',
+    name: 'Bastia',
+    services: ['Maintenance'],
+    regionCode: '2B',
+  },
+  {
+    id: '7',
+    name: 'Sète',
+    services: ['Production'],
+    regionCode: '34',
+  },
 ];
 
 const FAKE_CATEGORIES = [
@@ -226,6 +133,8 @@ interface AdminTabsViewProps {
   locationsData?: typeof FAKE_LOCATIONS;
   setLocationsData?: React.Dispatch<React.SetStateAction<typeof FAKE_LOCATIONS>>;
   adminDisplayName?: string;
+  inmHistory?: UserInmHistoryEntry[];
+  onInmHistoryChange?: React.Dispatch<React.SetStateAction<UserInmHistoryEntry[]>>;
 }
 
 export function AdminTabsView({
@@ -239,6 +148,8 @@ export function AdminTabsView({
   locationsData,
   setLocationsData,
   adminDisplayName,
+  inmHistory,
+  onInmHistoryChange,
 }: AdminTabsViewProps) {
   const [internalUsers, setInternalUsers] = useState<AppUser[]>(FAKE_USERS);
   const [roles, setRoles] = useState<Role[]>(FAKE_ROLES);
@@ -267,6 +178,8 @@ export function AdminTabsView({
         locations={locations}
         categories={categories}
         createdByName={adminDisplayName ?? "Administrateur"}
+        inmHistory={inmHistory}
+        onInmHistoryChange={onInmHistoryChange}
       />
     );
   }
@@ -311,18 +224,10 @@ export function AdminTabsView({
 
   if (activeTab === 'locations') {
     return (
-      <SimpleEntityManagementView
-        title="Gestion des lieux"
-        description="Gérez les sites et localisations"
-        items={locations}
-        setItems={setLocations}
-        icon={MapPin}
-        color="cyan"
-        gradient="from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700"
-        hasServices={true}
-        availableServices={services.map((service) => service.name)}
+      <LocationManagementView
+        locations={locations}
+        setLocations={setLocations}
         protectedNames={Array.from(new Set(services.flatMap((service) => service.locations)))}
-        protectedLabel="service"
       />
     );
   }

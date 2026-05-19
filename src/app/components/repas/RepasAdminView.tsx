@@ -38,7 +38,15 @@ import {
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "../ui/list-pagination-bar";
-import { AppUser } from "../admin/UserManagementView";
+import { AppUser, Location } from "../admin/UserManagementView";
+import {
+  formatEuro,
+  MealSubsidyConfig,
+  UserInmHistoryEntry,
+} from "../../utils/mealSubsidyRecord";
+import { MealSubsidyManagementView } from "./MealSubsidyManagementView";
+import { Coins } from "lucide-react";
+import { cn } from "../ui/utils";
 import { RepasStatCard } from "./RepasStatCard";
 import { MealTicketStatusBadge } from "./MealTicketStatusBadge";
 import { MealTicketRecipientSelect } from "./MealTicketRecipientSelect";
@@ -63,9 +71,13 @@ interface RepasAdminViewProps {
   services: string[];
   domains: string[];
   locations: string[];
+  locationCatalog?: Location[];
   mealTickets: MealTicket[];
   setMealTickets: React.Dispatch<React.SetStateAction<MealTicket[]>>;
   generatedBy: string;
+  mealSubsidyConfig?: MealSubsidyConfig;
+  setMealSubsidyConfig?: React.Dispatch<React.SetStateAction<MealSubsidyConfig>>;
+  userInmHistory?: UserInmHistoryEntry[];
 }
 
 const DEFAULT_MEAL_COUNT = 22;
@@ -100,6 +112,17 @@ function AdminTicketCard({
           <p>
             <span className="text-gray-500">Lieu :</span> {ticket.location || "—"}
           </p>
+          {ticket.subsidyTotal != null && ticket.subsidyTotal > 0 && (
+            <p className="col-span-2">
+              <span className="text-gray-500">Subvention :</span>{" "}
+              <span className="font-semibold text-emerald-700">
+                {formatEuro(ticket.subsidyTotal)} / repas
+              </span>
+              {ticket.agentInm != null && (
+                <span className="text-xs text-gray-500 block">INM {ticket.agentInm}</span>
+              )}
+            </p>
+          )}
         </div>
         {ticket.status === "used" && ticket.usedAt && (
           <p className="text-xs text-gray-600 bg-slate-50 rounded-lg p-2 mb-2">
@@ -145,10 +168,15 @@ export function RepasAdminView({
   services,
   domains,
   locations,
+  locationCatalog = [],
   mealTickets,
   setMealTickets,
   generatedBy,
+  mealSubsidyConfig,
+  setMealSubsidyConfig,
+  userInmHistory = [],
 }: RepasAdminViewProps) {
+  const [adminTab, setAdminTab] = useState<"tickets" | "tarifs">("tickets");
   const currentMonth = getCurrentMonth();
 
   const [genMonth, setGenMonth] = useState(currentMonth);
@@ -303,6 +331,9 @@ export function RepasAdminView({
       generatedBy,
       filters: genFilters,
       selectedUserIds,
+      subsidyConfig: mealSubsidyConfig,
+      inmHistory: userInmHistory,
+      locationCatalog,
     });
 
     setMealTickets(tickets);
@@ -333,18 +364,73 @@ export function RepasAdminView({
           Gestion des tickets repas
         </h1>
         <p className="text-sm text-slate-600 mt-2">
-          Génération mensuelle, suivi global et annulation des tickets non utilisés.
+          Génération des tickets, barèmes de subventions (ministérielle / interministérielle) et
+          suivi.
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-4 border-amber-300 text-amber-900 hover:bg-amber-100"
-          onClick={handleResetAllTickets}
-        >
-          Réinitialiser tous les tickets (tests)
-        </Button>
       </div>
+
+      <Card className="border-2 border-violet-300 bg-violet-50/80 shadow-md">
+        <CardContent className="p-3 sm:p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-violet-800 mb-2">
+            Navigation repas
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setAdminTab("tickets")}
+              className={cn(
+                "flex items-center justify-center gap-2 min-h-12 px-4 rounded-xl border-2 font-semibold text-sm transition-all",
+                adminTab === "tickets"
+                  ? "bg-white border-amber-500 text-amber-900 shadow-md"
+                  : "bg-white/60 border-slate-300 text-slate-600 hover:border-amber-300",
+              )}
+            >
+              <Ticket className="h-5 w-5 shrink-0" />
+              Tickets & génération
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminTab("tarifs")}
+              className={cn(
+                "flex items-center justify-center gap-2 min-h-12 px-4 rounded-xl border-2 font-semibold text-sm transition-all",
+                adminTab === "tarifs"
+                  ? "bg-white border-violet-600 text-violet-900 shadow-md"
+                  : "bg-white/60 border-slate-300 text-slate-600 hover:border-violet-400",
+              )}
+            >
+              <Coins className="h-5 w-5 shrink-0" />
+              Tarifs & subventions
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {adminTab === "tarifs" ? (
+        mealSubsidyConfig && setMealSubsidyConfig ? (
+          <MealSubsidyManagementView
+            embedded
+            config={mealSubsidyConfig}
+            setConfig={setMealSubsidyConfig}
+            locations={locationCatalog}
+          />
+        ) : (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="py-8 text-center text-amber-900">
+              Configuration des tarifs indisponible. Rechargez l&apos;application.
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <div className="space-y-4 sm:space-y-6">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="border-amber-300 text-amber-900 hover:bg-amber-100"
+        onClick={handleResetAllTickets}
+      >
+        Réinitialiser tous les tickets (tests)
+      </Button>
 
       <Card className="border-2 border-amber-200 shadow-md bg-white">
         <CardHeader className="pb-3">
@@ -448,7 +534,23 @@ export function RepasAdminView({
             onSelectionChange={setSelectedUserIds}
             mealsPerPerson={mealsPerPersonNum}
             getMonthTicketCount={getMonthTicketCount}
+            genMonth={genMonth}
+            mealSubsidyConfig={mealSubsidyConfig}
+            userInmHistory={userInmHistory}
+            locationCatalog={locationCatalog}
           />
+
+          {mealSubsidyConfig && selectedUserIds.length > 0 && (
+            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-3 text-sm space-y-1">
+              <p className="font-semibold text-emerald-900">
+                Branchement subventions (INM + lieu → barèmes) pour {formatMonthLabel(genMonth)}
+              </p>
+              <p className="text-xs text-emerald-800">
+                Chaque ticket généré reprendra ces montants. Données : fiche utilisateur (lieu, INM)
+                + onglet Tarifs & subventions.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3 text-sm bg-amber-50/80 rounded-xl p-3 border border-amber-100">
             <span className="inline-flex items-center gap-1 text-slate-700">
@@ -752,6 +854,8 @@ export function RepasAdminView({
             itemLabel="ticket(s)"
           />
         </>
+      )}
+        </div>
       )}
     </div>
   );

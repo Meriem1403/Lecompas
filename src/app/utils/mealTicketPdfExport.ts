@@ -7,6 +7,7 @@ import {
   formatMonthLabel,
   formatTicketDate,
 } from "./mealTicketRecord";
+import { formatEuro } from "./mealSubsidyRecord";
 import { pdfWriteLine } from "./pdfText";
 
 function mealTicketStatusLabel(status: MealTicket["status"]): string {
@@ -90,6 +91,21 @@ export async function generateMealTicketPdfBlob(
       used += ` — ${ticket.usedByProviderName}`;
     }
     lines.push(["Valide le", used]);
+  }
+  if (ticket.subsidyTotal != null && ticket.subsidyTotal > 0) {
+    lines.push(["Subvention totale", formatEuro(ticket.subsidyTotal)]);
+    if (ticket.subsidyMinisterial != null) {
+      lines.push(["Subvention ministerielle", formatEuro(ticket.subsidyMinisterial)]);
+    }
+    if (ticket.subsidyInterministerial != null && ticket.subsidyInterministerial > 0) {
+      lines.push([
+        "Subvention interministerielle",
+        formatEuro(ticket.subsidyInterministerial),
+      ]);
+    }
+    if (ticket.agentInm != null) {
+      lines.push(["INM retenu", String(ticket.agentInm)]);
+    }
   }
 
   for (const [label, value] of lines) {

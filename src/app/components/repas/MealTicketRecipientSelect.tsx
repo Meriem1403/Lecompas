@@ -4,12 +4,19 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Label } from "../ui/label";
-import { AppUser } from "../admin/UserManagementView";
+import { AppUser, Location } from "../admin/UserManagementView";
 import {
   appUserDisplayName,
   isChefUser,
   mealTicketRecipientRoleLabel,
 } from "../../utils/userRoles";
+import {
+  formatEuro,
+  MealSubsidyConfig,
+  previewAgentMealSubsidy,
+  UserInmHistoryEntry,
+} from "../../utils/mealSubsidyRecord";
+import { formatMonthLabel } from "../../utils/mealTicketRecord";
 
 interface MealTicketRecipientSelectProps {
   service: string;
@@ -18,6 +25,10 @@ interface MealTicketRecipientSelectProps {
   onSelectionChange: (ids: string[]) => void;
   mealsPerPerson: number;
   getMonthTicketCount: (userId: string) => number;
+  genMonth: string;
+  mealSubsidyConfig?: MealSubsidyConfig;
+  userInmHistory?: UserInmHistoryEntry[];
+  locationCatalog?: Pick<Location, "id" | "name" | "regionCode">[];
 }
 
 function RecipientRow({
@@ -27,6 +38,10 @@ function RecipientRow({
   perPerson,
   count,
   onToggle,
+  genMonth,
+  mealSubsidyConfig,
+  userInmHistory,
+  locationCatalog,
 }: {
   user: AppUser;
   checked: boolean;
@@ -34,8 +49,23 @@ function RecipientRow({
   perPerson: number;
   count: number;
   onToggle: (checked: boolean) => void;
+  genMonth: string;
+  mealSubsidyConfig?: MealSubsidyConfig;
+  userInmHistory?: UserInmHistoryEntry[];
+  locationCatalog?: Pick<Location, "id" | "name" | "regionCode">[];
 }) {
   const full = count >= perPerson;
+  const subsidyPreview =
+    mealSubsidyConfig != null
+      ? previewAgentMealSubsidy(
+          user,
+          genMonth,
+          mealSubsidyConfig,
+          userInmHistory ?? [],
+          locationCatalog ?? [],
+        )
+      : null;
+
   return (
     <label
       className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-amber-50/50 ${
@@ -64,11 +94,34 @@ function RecipientRow({
           </Badge>
         </div>
         <p className="text-xs text-slate-500 mt-0.5 truncate">{user.email}</p>
-        {(user.domain || user.location) && (
-          <p className="text-xs text-slate-400 mt-0.5">
-            {[user.domain, user.location].filter(Boolean).join(" · ")}
+        <p className="text-xs text-slate-600 mt-1">
+          <span className="font-medium">Lieu :</span> {user.location?.trim() || "— non renseigné"}
+          {" · "}
+          <span className="font-medium">INM :</span>{" "}
+          {subsidyPreview?.inm != null ? subsidyPreview.inm : user.inm ?? "—"}
+        </p>
+        {subsidyPreview && (
+          <p
+            className={`text-xs mt-1 font-medium ${
+              subsidyPreview.totalPerMeal > 0 ? "text-emerald-700" : "text-amber-700"
+            }`}
+          >
+            Subvention {formatMonthLabel(genMonth)} :{" "}
+            {subsidyPreview.totalPerMeal > 0
+              ? `${formatEuro(subsidyPreview.totalPerMeal)} / repas (min. ${formatEuro(subsidyPreview.ministerialAmount)}${
+                  subsidyPreview.interministerialAmount > 0
+                    ? ` + inter. ${formatEuro(subsidyPreview.interministerialAmount)}`
+                    : ""
+                })`
+              : "0 € — vérifiez lieu et barèmes"}
           </p>
         )}
+        {subsidyPreview?.warnings.map((w) => (
+          <p key={w} className="text-xs text-amber-800 mt-0.5 flex items-start gap-1">
+            <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+            {w}
+          </p>
+        ))}
       </div>
     </label>
   );
@@ -81,6 +134,10 @@ export function MealTicketRecipientSelect({
   onSelectionChange,
   mealsPerPerson,
   getMonthTicketCount,
+  genMonth,
+  mealSubsidyConfig,
+  userInmHistory = [],
+  locationCatalog = [],
 }: MealTicketRecipientSelectProps) {
   const perPerson = Math.max(1, Math.min(31, Math.floor(mealsPerPerson)));
 
@@ -142,6 +199,10 @@ export function MealTicketRecipientSelect({
             perPerson={perPerson}
             count={getMonthTicketCount(user.id)}
             onToggle={(c) => toggleOne(user.id, c)}
+            genMonth={genMonth}
+            mealSubsidyConfig={mealSubsidyConfig}
+            userInmHistory={userInmHistory}
+            locationCatalog={locationCatalog}
           />
         ))}
       </div>

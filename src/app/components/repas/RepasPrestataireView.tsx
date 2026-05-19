@@ -36,7 +36,7 @@ import {
   getProviderScanStats,
   getProviderScannedTickets,
   parseQrPayload,
-  validateMealTicket,
+  validateMealTicketScan,
 } from "../../utils/mealTicketRecord";
 
 interface RepasPrestataireViewProps {
@@ -89,6 +89,10 @@ export function RepasPrestataireView({
   const [manualCode, setManualCode] = useState("");
   const [listPage, setListPage] = useState(1);
   const [lastValidated, setLastValidated] = useState<MealTicket | null>(null);
+  const [scanFeedback, setScanFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   const stats = useMemo(
     () => getProviderScanStats(mealTickets, provider.id, currentMonth),
@@ -134,22 +138,21 @@ export function RepasPrestataireView({
     (payload: string) => {
       const parsed = parseQrPayload(payload);
       if (!parsed) {
-        toast.error("QR code non reconnu. Vérifiez qu'il s'agit d'un ticket repas DIRM.");
+        const msg = "QR code non reconnu. Vérifiez qu'il s'agit d'un ticket repas DIRM.";
+        setScanFeedback({ type: "error", message: msg });
+        toast.error(msg, { position: "bottom-center" });
         return;
       }
 
       setMealTickets((prev) => {
-        const { tickets: updated, result } = validateMealTicket(
-          prev,
-          parsed.ticketId,
-          parsed.qrToken,
-          provider,
-        );
+        const { tickets: updated, result } = validateMealTicketScan(prev, parsed, provider);
         if (result.success && result.ticket) {
           setLastValidated(result.ticket);
-          toast.success(result.message);
+          setScanFeedback({ type: "success", message: result.message });
+          toast.success(result.message, { position: "bottom-center" });
         } else {
-          toast.error(result.message);
+          setScanFeedback({ type: "error", message: result.message });
+          toast.error(result.message, { position: "bottom-center" });
         }
         return updated;
       });
@@ -254,6 +257,18 @@ export function RepasPrestataireView({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {scanFeedback && (
+              <div
+                role="alert"
+                className={`rounded-lg border-2 p-3 text-sm font-medium ${
+                  scanFeedback.type === "success"
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    : "border-red-300 bg-red-50 text-red-900"
+                }`}
+              >
+                {scanFeedback.message}
+              </div>
+            )}
             <MealTicketScanner onScan={processValidation} scannerId="prestataire-qr-scanner" />
 
             <div className="border-t pt-4 space-y-3">

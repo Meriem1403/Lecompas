@@ -9,6 +9,7 @@ import {
   formatTicketDate,
 } from "../../utils/mealTicketRecord";
 import { downloadMealTicketPdf } from "../../utils/mealTicketPdfExport";
+import { formatEuro } from "../../utils/mealSubsidyRecord";
 import { MealTicketStatusBadge } from "./MealTicketStatusBadge";
 
 interface RepasAgentTicketDetailViewProps {
@@ -108,6 +109,27 @@ export function RepasAgentTicketDetailView({
                 <span className="text-gray-500">Émis le :</span>{" "}
                 {formatTicketDate(ticket.generatedAt)}
                 {ticket.generatedBy && ` par ${ticket.generatedBy}`}
+              </p>
+            )}
+            {ticket.subsidyTotal != null && (
+              <p className="text-blue-900 bg-blue-50 rounded-lg p-3 sm:col-span-2 text-sm">
+                <span className="font-medium">Subvention repas : </span>
+                {formatEuro(ticket.subsidyTotal)} / repas
+                {ticket.subsidyMinisterial != null && (
+                  <>
+                    {" "}
+                    (ministérielle {formatEuro(ticket.subsidyMinisterial)}
+                    {ticket.subsidyInterministerial != null &&
+                      ticket.subsidyInterministerial > 0 &&
+                      ` + interministérielle ${formatEuro(ticket.subsidyInterministerial)}`}
+                    )
+                  </>
+                )}
+                {ticket.agentInm != null && (
+                  <span className="block text-xs text-gray-600 mt-1">
+                    INM retenu pour ce mois : {ticket.agentInm}
+                  </span>
+                )}
               </p>
             )}
             {ticket.status === "used" && ticket.usedAt && (
