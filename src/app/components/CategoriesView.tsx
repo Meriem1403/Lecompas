@@ -102,7 +102,7 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
       description: "Tickets repas mensuels et gestion comptable du personnel",
       icon: Calculator,
       gradient: "from-emerald-600 via-teal-500 to-cyan-500",
-      moduleCount: 1,
+      moduleCount: 2,
     },
   ];
 
