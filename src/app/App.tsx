@@ -90,6 +90,7 @@ import {
   SecuritySheetView,
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
+import { loadAdminUsers, saveAdminUsers } from "./utils/adminUserRecord";
 import { loadMealTickets, MealTicket, saveMealTickets } from "./utils/mealTicketRecord";
 import {
   loadMealSubsidyConfig,
@@ -785,8 +786,7 @@ export default function App() {
   const [activeView, setActiveView] = useState("categories");
   const [categoryView, setCategoryView] = useState<string | null>(null);
   const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
-  const [adminUsers, setAdminUsers] =
-    useState<AppUser[]>(FAKE_USERS);
+  const [adminUsers, setAdminUsers] = useState<AppUser[]>(() => loadAdminUsers(FAKE_USERS));
   const [accessProfiles, setAccessProfiles] = useState<
     Record<string, EmployeeAccessProfile>
   >(() => {
@@ -1367,6 +1367,10 @@ export default function App() {
       }
     }
   }, [adminUsers, isAuthenticated]);
+
+  React.useEffect(() => {
+    saveAdminUsers(adminUsers);
+  }, [adminUsers]);
 
   React.useEffect(() => {
     saveMealTickets(mealTickets);

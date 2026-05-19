@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   getActivePeriodForMonth,
+  getInmForMonth,
   getLastDayOfMonth,
   periodCoversMonth,
   repairMealSubsidyConfig,
+  upsertInmHistoryEntry,
 } from "./mealSubsidyRecord";
 
 const LOCATIONS = [
@@ -35,6 +37,24 @@ describe("mealSubsidyRecord périodes", () => {
     const period = getActivePeriodForMonth(config, "2026-05");
     expect(period).not.toBeNull();
     expect(period?.id).toBe("period-2026");
+  });
+
+  it("getInmForMonth utilise l'historique mis à jour après modification fiche", () => {
+    let history = [
+      {
+        id: "h1",
+        userId: "3",
+        inm: 480,
+        effectiveFrom: "2026-01-01",
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+    ];
+    history = upsertInmHistoryEntry(history, {
+      userId: "3",
+      inm: 350,
+      effectiveFrom: "2026-05-19",
+    });
+    expect(getInmForMonth(history, "3", "2026-05", 480)).toBe(350);
   });
 
   it("répare une config dont la seule période se termine en 2025", () => {

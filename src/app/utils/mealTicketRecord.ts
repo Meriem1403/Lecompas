@@ -362,6 +362,46 @@ export interface GenerateTicketsOptions {
   locationCatalog?: Pick<Location, "id" | "name" | "regionCode">[];
 }
 
+/** Recalcule les subventions sur les tickets actifs d'un mois (après changement INM / barèmes). */
+export function applySubsidiesToMonthTickets(
+  tickets: MealTicket[],
+  month: string,
+  agents: AppUser[],
+  subsidyConfig: MealSubsidyConfig,
+  inmHistory: UserInmHistoryEntry[],
+  locationCatalog: Pick<Location, "id" | "name" | "regionCode">[],
+  userIds?: string[],
+): MealTicket[] {
+  const idSet = userIds?.length ? new Set(userIds) : null;
+  const agentById = new Map(agents.map((a) => [a.id, a]));
+
+  return tickets.map((ticket) => {
+    if (ticket.month !== month || ticket.status === "cancelled") return ticket;
+    if (idSet && !idSet.has(ticket.userId)) return ticket;
+
+    const agent = agentById.get(ticket.userId);
+    if (!agent) return ticket;
+
+    const locationId = resolveLocationId(locationCatalog, agent.location);
+    const inm = getInmForMonth(inmHistory, agent.id, month, agent.inm);
+    const subsidy = computeAgentMealSubsidy(subsidyConfig, {
+      month,
+      locationId,
+      locationName: agent.location,
+      inm,
+      locationCatalog,
+    });
+
+    return {
+      ...ticket,
+      agentInm: subsidy.inm ?? undefined,
+      subsidyMinisterial: subsidy.ministerialAmount,
+      subsidyInterministerial: subsidy.interministerialAmount,
+      subsidyTotal: subsidy.totalPerMeal,
+    };
+  });
+}
+
 export function generateMonthlyTickets({
   month,
   agents,
@@ -374,6 +414,19 @@ export function generateMonthlyTickets({
   inmHistory = [],
   locationCatalog = [],
 }: GenerateTicketsOptions): { tickets: MealTicket[]; created: number; skipped: number } {
+  let ticketsBase = existingTickets;
+  if (subsidyConfig) {
+    ticketsBase = applySubsidiesToMonthTickets(
+      existingTickets,
+      month,
+      agents,
+      subsidyConfig,
+      inmHistory,
+      locationCatalog,
+      selectedUserIds,
+    );
+  }
+
   let eligibleRecipients = filterMealTicketRecipients(agents, filters);
   if (selectedUserIds && selectedUserIds.length > 0) {
     const idSet = new Set(selectedUserIds);
@@ -382,7 +435,7 @@ export function generateMonthlyTickets({
 
   const perPerson = Math.max(1, Math.min(31, Math.floor(mealsPerPerson)));
 
-  const monthTickets = existingTickets.filter((t) => t.month === month);
+  const monthTickets = ticketsBase.filter((t) => t.month === month);
   let sequence =
     monthTickets.reduce((max, ticket) => {
       const match = ticket.ticketNumber.match(/-(\d{5})$/);
@@ -394,7 +447,7 @@ export function generateMonthlyTickets({
   let skipped = 0;
 
   for (const agent of eligibleRecipients) {
-    const existingCount = countUserMonthTickets(existingTickets, agent.id, month);
+    const existingCount = countUserMonthTickets(ticketsBase, agent.id, month);
     const toCreate = perPerson - existingCount;
 
     if (toCreate <= 0) {
@@ -448,7 +501,7 @@ export function generateMonthlyTickets({
   }
 
   return {
-    tickets: [...existingTickets, ...newTickets],
+    tickets: [...ticketsBase, ...newTickets],
     created: newTickets.length,
     skipped,
   };

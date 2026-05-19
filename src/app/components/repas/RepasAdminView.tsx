@@ -51,6 +51,7 @@ import { RepasStatCard } from "./RepasStatCard";
 import { MealTicketStatusBadge } from "./MealTicketStatusBadge";
 import { MealTicketRecipientSelect } from "./MealTicketRecipientSelect";
 import {
+  applySubsidiesToMonthTickets,
   MealTicket,
   cancelMealTicket,
   filterMealTicketRecipients,
@@ -344,6 +345,35 @@ export function RepasAdminView({
     );
   };
 
+  const handleRecalculateSubsidies = () => {
+    if (!mealSubsidyConfig) {
+      toast.error("Configurez d'abord les tarifs dans l'onglet Tarifs & subventions.");
+      return;
+    }
+    const targetIds =
+      selectedUserIds.length > 0
+        ? selectedUserIds
+        : selectableRecipients.map((u) => u.id);
+    if (targetIds.length === 0) {
+      toast.error("Sélectionnez au moins un agent ou un service.");
+      return;
+    }
+    setMealTickets((prev) =>
+      applySubsidiesToMonthTickets(
+        prev,
+        genMonth,
+        adminUsers,
+        mealSubsidyConfig,
+        userInmHistory,
+        locationCatalog,
+        targetIds,
+      ),
+    );
+    toast.success(
+      `Subventions recalculées pour ${formatMonthLabel(genMonth)} (INM et barèmes actuels).`,
+    );
+  };
+
   const handleCancel = (ticketId: string) => {
     setMealTickets((prev) => {
       const { tickets, success, message } = cancelMealTicket(prev, ticketId);
@@ -546,8 +576,9 @@ export function RepasAdminView({
                 Branchement subventions (INM + lieu → barèmes) pour {formatMonthLabel(genMonth)}
               </p>
               <p className="text-xs text-emerald-800">
-                Chaque ticket généré reprendra ces montants. Données : fiche utilisateur (lieu, INM)
-                + onglet Tarifs & subventions.
+                Chaque nouveau QR reprend ces montants. Après modification de l&apos;INM dans
+                Utilisateurs, cliquez « Recalculer subventions du mois » pour mettre à jour les
+                tickets déjà créés.
               </p>
             </div>
           )}
@@ -565,7 +596,17 @@ export function RepasAdminView({
             </span>
           </div>
 
-          <AlertDialog open={generateOpen} onOpenChange={setGenerateOpen}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-violet-300 text-violet-900 hover:bg-violet-50 min-h-11"
+              onClick={handleRecalculateSubsidies}
+              disabled={!mealSubsidyConfig}
+            >
+              Recalculer subventions du mois
+            </Button>
+            <AlertDialog open={generateOpen} onOpenChange={setGenerateOpen}>
             <AlertDialogTrigger asChild>
               <Button
                 className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 min-h-11"
@@ -599,6 +640,7 @@ export function RepasAdminView({
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          </div>
         </CardContent>
       </Card>
 
