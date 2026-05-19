@@ -30,6 +30,11 @@ import { Textarea } from "./components/ui/textarea";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { Separator } from "./components/ui/separator";
 import { AccidentsView } from "./components/AccidentsView";
+import { enrichAccidentWithRegulatoryGravity } from "./utils/accidentRegulatoryGravity";
+import {
+  mapRisksToDuerpRefs,
+  normalizeAccidentRecord,
+} from "./utils/accidentRecord";
 import { ActionsView } from "./components/ActionsView";
 import { RiskFormDialog } from "./components/RiskFormDialog";
 import { ListPaginationBar } from "./components/ui/list-pagination-bar";
@@ -72,6 +77,8 @@ import { RHModulesView } from "./components/RHModulesView";
 import { EnvironnementModulesView } from "./components/EnvironnementModulesView";
 import { ApplicationsModulesView } from "./components/ApplicationsModulesView";
 import { AdministrationModulesView } from "./components/AdministrationModulesView";
+import { ComptabiliteModulesView } from "./components/ComptabiliteModulesView";
+import { RepasView } from "./components/RepasView";
 import { TeamView } from "./components/TeamView";
 import { AccessManagementView } from "./components/AccessManagementView";
 import { RiskAwarenessView } from "./components/RiskAwarenessView";
@@ -83,6 +90,22 @@ import {
   SecuritySheetView,
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
+import { loadMealTickets, MealTicket, saveMealTickets } from "./utils/mealTicketRecord";
+import {
+  appUserDisplayName,
+  appUserToMealProvider,
+  resolvePrestataireByEmail,
+  ROLE_PRESTATAIRE,
+  sessionRoleFromAppRole,
+} from "./utils/userRoles";
+import {
+  DEMO_LOGIN_ACCOUNTS,
+  directoryUserToSessionUser,
+  findDemoDirectoryUser,
+  resolveDirectoryEmail,
+  sessionUsersMatch,
+  syncSessionWithDirectory,
+} from "./utils/demoAccounts";
 import { EmployeeAccessProfile } from "./components/access-management/types";
 import {
   AlertDialog,
@@ -149,6 +172,7 @@ import {
   ChevronLeft,
   Menu,
   FileCheck,
+  UtensilsCrossed,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -157,7 +181,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "chef_service" | "agent";
+  role: "admin" | "chef_service" | "agent" | "prestataire";
   service: string;
   domain?: string;
   location?: string;
@@ -221,14 +245,34 @@ interface ActionReturn {
 interface Accident {
   id: string;
   date: string;
+  time?: string;
   title: string;
   description: string;
+  accidentCategory?: string;
+  accidentEventType?: string;
   severity: "bénin" | "modéré" | "grave" | "très_grave";
+  hasWorkStoppage?: boolean;
+  workStoppageStartDate?: string;
+  workStoppageEndDate?: string;
+  workStoppageDays?: number;
+  hasReturnToWorkMedicalConditions?: boolean;
+  returnToWorkMedicalConditions?: string;
+  regulatoryGravity?: "G1" | "G2" | "G3" | "G4" | "G5";
   type: "travail" | "trajet" | "maladie_pro";
   victim: string;
+  victimFirstName?: string;
+  victimLastName?: string;
   location: string;
   service?: string;
   domain?: string;
+  circumstances?: string;
+  accidentCauses?: string;
+  causeAnalysis?: string;
+  comments?: string;
+  duerpRiskId?: string;
+  duerpRiskNumber?: string;
+  duerpRiskLabel?: string;
+  duerpRiskFreeText?: string;
   witnesses: string[];
   measures: string;
   lesionSites?: string[];
@@ -578,62 +622,147 @@ const FAKE_ACCIDENTS: Accident[] = [
   {
     id: "1",
     date: "2026-01-25",
+    time: "14:20",
     title: "Chute dans escalier - blessure cheville",
     description:
       "L'employée descendait l'escalier principal en portant un carton. Elle a manqué une marche et s'est tordu la cheville. Transport aux urgences, diagnostic : entorse cheville gauche grade 2.",
     severity: "modéré",
     type: "travail",
+    accidentCategory: "Travail",
+    accidentEventType: "Chute de plain-pied",
     victim: "Amélie Rousseau",
+    victimFirstName: "Amélie",
+    victimLastName: "Rousseau",
     location: "Escalier principal, 2ème étage",
+    circumstances:
+      "Descente de l'escalier principal, marche 4, port d'un carton de fournitures (~8 kg), main droite occupée, rampe non utilisée.",
+    accidentCauses:
+      "Charge portée dans l'escalier, attention partielle, absence de signalisation récente des travaux de peinture.",
+    causeAnalysis:
+      "Analyse QQOQCCP : combinaison charge + déplacement + environnement (marche légèrement glissante).",
+    comments: "Déclaration CPAM en cours. Retour d'expérience prévu en réunion sécurité.",
+    duerpRiskId: "1",
+    duerpRiskNumber: "RISK-2026-001",
+    duerpRiskLabel: "Risque de chute sur sol glissant",
     witnesses: ["Thomas Blanchard", "Julie Mercier"],
     measures:
       "Arrt de travail 15 jours. Main courante renforcée. Rappel : ne pas porter de charges lourdes dans les escaliers.",
+    hasWorkStoppage: true,
+    workStoppageStartDate: "2026-01-25",
+    workStoppageEndDate: "2026-02-08",
+    workStoppageDays: 15,
+    hasReturnToWorkMedicalConditions: true,
+    returnToWorkMedicalConditions:
+      "Reprise à mi-temps pendant 2 semaines, pas de port de charges lourdes. Visite de reprise médecine du travail programmée.",
+    regulatoryGravity: "G3",
+    lesionSites: ["Cheville", "Membre inférieur"],
+    lesionNatures: ["Entorse"],
+    correctiveActions: ["Balisage de zone", "Formation complémentaire"],
     createdAt: "2026-01-25T14:30:00Z",
   },
   {
     id: "2",
     date: "2026-01-18",
+    time: "10:15",
     title: "Brûlure chimique - projection produit",
     description:
       "Lors du transvasement d'un produit de nettoyage concentré, projection dans l'œil malgré le port de lunettes. Rinçage immédiat au poste de rinçage oculaire pendant 15 minutes.",
     severity: "grave",
     type: "travail",
+    accidentCategory: "Travail",
+    accidentEventType: "Projection",
     victim: "Carlos Mendes",
+    victimFirstName: "Carlos",
+    victimLastName: "Mendes",
     location: "Local produits chimiques, Bâtiment B",
+    circumstances:
+      "Transvasement produit concentré vers flacon doseur, lunettes de protection portées, projection résiduelle malgré rinçage préalable du bec.",
+    accidentCauses:
+      "Surpression résiduelle, position du flacon, réflexe de retirer les lunettes pour mieux voir.",
+    causeAnalysis: "Revue de la procédure de transvasement et du poste de rinçage oculaire.",
+    comments: "FDS révisée et affichée. Contrôle EPI programmé.",
+    duerpRiskFreeText: "Manipulation produits chimiques corrosifs",
     witnesses: ["Fatima El Amrani"],
     measures:
       "Transport SAMU. Bilan ophtalmologique : brûlure superficielle cornée. Arrêt 7 jours. Formation complémentaire manipulation produits chimiques programmée. Révision procédure transvasement.",
+    hasWorkStoppage: true,
+    workStoppageStartDate: "2026-01-18",
+    workStoppageEndDate: "2026-01-24",
+    workStoppageDays: 7,
+    hasReturnToWorkMedicalConditions: false,
+    regulatoryGravity: "G2",
+    lesionSites: ["Yeux"],
+    lesionNatures: ["Brûlure", "Irritation"],
+    correctiveActions: ["Mise à jour consigne sécurité", "Contrôle périodique renforcé"],
     createdAt: "2026-01-18T10:15:00Z",
   },
   {
     id: "3",
     date: "2026-01-10",
+    time: "08:45",
     title: "Accident de trajet - collision routière",
     description:
       "Accident de la route sur le trajet domicile-travail. Collision avec un autre véhicule à un carrefour.",
     severity: "modéré",
     type: "trajet",
+    accidentCategory: "Trajet",
+    accidentEventType: "Accident de la route",
     victim: "Stéphane Moreau",
+    victimFirstName: "Stéphane",
+    victimLastName: "Moreau",
     location:
       "Carrefour Avenue de la République / Rue Victor Hugo",
+    circumstances:
+      "Trajet domicile-travail, feu orange clignotant, visibilité réduite par pluie.",
+    accidentCauses: "Priorité non respectée par l'autre véhicule selon PV police.",
+    causeAnalysis: "Analyse interne : sensibilisation conduite sous intempéries.",
     witnesses: [],
     measures:
       "Déclaration accident de trajet. Arrêt de travail 21 jours. Fracture côte + contusions multiples. Suivi médical en cours.",
+    hasWorkStoppage: true,
+    workStoppageStartDate: "2026-01-10",
+    workStoppageEndDate: "2026-01-30",
+    workStoppageDays: 21,
+    hasReturnToWorkMedicalConditions: true,
+    returnToWorkMedicalConditions:
+      "Aménagement de poste temporaire, éviter les déplacements longs jusqu'au prochain avis du médecin du travail.",
+    regulatoryGravity: "G3",
+    lesionSites: ["Thorax", "Bras"],
+    lesionNatures: ["Fracture", "Contusion"],
+    correctiveActions: ["Formation complémentaire"],
+    comments: "Dossier assurance et déclaration trajet transmis RH.",
     createdAt: "2026-01-10T08:45:00Z",
   },
   {
     id: "4",
     date: "2026-01-05",
+    time: "15:20",
     title: "Coupure main - manipulation carton",
     description:
       "Coupure profonde à la main droite lors de l'ouverture d'un carton avec un cutter. Lame a dérapé.",
     severity: "bénin",
     type: "travail",
+    accidentCategory: "Travail",
+    accidentEventType: "Coupure",
     victim: "Nadia Benali",
+    victimFirstName: "Nadia",
+    victimLastName: "Benali",
     location: "Réserve, rez-de-chaussée",
+    circumstances: "Ouverture cartons en réserve, cutter standard sans lame rétractable.",
+    accidentCauses: "Outil inadapté, geste trop appuyé, carton glissant.",
+    comments: "Rappel cutters sécurité distribué à l'équipe logistique.",
     witnesses: ["Karim Ziani"],
     measures:
       "Soins infirmerie. Suture 3 points au centre de soins. Arrêt de travail 3 jours. Rappel : utiliser les cutters de sécurité avec lame rétractable.",
+    hasWorkStoppage: true,
+    workStoppageStartDate: "2026-01-05",
+    workStoppageEndDate: "2026-01-07",
+    workStoppageDays: 3,
+    hasReturnToWorkMedicalConditions: false,
+    regulatoryGravity: "G2",
+    lesionSites: ["Main"],
+    lesionNatures: ["Coupure", "Plaie"],
+    correctiveActions: ["Ajout EPI", "Mise à jour consigne sécurité"],
     createdAt: "2026-01-05T15:20:00Z",
   },
 ];
@@ -702,6 +831,9 @@ export default function App() {
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
   const [accidents, setAccidents] =
     useState<Accident[]>(FAKE_ACCIDENTS);
+  const [mealTickets, setMealTickets] = useState<MealTicket[]>(() =>
+    loadMealTickets(),
+  );
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(
     null,
   );
@@ -1050,83 +1182,117 @@ export default function App() {
     },
   ]);
 
+  const resolveDemoUser = (
+    email: string,
+    fallback: {
+      name: string;
+      role: User["role"];
+      service: string;
+      domain: string;
+      location: string;
+    },
+  ): User => {
+    const lookupEmail = resolveDirectoryEmail(email);
+    const adminUser = adminUsers.find(
+      (u) => u.email.toLowerCase() === lookupEmail.toLowerCase(),
+    );
+    if (adminUser) {
+      return directoryUserToSessionUser(adminUser, fallback.role);
+    }
+    return {
+      id: `user-${lookupEmail}`,
+      email: lookupEmail,
+      ...fallback,
+    };
+  };
+
   // Handle Login
   const handleLogin = async (
     email: string,
     password: string,
     rememberMe: boolean,
   ): Promise<boolean> => {
-    // Vérification des identifiants de démonstration
-    const demoAccounts = [
-      {
-        email: "admin@dirm-med.gouv.fr",
-        password: "admin123",
-        name: "Jean-Marc DUBOIS",
-        role: "admin" as const,
-        service: "Direction",
-        domain: "",
-        location: "",
-      },
-      {
-        email: "chef@dirm-med.gouv.fr",
-        password: "chef123",
-        name: "Marie MARTIN",
-        role: "chef_service" as const,
-        service: "Maintenance",
-        domain: "",
-        location: "",
-      },
-      {
-        email: "agent@dirm-med.gouv.fr",
-        password: "agent123",
-        name: "Pierre LECLERC",
-        role: "agent" as const,
-        service: "Maintenance",
-        domain: "",
-        location: "",
-      },
-    ];
-
-    const account = demoAccounts.find(
+    const demoAccount = DEMO_LOGIN_ACCOUNTS.find(
       (acc) => acc.email === email && acc.password === password,
     );
 
-    if (account) {
-      // Simuler la récupération du token
-      const token = `token-${Date.now()}`;
+    const directoryLookupEmail = resolveDirectoryEmail(email);
+    const directoryUser = adminUsers.find(
+      (u) =>
+        u.email.toLowerCase() === email.toLowerCase() ||
+        u.email.toLowerCase() === directoryLookupEmail.toLowerCase(),
+    );
+    const directoryMatch =
+      directoryUser &&
+      directoryUser.password &&
+      directoryUser.password === password;
 
-      setUser({
-        id: `user-${Date.now()}`,
-        email: account.email,
-        name: account.name,
-        role: account.role,
-        service: account.service,
-        domain: account.domain,
-        location: account.location,
-      });
-      setAccessToken(token);
-      setIsAuthenticated(true);
-
-      // Sauvegarder dans localStorage si "Se souvenir de moi"
-      if (rememberMe) {
-        localStorage.setItem(
-          "duerp_user",
-          JSON.stringify({
-            email: account.email,
-            name: account.name,
-            role: account.role,
-            service: account.service,
-            domain: account.domain,
-            location: account.location,
-          }),
-        );
-        localStorage.setItem("duerp_token", token);
-      }
-
-      return true;
+    if (!demoAccount && !directoryMatch) {
+      return false;
     }
 
-    return false;
+    const loginEmail = demoAccount?.email ?? directoryUser!.email;
+    const demoRoleByEmail: Record<string, User["role"]> = {
+      "admin@dirm-med.gouv.fr": "admin",
+      "chef@dirm-med.gouv.fr": "chef_service",
+      "agent@dirm-med.gouv.fr": "agent",
+      "prestataire@dirm-med.gouv.fr": "prestataire",
+    };
+    const fallback = demoAccount
+      ? {
+          email: loginEmail,
+          password,
+          name:
+            directoryUser != null
+              ? appUserDisplayName(directoryUser)
+              : loginEmail,
+          role: (directoryUser
+            ? sessionRoleFromAppRole(directoryUser.role)
+            : demoRoleByEmail[demoAccount.email] ?? "agent") as User["role"],
+          service: directoryUser?.service ?? "",
+          domain: directoryUser?.domain ?? "",
+          location: directoryUser?.location ?? "",
+        }
+      : {
+          email: directoryUser!.email,
+          password,
+          name: appUserDisplayName(directoryUser!),
+          role: sessionRoleFromAppRole(directoryUser!.role),
+          service: directoryUser!.service,
+          domain: directoryUser!.domain,
+          location: directoryUser!.location,
+        };
+
+    const token = `token-${Date.now()}`;
+    const resolvedUser = resolveDemoUser(loginEmail, {
+      name: fallback.name,
+      role: fallback.role,
+      service: fallback.service,
+      domain: fallback.domain,
+      location: fallback.location,
+    });
+
+    setUser(resolvedUser);
+    setAccessToken(token);
+    setIsAuthenticated(true);
+
+    if (rememberMe) {
+      localStorage.setItem(
+        "duerp_user",
+        JSON.stringify({
+          id: resolvedUser.id,
+          email: resolvedUser.email,
+          name: resolvedUser.name,
+          role: resolvedUser.role,
+          service: resolvedUser.service,
+          domain: resolvedUser.domain,
+          location: resolvedUser.location,
+        }),
+      );
+      localStorage.setItem("duerp_token", token);
+    }
+
+    return true;
   };
 
   // Handle Logout
@@ -1148,10 +1314,19 @@ export default function App() {
     if (savedUser && savedToken) {
       try {
         const userData = JSON.parse(savedUser);
-        setUser({
-          id: `user-${Date.now()}`,
-          ...userData,
-        });
+        const synced = syncSessionWithDirectory(
+          {
+            id: userData.id ?? `user-${Date.now()}`,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            service: userData.service ?? "",
+            domain: userData.domain,
+            location: userData.location,
+          },
+          FAKE_USERS,
+        );
+        setUser(synced);
         setAccessToken(savedToken);
         setIsAuthenticated(true);
       } catch (error) {
@@ -1164,6 +1339,40 @@ export default function App() {
       }
     }
   }, []);
+
+  React.useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const synced = syncSessionWithDirectory(user, adminUsers);
+    if (!sessionUsersMatch(user, synced)) {
+      setUser(synced);
+      if (localStorage.getItem("duerp_token")) {
+        localStorage.setItem("duerp_user", JSON.stringify(synced));
+      }
+    }
+  }, [adminUsers, isAuthenticated]);
+
+  React.useEffect(() => {
+    saveMealTickets(mealTickets);
+  }, [mealTickets]);
+
+  const currentMealProvider = useMemo(() => {
+    if (!user || user.role !== "prestataire") return null;
+    const prestataire = resolvePrestataireByEmail(adminUsers, user.email);
+    return prestataire ? appUserToMealProvider(prestataire) : null;
+  }, [user, adminUsers]);
+
+  const serviceNames = useMemo(
+    () => adminServices.map((s) => s.name),
+    [adminServices],
+  );
+  const domainNames = useMemo(
+    () => adminDomains.map((d) => d.name),
+    [adminDomains],
+  );
+  const locationNames = useMemo(
+    () => adminLocations.map((l) => l.name),
+    [adminLocations],
+  );
 
   React.useEffect(() => {
     if (selectedRisk && !canAccessRisk(selectedRisk)) {
@@ -1605,12 +1814,19 @@ export default function App() {
   };
 
   // Accident CRUD handlers
+  const duerpRiskRefs = useMemo(() => mapRisksToDuerpRefs(risks), [risks]);
+
   const handleAddAccident = (accidentData: any) => {
-    const newAccident: Accident = {
-      ...accidentData,
-      id: `accident-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
+    const newAccident: Accident = enrichAccidentWithRegulatoryGravity(
+      normalizeAccidentRecord(
+        {
+          ...accidentData,
+          id: `accident-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        },
+        duerpRiskRefs,
+      ),
+    );
     setAccidents((prev) => [newAccident, ...prev]);
   };
 
@@ -1618,7 +1834,9 @@ export default function App() {
     setAccidents((prev) =>
       prev.map((a) =>
         a.id === accidentData.id
-          ? { ...a, ...accidentData }
+          ? enrichAccidentWithRegulatoryGravity(
+              normalizeAccidentRecord({ ...a, ...accidentData }, duerpRiskRefs),
+            )
           : a,
       ),
     );
@@ -1936,6 +2154,17 @@ export default function App() {
       ],
     },
     {
+      section: "Comptabilité",
+      items: [
+        {
+          id: "repas",
+          label: "Repas",
+          icon: UtensilsCrossed,
+          color: "text-emerald-600",
+        },
+      ],
+    },
+    {
       section: "Système",
       items: [
         {
@@ -1950,16 +2179,19 @@ export default function App() {
 
   const currentAdminUser = useMemo(() => {
     if (!user) return null;
+    const linked = adminUsers.find(
+      (adminUser) =>
+        adminUser.email?.toLowerCase() ===
+        resolveDirectoryEmail(user.email).toLowerCase(),
+    );
+    if (linked) return linked;
     return (
-      adminUsers.find(
-        (adminUser) =>
-          adminUser.email?.toLowerCase() === user.email?.toLowerCase(),
-      ) ||
+      adminUsers.find((adminUser) => adminUser.id === user.id) ??
       adminUsers.find(
         (adminUser) =>
           `${adminUser.firstName} ${adminUser.lastName}`.toLowerCase() ===
           user.name?.toLowerCase(),
-      ) ||
+      ) ??
       null
     );
   }, [adminUsers, user]);
@@ -2106,6 +2338,20 @@ export default function App() {
       setActiveView("cerbere");
       setCategoryView(null);
     }
+    if (categoryView === "comptabilite") {
+      return (
+        <>
+          <Toaster position="top-right" />
+          <ComptabiliteModulesView
+            onSelectModule={(moduleId) => {
+              setActiveView(moduleId);
+              setCategoryView(null);
+            }}
+            onGoBack={() => setActiveView("categories")}
+          />
+        </>
+      );
+    }
   }
 
   return (
@@ -2176,65 +2422,55 @@ export default function App() {
             <select
               value={user?.role || "agent"}
               onChange={(e) => {
-                const newRole = e.target.value as
-                  | "admin"
-                  | "chef_service"
-                  | "agent";
-                const testProfileByRole = {
-                  admin: {
-                    name: "Jean-Marc DUBOIS",
-                    email: "admin@dirm-med.gouv.fr",
-                    service: "Direction",
-                    domain: "",
-                    location: "",
-                  },
-                  chef_service: {
-                    name: "Sophie BERNARD",
-                    email: "sophie.bernard@example.com",
-                    service: "Maintenance",
-                    domain: "",
-                    location: "",
-                  },
-                  agent: {
-                    name: "Pierre LECLERC",
-                    email: "agent@dirm-med.gouv.fr",
-                    service: "Maintenance",
-                    domain: "",
-                    location: "",
-                  },
-                } as const;
+                const newRole = e.target.value as User["role"];
+                const directoryUser = findDemoDirectoryUser(
+                  adminUsers,
+                  newRole,
+                );
 
-                const roleScope = testProfileByRole[newRole];
-                setUser(
-                  user
-                    ? {
-                        ...user,
-                        role: newRole,
-                        name: roleScope.name,
-                        email: roleScope.email,
-                        service: roleScope.service,
-                        domain: roleScope.domain,
-                        location: roleScope.location,
-                      }
-                    : null,
+                if (newRole === "prestataire" && !directoryUser) {
+                  toast.error(
+                    "Créez d'abord un prestataire dans Utilisateurs → onglet Prestataires",
+                  );
+                  return;
+                }
+
+                if (!directoryUser) {
+                  toast.error(
+                    "Aucun utilisateur correspondant dans l'onglet Utilisateurs.",
+                  );
+                  return;
+                }
+
+                const syncedUser = directoryUserToSessionUser(
+                  directoryUser,
+                  newRole,
                 );
-                toast.success(
-                  `Rôle changé : ${
-                    newRole === "admin"
-                      ? "Administrateur"
-                      : newRole === "chef_service"
-                        ? "Chef de service"
-                        : "Agent"
-                  }`,
-                );
+                setUser(syncedUser);
+                if (localStorage.getItem("duerp_token")) {
+                  localStorage.setItem(
+                    "duerp_user",
+                    JSON.stringify(syncedUser),
+                  );
+                }
+                const roleLabels: Record<User["role"], string> = {
+                  admin: "Administrateur",
+                  chef_service: "Chef de service",
+                  agent: "Agent",
+                  prestataire: "Prestataire",
+                };
+                toast.success(`Rôle changé : ${roleLabels[newRole]}`);
+                if (newRole === "prestataire") {
+                  setActiveView("repas");
+                  setIsMobileSidebarOpen(false);
+                }
               }}
               className="w-full px-3 py-2 text-sm font-semibold bg-white border-2 border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 cursor-pointer"
             >
               <option value="agent">Agent</option>
               <option value="admin">Administrateur</option>
-              <option value="chef_service">
-                Chef de service
-              </option>
+              <option value="chef_service">Chef de service</option>
+              <option value="prestataire">Prestataire</option>
             </select>
             <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
               <UserCheck className="h-3.5 w-3.5 text-indigo-600 shrink-0" aria-hidden />
@@ -3481,6 +3717,7 @@ export default function App() {
           {activeView === "accidents" && (
             <AccidentsView
               accidents={accidents}
+              risks={duerpRiskRefs}
               onAdd={handleAddAccident}
               onUpdate={handleUpdateAccident}
               onDelete={handleDeleteAccident}
@@ -3778,6 +4015,7 @@ export default function App() {
               setDomainsData={setAdminDomains}
               locationsData={adminLocations}
               setLocationsData={setAdminLocations}
+              adminDisplayName={user?.name}
             />
           )}
 
@@ -3790,6 +4028,7 @@ export default function App() {
           {/* Registre accidents view */}
           {activeView === "registre" && (
             <RegistreAccidentsView
+              risks={duerpRiskRefs}
               agents={adminUsers}
               serviceOptions={serviceOptions}
               domainOptions={domainOptions}
@@ -3819,6 +4058,19 @@ export default function App() {
           )}
 
           {/* Arrivées & Départs view */}
+          {activeView === "repas" && user && (
+            <RepasView
+              currentUser={user}
+              adminUsers={adminUsers}
+              services={serviceNames}
+              domains={domainNames}
+              locations={locationNames}
+              mealTickets={mealTickets}
+              setMealTickets={setMealTickets}
+              currentProvider={currentMealProvider}
+            />
+          )}
+
           {activeView === "arrivees-departs" && (
             <ArriveesDepartsView
               userRole={user?.role || "agent"}

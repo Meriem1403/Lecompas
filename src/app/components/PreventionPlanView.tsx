@@ -1,24 +1,95 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/app/components/ui/command";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
-import { AlertTriangle, ArrowLeft, Building2, ClipboardList, Download, FileText, Filter, PhoneCall, PlusCircle, Route, Search, Send, Shield, Ship, Signature, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Building2,
+  Check,
+  ChevronsUpDown,
+  ClipboardList,
+  Download,
+  FileText,
+  Filter,
+  Info,
+  Paperclip,
+  PhoneCall,
+  PlusCircle,
+  Route,
+  Search,
+  Send,
+  Shield,
+  Signature,
+  Target,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
 
-interface RiskMeasure {
+export interface RiskMeasure {
   description: string;
   responsible: string;
   deadline: string;
   status: "pending" | "in_progress" | "completed";
 }
 
-interface RiskInput {
+/** Ligne du tableau §4 : stockage colonne 1 = situation dangereuse, colonne 2 = dommages associés, colonne 3 = mesures (clés `domaine` / `natureRisques` conservées pour compatibilité données). */
+export interface PlanRiskEvaluationRow {
+  id: string;
+  /** Risque de l’onglet « Évaluation des risques » — liaison facultative ; saisie libre possible sans liaison. */
+  linkedEvaluationRiskId: string;
+  /** Mention / référence saisie à la main hors référentiel ; affichée dans le champ quand aucune liaison catalogue. */
+  evaluationRiskFreeText: string;
+  /** Contenu affiché sous « Situation dangereuse » */
+  domaine: string;
+  /** Contenu affiché sous « Dommages associés » */
+  natureRisques: string;
+  mesuresPrevention: string;
+}
+
+/** Entreprise, administration ou organisme partie au plan (aucun bloc imposé : pas d’APB obligatoire), liste illimitée. */
+export interface PlanCoIntervenantRow {
+  id: string;
+  /** Qualité / rôle facultatif — ex. « APB », « Société intervenante », « Administration »… */
+  qualite: string;
+  denomination: string;
+  adresse: string;
+  contactNom: string;
+  contactEmail: string;
+  /** Navire, capitaine, téléphone complémentaire, etc. */
+  complements: string;
+}
+
+export interface PlanAnnexAttachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  /** data:image/... ou data:application/pdf;base64,... */
+  dataUrl: string;
+  sizeBytes: number;
+}
+
+export interface RiskInput {
   id: string;
   numeroRisque: string;
   title: string;
@@ -28,29 +99,24 @@ interface RiskInput {
   responsable: string;
   riskLevel: number;
   plannedMeasures: RiskMeasure[];
+  situation?: string;
+  associatedRisk?: string;
+  existingMeasures?: string[];
 }
 
-interface PlanProtocolFields {
+export interface PlanProtocolFields {
   protocoleTitle: string;
   codeTravailReference: string;
   operationType: string;
-  entreprise1Name: string;
-  entreprise1Address: string;
-  navireName: string;
-  capitaineName: string;
+  coIntervenantRows: PlanCoIntervenantRow[];
   prestationNature: string;
-  entreprise2Name: string;
-  entreprise2Address: string;
-  responsableName: string;
-  responsableEmail: string;
   lieuLivraison: string;
   materielsSpecifiques: string;
   consignesSite: string;
   consignesOperation: string;
+  /** Complément libre sous le tableau d’évaluation des risques */
   evaluationRisques: string;
-  evaluationDomaineRisques: string;
-  evaluationNatureRisques: string;
-  evaluationMesuresPrevention: string;
+  riskEvaluationRows: PlanRiskEvaluationRow[];
   personnesAPrevenir: string;
   mesuresUrgence: string;
   planTransmis: string;
@@ -80,15 +146,70 @@ interface PlanProtocolFields {
   signatureNom3: string;
   signaturePrenom3: string;
   signatureDate3: string;
+  /** Signature dématérialisée (scan / photo / image) pour le PDF — data URL */
+  signatureDematerialiseeUrl1: string;
+  signatureDematerialiseeUrl2: string;
+  signatureDematerialiseeUrl3: string;
   planCirculation: string;
   materielRemplacer: string;
+  /** Fichiers joints (stockés en local : data URL) */
+  annexAttachments: PlanAnnexAttachment[];
+  /** Complément rédactionnel hors pièces jointes */
   annexesDocuments: string;
 }
 
-type PlanStatus = "a_lancer" | "en_cours" | "termine";
+const PLAN_ANNEX_MAX_BYTES = 12 * 1024 * 1024;
+const PLAN_ANNEX_MAX_COUNT = 40;
+/** Image de signature (scan, photo) injectée dans le PDF */
+const SIGNATURE_DEMAT_MAX_BYTES = 800 * 1024;
+
+function formatByteSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+  if (bytes < 1024) return `${Math.round(bytes)} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function migrateAnnexAttachments(protocol: Partial<PlanProtocolFields> & Record<string, unknown>): PlanAnnexAttachment[] {
+  const raw = protocol.annexAttachments;
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  return raw
+    .map((item, i) => {
+      const o = item as { id?: string; fileName?: string; mimeType?: string; dataUrl?: string; sizeBytes?: unknown };
+      let id = typeof o.id === "string" && o.id.trim() ? o.id.trim() : `annex-${i}-${Math.random().toString(36).slice(2, 9)}`;
+      let dup = 0;
+      while (seen.has(id)) id = `${o.id ?? "annex"}-${i}-${dup++}`;
+      seen.add(id);
+      const fileName = typeof o.fileName === "string" && o.fileName.trim() ? o.fileName.trim() : "document";
+      const mimeType = typeof o.mimeType === "string" && o.mimeType.trim() ? o.mimeType.trim() : "application/octet-stream";
+      const dataUrl = typeof o.dataUrl === "string" ? o.dataUrl : "";
+      const sizeBytes =
+        typeof o.sizeBytes === "number" && Number.isFinite(o.sizeBytes) ? Math.max(0, Math.floor(o.sizeBytes)) : 0;
+      return { id, fileName, mimeType, dataUrl, sizeBytes };
+    })
+    .filter((a) => a.dataUrl.length > 0);
+}
+
+function readFileAsDataUrlCapped(file: File, maxBytes: number): Promise<{ dataUrl: string; sizeBytes: number }> {
+  return new Promise((resolve, reject) => {
+    if (file.size > maxBytes) {
+      reject(new Error("fichier_trop_volumineux"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve({ dataUrl: String(reader.result || ""), sizeBytes: file.size });
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("echec lecture"));
+    reader.readAsDataURL(file);
+  });
+}
+
+export type PlanStatus = "a_lancer" | "en_cours" | "termine";
 type ViewMode = "list" | "detail" | "create" | "edit";
 
-interface PlanRecord {
+export interface PlanRecord {
   id: string;
   riskId: string;
   riskNumber: string;
@@ -124,27 +245,261 @@ const statusClass: Record<PlanStatus, string> = {
   termine: "bg-emerald-100 text-emerald-800 border-emerald-300",
 };
 
+const priorityLabelUi: Record<"haute" | "moyenne" | "basse", string> = {
+  haute: "Haute",
+  moyenne: "Moyenne",
+  basse: "Basse",
+};
+
+/** Sous-titre carte liste : évite la répétition du type d’opération (déjà dans le titre / nature). */
+function planCardSubtitle(plan: Pick<PlanRecord, "service" | "dueDate" | "priority" | "riskNumber">): string {
+  const parts: string[] = [];
+  if (plan.service?.trim()) parts.push(`Service : ${plan.service.trim()}`);
+  if (plan.dueDate?.trim()) parts.push(`Échéance : ${plan.dueDate.trim()}`);
+  if (parts.length > 0) return parts.join(" · ");
+  if (plan.riskNumber?.trim()) return plan.riskNumber.trim();
+  return `Priorité : ${priorityLabelUi[plan.priority]}`;
+}
+
+function newRiskEvaluationRow(): PlanRiskEvaluationRow {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+    linkedEvaluationRiskId: "",
+    evaluationRiskFreeText: "",
+    domaine: "",
+    natureRisques: "",
+    mesuresPrevention: "",
+  };
+}
+
+/** Mesures de prévention existantes (champ `existingMeasures` de la fiche risque). */
+function existingPreventionMeasuresFromRisk(risk: RiskInput): { key: string; text: string }[] {
+  const out: { key: string; text: string }[] = [];
+  (risk.existingMeasures ?? []).forEach((m, i) => {
+    const t = m.trim();
+    if (t) out.push({ key: `ex-${i}`, text: t });
+  });
+  return out;
+}
+
+/** Filtre sur numéro, intitulé, situation, dommage, domaine… */
+function filterCatalogRisks(risks: RiskInput[], query: string): RiskInput[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return risks;
+  return risks.filter((r) => {
+    const blob = [
+      r.numeroRisque,
+      r.title,
+      r.situation ?? "",
+      r.associatedRisk ?? "",
+      r.domain ?? "",
+      r.service,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return blob.includes(q);
+  });
+}
+
+function newCoIntervenantRow(): PlanCoIntervenantRow {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+    qualite: "",
+    denomination: "",
+    adresse: "",
+    contactNom: "",
+    contactEmail: "",
+    complements: "",
+  };
+}
+
+function coIntervenantRowHasContent(r: PlanCoIntervenantRow): boolean {
+  return [r.qualite, r.denomination, r.adresse, r.contactNom, r.contactEmail, r.complements].some((s) => s.trim().length > 0);
+}
+
+/** Anciens champs APB + société → lignes de co-intervenants. */
+function migrateCoIntervenantRows(protocol: Partial<PlanProtocolFields> & Record<string, unknown>): PlanCoIntervenantRow[] {
+  const normalize = (r: PlanCoIntervenantRow | Record<string, unknown>, i: number): PlanCoIntervenantRow => ({
+    id: typeof r?.id === "string" && r.id ? r.id : `co-${i}`,
+    qualite: typeof r?.qualite === "string" ? r.qualite : "",
+    denomination: typeof r?.denomination === "string" ? r.denomination : "",
+    adresse: typeof r?.adresse === "string" ? r.adresse : "",
+    contactNom: typeof r?.contactNom === "string" ? r.contactNom : "",
+    contactEmail: typeof r?.contactEmail === "string" ? r.contactEmail : "",
+    complements: typeof r?.complements === "string" ? r.complements : "",
+  });
+
+  const raw = protocol.coIntervenantRows as PlanCoIntervenantRow[] | undefined;
+  const fromArray = Array.isArray(raw) ? raw.map(normalize) : [];
+
+  if (fromArray.some(coIntervenantRowHasContent)) {
+    return fromArray.length > 0 ? fromArray : [newCoIntervenantRow()];
+  }
+
+  const legacy: PlanCoIntervenantRow[] = [];
+  const e1n = String(protocol.entreprise1Name ?? "").trim();
+  const e1a = String(protocol.entreprise1Address ?? "").trim();
+  const navire = String(protocol.navireName ?? "").trim();
+  const capitaine = String(protocol.capitaineName ?? "").trim();
+  const comp1: string[] = [];
+  if (navire) comp1.push(`Navire : ${navire}`);
+  if (capitaine) comp1.push(`Capitaine : ${capitaine}`);
+  if (e1n || e1a || comp1.length > 0) {
+    const row = newCoIntervenantRow();
+    legacy.push({
+      ...row,
+      denomination: e1n,
+      adresse: e1a,
+      complements: comp1.join("\n"),
+    });
+  }
+
+  const e2n = String(protocol.entreprise2Name ?? "").trim();
+  const e2a = String(protocol.entreprise2Address ?? "").trim();
+  const resp = String(protocol.responsableName ?? "").trim();
+  const mail = String(protocol.responsableEmail ?? "").trim();
+  if (e2n || e2a || resp || mail) {
+    const row = newCoIntervenantRow();
+    legacy.push({
+      ...row,
+      denomination: e2n,
+      adresse: e2a,
+      contactNom: resp,
+      contactEmail: mail,
+    });
+  }
+
+  if (legacy.length > 0) return legacy;
+  if (fromArray.length > 0) return fromArray;
+  return [newCoIntervenantRow()];
+}
+
+function formatCoIntervenantsForPdf(rows: PlanCoIntervenantRow[]): string {
+  const filled = rows.filter(coIntervenantRowHasContent);
+  if (filled.length === 0) return "Aucun co-intervenant renseigne.";
+  return filled
+    .map((r, idx) => {
+      const parts: string[] = [];
+      const title = r.qualite.trim()
+        ? `${idx + 1}. [${r.qualite.trim()}] ${r.denomination.trim() || "—"}`
+        : `${idx + 1}. ${r.denomination.trim() || "—"}`;
+      parts.push(title);
+      if (r.adresse.trim()) parts.push(`Adresse : ${r.adresse.trim()}`);
+      const c = [r.contactNom.trim(), r.contactEmail.trim()].filter(Boolean).join(" — ");
+      if (c) parts.push(`Contact : ${c}`);
+      if (r.complements.trim()) parts.push(r.complements.trim());
+      return parts.join("\n");
+    })
+    .join("\n\n");
+}
+
+/** Garantit des ids distincts pour chaque ligne §4 ; des doublons font que plusieurs éditeurs partagent une même mise à jour d’état (saisie « qui ne reste pas »). */
+function dedupeRiskEvaluationRowIds(rows: PlanRiskEvaluationRow[]): PlanRiskEvaluationRow[] {
+  const used = new Set<string>();
+  return rows.map((r, index) => {
+    let base = typeof r.id === "string" ? r.id.trim() : "";
+    if (!base) base = `row-${index}`;
+    let candidate = base;
+    let n = 0;
+    while (used.has(candidate)) {
+      candidate = `${base}__${n++}`;
+    }
+    used.add(candidate);
+    return candidate === r.id ? r : { ...r, id: candidate };
+  });
+}
+
+/** Anciens champs monolithiques (compat : une seule ligne) si le tableau était vide ou placeholder. */
+function migrateRiskEvaluationRows(protocol: Partial<PlanProtocolFields> & Record<string, unknown>): PlanRiskEvaluationRow[] {
+  const normalizeRow = (r: PlanRiskEvaluationRow | Record<string, unknown>, i: number): PlanRiskEvaluationRow => ({
+    id: typeof r?.id === "string" && r.id ? r.id : `row-${i}`,
+    linkedEvaluationRiskId:
+      typeof r?.linkedEvaluationRiskId === "string"
+        ? r.linkedEvaluationRiskId
+        : typeof (r as { linkedRiskId?: string }).linkedRiskId === "string"
+          ? (r as { linkedRiskId: string }).linkedRiskId
+          : "",
+    evaluationRiskFreeText:
+      typeof (r as { evaluationRiskFreeText?: string }).evaluationRiskFreeText === "string"
+        ? (r as { evaluationRiskFreeText: string }).evaluationRiskFreeText
+        : "",
+    domaine: typeof r?.domaine === "string" ? r.domaine : "",
+    natureRisques:
+      typeof r?.natureRisques === "string"
+        ? r.natureRisques
+        : typeof (r as { nature?: string })?.nature === "string"
+          ? (r as { nature: string }).nature
+          : "",
+    mesuresPrevention: typeof r?.mesuresPrevention === "string" ? r.mesuresPrevention : "",
+  });
+
+  const rawRows = protocol.riskEvaluationRows as PlanRiskEvaluationRow[] | undefined;
+  const rows = Array.isArray(rawRows) ? rawRows.map(normalizeRow) : [];
+  const rowHasContent = (r: PlanRiskEvaluationRow) =>
+    r.linkedEvaluationRiskId.trim().length > 0 ||
+    r.evaluationRiskFreeText.trim().length > 0 ||
+    r.domaine.trim().length > 0 ||
+    r.natureRisques.trim().length > 0 ||
+    r.mesuresPrevention.trim().length > 0;
+
+  const dom = String(protocol.evaluationDomaineRisques ?? "").trim();
+  const nat = String(protocol.evaluationNatureRisques ?? "").trim();
+  const mes = String(protocol.evaluationMesuresPrevention ?? "").trim();
+  const legacyHas = !!(dom || nat || mes);
+
+  if (rows.some(rowHasContent)) return dedupeRiskEvaluationRowIds(rows.length > 0 ? rows : [newRiskEvaluationRow()]);
+  if (legacyHas) {
+    const row = newRiskEvaluationRow();
+    return dedupeRiskEvaluationRowIds([{ ...row, domaine: dom, natureRisques: nat, mesuresPrevention: mes }]);
+  }
+  if (rows.length > 0) return dedupeRiskEvaluationRowIds(rows);
+  return dedupeRiskEvaluationRowIds([newRiskEvaluationRow()]);
+}
+
+/** Anciens enregistrements utilisaient encore « protocole de sécurité » comme titre : on affiche désormais le plan de prévention. */
+function normalizeDocumentTitle(raw: string | undefined, fallback: string): string {
+  if (!raw?.trim()) return fallback;
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (/^protocole\s+de\s+s[ée]curit[ée]$/i.test(t)) return fallback;
+  if (/^protocole\s+de\s+securite$/i.test(t)) return fallback;
+  if (/^PROTOCOLE\s+DE\s+SECURITE$/i.test(t)) return fallback;
+  return raw.trim();
+}
+
+function mergePlanProtocol(
+  partial: Partial<PlanProtocolFields> | undefined,
+  risk: RiskInput | undefined,
+  currentUserName: string | undefined,
+): PlanProtocolFields {
+  const base = defaultProtocolFields(risk, currentUserName);
+  if (!partial || Object.keys(partial).length === 0) return base;
+  const merged = { ...base, ...partial } as PlanProtocolFields & Record<string, unknown>;
+  merged.riskEvaluationRows = migrateRiskEvaluationRows({ ...merged });
+  merged.coIntervenantRows = migrateCoIntervenantRows({ ...merged });
+  merged.annexAttachments = migrateAnnexAttachments({ ...merged });
+  const sigM = merged as Record<string, unknown>;
+  merged.signatureDematerialiseeUrl1 =
+    typeof sigM.signatureDematerialiseeUrl1 === "string" ? sigM.signatureDematerialiseeUrl1 : "";
+  merged.signatureDematerialiseeUrl2 =
+    typeof sigM.signatureDematerialiseeUrl2 === "string" ? sigM.signatureDematerialiseeUrl2 : "";
+  merged.signatureDematerialiseeUrl3 =
+    typeof sigM.signatureDematerialiseeUrl3 === "string" ? sigM.signatureDematerialiseeUrl3 : "";
+  merged.protocoleTitle = normalizeDocumentTitle(merged.protocoleTitle as string, base.protocoleTitle);
+  return merged as PlanProtocolFields;
+}
+
 const defaultProtocolFields = (risk?: RiskInput, currentUserName?: string): PlanProtocolFields => ({
-  protocoleTitle: "PROTOCOLE DE SECURITE",
-  codeTravailReference: "Code du Travail article R4515-4 a R4515-11",
-  operationType: "Operation de chargement / dechargement",
-  entreprise1Name: "Armement des Phares et Balises",
-  entreprise1Address: "",
-  navireName: "",
-  capitaineName: "",
+  protocoleTitle: "PLAN DE PREVENTION",
+  codeTravailReference: "Code du Travail — articles R4515-4 à R4515-11 (plan de prévention — coactivité)",
+  operationType: "OPERATION DE CHARGEMENT / DECHARGEMENT",
+  coIntervenantRows: [newCoIntervenantRow()],
   prestationNature: risk ? `Prevention du risque ${risk.numeroRisque} - ${risk.title}` : "",
-  entreprise2Name: "",
-  entreprise2Address: "",
-  responsableName: currentUserName || "",
-  responsableEmail: "",
   lieuLivraison: risk?.site || "",
   materielsSpecifiques: "",
   consignesSite: "",
   consignesOperation: "",
   evaluationRisques: "",
-  evaluationDomaineRisques: "",
-  evaluationNatureRisques: "",
-  evaluationMesuresPrevention: "",
+  riskEvaluationRows: [newRiskEvaluationRow()],
   personnesAPrevenir: "",
   mesuresUrgence: "SAMU : 15 - Pompiers : 18 - Police : 17 - Numero unique : 112",
   planTransmis: "",
@@ -162,20 +517,24 @@ const defaultProtocolFields = (risk?: RiskInput, currentUserName?: string): Plan
   transmissionCorrespondantAPBObs: "",
   observationsTransmission: "",
   observationsRemarques: "",
-  signatureEntite1: "DIRM Med / SPBM / COB Ajaccio",
+  signatureEntite1: "",
   signatureNom1: "",
   signaturePrenom1: "",
   signatureDate1: "",
-  signatureEntite2: "Armement des Phares et Balises (APB)",
+  signatureEntite2: "",
   signatureNom2: "",
   signaturePrenom2: "",
   signatureDate2: "",
-  signatureEntite3: "Societe Insulaire Petroliere",
+  signatureEntite3: "",
   signatureNom3: "",
   signaturePrenom3: "",
   signatureDate3: "",
+  signatureDematerialiseeUrl1: "",
+  signatureDematerialiseeUrl2: "",
+  signatureDematerialiseeUrl3: "",
   planCirculation: "",
   materielRemplacer: "",
+  annexAttachments: [],
   annexesDocuments: "",
 });
 
@@ -191,6 +550,259 @@ function toStatus(measures: RiskMeasure[]): PlanStatus {
   return "a_lancer";
 }
 
+const SELECT_EVAL_NONE = "__eval_aucune__";
+
+interface RiskEvaluationLineEditorProps {
+  row: PlanRiskEvaluationRow;
+  risks: RiskInput[];
+  onPatch: (patch: Partial<PlanRiskEvaluationRow>) => void;
+}
+
+/** Ligne §4 : recherche risque catalogue + listes déroulantes si liaison. */
+function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEditorProps) {
+  const [riskSearchOpen, setRiskSearchOpen] = useState(false);
+  const [riskSearch, setRiskSearch] = useState("");
+  React.useEffect(() => {
+    if (riskSearchOpen) setRiskSearch("");
+  }, [riskSearchOpen]);
+
+  const linked = row.linkedEvaluationRiskId ? risks.find((r) => r.id === row.linkedEvaluationRiskId) : undefined;
+  const situationStr = (linked?.situation ?? "").trim();
+  const dommageStr = (linked?.associatedRisk ?? "").trim();
+  const measureChoices = linked ? existingPreventionMeasuresFromRisk(linked) : [];
+
+  const filteredRisks = useMemo(() => filterCatalogRisks(risks, riskSearch), [risks, riskSearch]);
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Risque de l’évaluation interne (facultatif)</Label>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          {linked ? (
+            <div className="flex min-h-9 flex-1 items-center gap-2 rounded-md border-2 border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+              <span className="min-w-0 flex-1 truncate text-left text-slate-900">
+                {linked.numeroRisque} — {linked.title}
+              </span>
+            </div>
+          ) : (
+            <Input
+              className="flex-1 border-2 border-slate-300 min-h-9"
+              placeholder="Saisie libre : référence, intitulé ou mention hors liste du référentiel"
+              value={row.evaluationRiskFreeText ?? ""}
+              onChange={(e) => onPatch({ evaluationRiskFreeText: e.target.value })}
+              aria-label="Mention libre risque d’évaluation interne"
+            />
+          )}
+          <Popover open={riskSearchOpen} onOpenChange={setRiskSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={riskSearchOpen}
+                className="w-full shrink-0 justify-center gap-2 border-2 border-slate-300 font-normal sm:w-auto sm:min-w-[10rem]"
+              >
+                <Search className="h-4 w-4 opacity-70" aria-hidden />
+                Référentiel
+                <ChevronsUpDown className="h-4 w-4 opacity-50" aria-hidden />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[min(100vw-2rem,380px)] p-0 z-[120]" align="start">
+            <Command shouldFilter={false}>
+              <CommandInput placeholder="Filtrer le référentiel (n°, intitulé, situation…)" value={riskSearch} onValueChange={setRiskSearch} />
+              <CommandList>
+                <CommandEmpty>Aucun risque correspondant.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="__clear__"
+                    onSelect={() => {
+                      onPatch({ linkedEvaluationRiskId: "" });
+                      setRiskSearchOpen(false);
+                    }}
+                  >
+                    <span className="text-slate-600">Pas de liaison — uniquement la mention libre ci-dessus</span>
+                  </CommandItem>
+                  {filteredRisks.map((r) => (
+                    <CommandItem
+                      key={r.id}
+                      value={`${r.numeroRisque} ${r.title}`}
+                      onSelect={() => {
+                        onPatch({ linkedEvaluationRiskId: r.id, evaluationRiskFreeText: "" });
+                        setRiskSearchOpen(false);
+                      }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4 shrink-0", row.linkedEvaluationRiskId === r.id ? "opacity-100" : "opacity-0")} />
+                      <div className="min-w-0 flex flex-col">
+                        <span className="font-medium truncate">
+                          {r.numeroRisque} — {r.title}
+                        </span>
+                        {(r.situation ?? "").trim() ? (
+                          <span className="text-xs text-slate-500 line-clamp-2">{(r.situation ?? "").trim()}</span>
+                        ) : null}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {linked
+            ? "Pour revenir à une mention hors liste uniquement, ouvrez le référentiel puis choisissez « Pas de liaison »."
+            : "Utilisez le champ pour la saisie libre visible immédiatement ; « Référentiel » sert uniquement à lier une fiche risque catalogue."}
+        </p>
+      </div>
+
+      {linked ? (
+        <div className="space-y-4 rounded-lg bg-violet-50/90 border border-violet-200 p-4">
+          <p className="text-xs text-violet-900 font-medium">
+            Propositions depuis la fiche risque (évaluation) : vous pouvez les insérer colonne par colonne. En dessous, les trois zones restent modifiables : saisissez aussi du texte libre qui ne figure pas sur la liste.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase text-violet-900">Situation dangereuse</Label>
+              {!situationStr ? (
+                <p className="text-xs text-slate-600">Non renseignée sur cette fiche risque.</p>
+              ) : (
+                <Select
+                  value={SELECT_EVAL_NONE}
+                  onValueChange={(v) => {
+                    if (v === "apply-sit") {
+                      const base = row.domaine.trim();
+                      onPatch({ domaine: base ? `${base}\n\n${situationStr}` : situationStr });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-white border-violet-200">
+                    <SelectValue placeholder="Insérer dans « Situation dangereuse »" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_EVAL_NONE}>— Choisir —</SelectItem>
+                    <SelectItem value="apply-sit">Insérer le texte de la situation dangereuse</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {situationStr ? <p className="text-xs text-slate-700 whitespace-pre-wrap border border-violet-100 rounded-md bg-white/80 p-2">{situationStr}</p> : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase text-violet-900">Dommages associés</Label>
+              {!dommageStr ? (
+                <p className="text-xs text-slate-600">Non renseignés sur cette fiche risque.</p>
+              ) : (
+                <Select
+                  value={SELECT_EVAL_NONE}
+                  onValueChange={(v) => {
+                    if (v === "apply-dom") {
+                      const base = row.natureRisques.trim();
+                      onPatch({ natureRisques: base ? `${base}\n\n${dommageStr}` : dommageStr });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-white border-violet-200">
+                    <SelectValue placeholder="Insérer dans « Dommages associés »" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_EVAL_NONE}>— Choisir —</SelectItem>
+                    <SelectItem value="apply-dom">Insérer le texte des dommages associés</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {dommageStr ? (
+                <p className="text-xs text-slate-700 whitespace-pre-wrap border border-violet-100 rounded-md bg-white/80 p-2">{dommageStr}</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase text-violet-900">
+              Mesures de prévention existantes ({measureChoices.length} sur la fiche)
+            </Label>
+            {measureChoices.length === 0 ? (
+              <p className="text-xs text-slate-600">Aucune mesure existante renseignée sur ce risque.</p>
+            ) : (
+              <Select
+                value={SELECT_EVAL_NONE}
+                onValueChange={(v) => {
+                  if (v === SELECT_EVAL_NONE) return;
+                  if (v === "__all_existing__") {
+                    const lines = measureChoices.map((o) => o.text.trim()).filter(Boolean);
+                    if (lines.length === 0) return;
+                    const block = [`Mesures de prévention existantes :`, "", ...lines].join("\n");
+                    const cur = row.mesuresPrevention.trim();
+                    onPatch({ mesuresPrevention: cur ? `${cur}\n\n${block}` : block });
+                    return;
+                  }
+                  const opt = measureChoices.find((o) => o.key === v);
+                  if (!opt) return;
+                  const cur = row.mesuresPrevention.trim();
+                  const line = opt.text.trim();
+                  onPatch({ mesuresPrevention: cur ? `${cur}\n${line}` : line });
+                }}
+              >
+                <SelectTrigger className="bg-white border-violet-200 max-w-full">
+                  <SelectValue placeholder="Insérer dans « Mesures de prévention »" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SELECT_EVAL_NONE}>— Choisir —</SelectItem>
+                  {measureChoices.length > 1 ? (
+                    <SelectItem value="__all_existing__">Insérer toutes les mesures existantes (liste)</SelectItem>
+                  ) : null}
+                  {measureChoices.map((o) => (
+                    <SelectItem key={o.key} value={o.key}>
+                      {o.text.length > 120 ? `${o.text.slice(0, 120)}…` : o.text}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-md border border-slate-200 bg-slate-50/50 p-3 space-y-2">
+        <p className="text-xs text-slate-600">
+          <strong className="text-slate-800">Saisie libre :</strong> complétez ou remplacez le texte dans chaque zone, y compris des informations absentes du référentiel ou des listes ci-dessus.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Situation dangereuse</Label>
+          <Textarea
+            rows={4}
+            value={row.domaine ?? ""}
+            onChange={(e) => onPatch({ domaine: e.target.value })}
+            placeholder="Description de la situation dangereuse (ou texte hors référentiel)…"
+            className="field-sizing-fixed min-h-[96px] resize-y border-2 border-slate-200"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Dommages associés</Label>
+          <Textarea
+            rows={4}
+            value={row.natureRisques ?? ""}
+            onChange={(e) => onPatch({ natureRisques: e.target.value })}
+            placeholder="Dommages / conséquences possibles (ou texte libre)…"
+            className="field-sizing-fixed min-h-[96px] resize-y border-2 border-slate-200"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Mesures de prévention</Label>
+          <Textarea
+            rows={4}
+            value={row.mesuresPrevention ?? ""}
+            onChange={(e) => onPatch({ mesuresPrevention: e.target.value })}
+            placeholder="Mesures existantes, compléments ou toute précision hors liste…"
+            className="field-sizing-fixed min-h-[96px] resize-y border-2 border-slate-200"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PreventionPlanView({ risks, currentUserRole, currentUserName }: PreventionPlanViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -201,8 +813,9 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
   const [serviceFilter, setServiceFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
+  const annexFilesInputRef = useRef<HTMLInputElement>(null);
+  const [planPendingDelete, setPlanPendingDelete] = useState<PlanRecord | null>(null);
   const [form, setForm] = useState({
-    riskId: "",
     owner: "",
     dueDate: "",
     priority: "moyenne" as "haute" | "moyenne" | "basse",
@@ -240,16 +853,34 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
             : ["Analyser les causes", "Definir les mesures de prevention", "Suivre l'efficacite"],
         protocol: {
           ...defaultProtocolFields(risk, firstMeasure?.responsible || risk.responsable || currentUserName),
-          navireName: "A renseigner",
-          capitaineName: "A renseigner",
           evaluationRisques: risk.plannedMeasures
             .map((measure, index) => `${index + 1}. ${measure.description}`)
             .join("\n"),
-          evaluationDomaineRisques: "Risque manutention mécanique et au levage",
-          evaluationNatureRisques: risk.plannedMeasures
-            .map((measure, index) => `${index + 1}. ${measure.description}`)
-            .join("\n"),
-          evaluationMesuresPrevention: "Port des EPI, respect des consignes, vérifications périodiques.",
+          riskEvaluationRows:
+            risk.plannedMeasures.length > 0
+              ? risk.plannedMeasures.map((measure, index) => ({
+                  id: `plan-${risk.id}-r${index}`,
+                  linkedEvaluationRiskId: risk.id,
+                  evaluationRiskFreeText: "",
+                  domaine: (risk.situation ?? "").trim() || "À compléter — situation dangereuse.",
+                  natureRisques: (risk.associatedRisk ?? "").trim(),
+                  mesuresPrevention: measure.description,
+                }))
+              : [
+                  {
+                    id: `plan-${risk.id}-r0`,
+                    linkedEvaluationRiskId: risk.id,
+                    evaluationRiskFreeText: "",
+                    domaine: (risk.situation ?? "").trim() || "À compléter — situation dangereuse.",
+                    natureRisques:
+                      (risk.associatedRisk ?? "").trim() ||
+                      "À compléter — dommages ou conséquences possibles.",
+                    mesuresPrevention:
+                      (risk.existingMeasures ?? []).filter((m) => m.trim()).length > 0
+                        ? (risk.existingMeasures ?? []).filter((m) => m.trim()).join("\n")
+                        : "À détailler : mesures de prévention (existantes ou nouvelles).",
+                  },
+                ],
         },
         updatedAt: new Date().toISOString(),
       };
@@ -270,11 +901,15 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
       if (serviceFilter !== "all" && plan.service !== serviceFilter) return false;
       const lower = query.trim().toLowerCase();
       if (!lower) return true;
+      const annexBlob = Array.isArray(plan.protocol.annexAttachments)
+        ? plan.protocol.annexAttachments.map((a) => (a.fileName ?? "").toLowerCase()).join(" ")
+        : "";
       return (
         plan.riskNumber.toLowerCase().includes(lower) ||
         plan.riskTitle.toLowerCase().includes(lower) ||
         plan.owner.toLowerCase().includes(lower) ||
-        plan.objective.toLowerCase().includes(lower)
+        plan.objective.toLowerCase().includes(lower) ||
+        annexBlob.includes(lower)
       );
     });
   }, [plans, query, priorityFilter, serviceFilter, statusFilter]);
@@ -290,15 +925,11 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
     plans.find((plan) => plan.id === selectedId) ||
     null;
   const selectedProtocol = selectedPlan
-    ? {
-        ...defaultProtocolFields(undefined, currentUserName),
-        ...(selectedPlan.protocol || {}),
-      }
+    ? mergePlanProtocol(selectedPlan.protocol, risks.find((r) => r.id === selectedPlan.riskId), currentUserName)
     : null;
 
   const resetForm = () => {
     setForm({
-      riskId: "",
       owner: currentUserName,
       dueDate: "",
       priority: "moyenne",
@@ -322,21 +953,59 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
     setViewMode("detail");
   };
 
+  const executeDeletePlan = (planId: string) => {
+    setPlans((prev) => prev.filter((p) => p.id !== planId));
+    setSelectedPlanSnapshot((snapshot) => (snapshot?.id === planId ? null : snapshot));
+    setSelectedId((currentId) => (currentId === planId ? null : currentId));
+    setViewMode((mode) => (mode === "detail" || mode === "edit" ? "list" : mode));
+    setPlanPendingDelete(null);
+    toast.success("Plan de prévention supprimé.");
+  };
+
+  const planDeleteConfirmDialog = (
+    <AlertDialog open={planPendingDelete !== null} onOpenChange={(open) => !open && setPlanPendingDelete(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Supprimer ce plan de prévention ?</AlertDialogTitle>
+          <AlertDialogDescription className="text-left space-y-1">
+            {planPendingDelete ? (
+              <span className="block font-medium text-slate-900">
+                {planPendingDelete.riskNumber} — {planPendingDelete.riskTitle}
+              </span>
+            ) : null}
+            <span className="block">
+              Ce plan sera retiré de la liste. Dans cette démo tout est conservé uniquement dans le navigateur (pas de serveur) : après rechargement de la page, les plans factices peuvent réapparaître.
+            </span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            type="button"
+            className="border-0 bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600 sm:mt-0"
+            onClick={() => {
+              if (!planPendingDelete) return;
+              executeDeletePlan(planPendingDelete.id);
+            }}
+          >
+            Supprimer
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   const openEdit = (plan: PlanRecord) => {
     setSelectedId(plan.id);
     setSelectedPlanSnapshot(plan);
     setForm({
-      riskId: plan.riskId,
       owner: plan.owner,
       dueDate: plan.dueDate,
       priority: plan.priority,
       status: plan.status,
       objective: plan.objective,
       actionsText: plan.actions.join("\n"),
-      protocol: {
-        ...defaultProtocolFields(undefined, currentUserName),
-        ...(plan.protocol || {}),
-      },
+      protocol: mergePlanProtocol(plan.protocol, risks.find((r) => r.id === plan.riskId), currentUserName),
     });
     setViewMode("edit");
   };
@@ -345,20 +1014,55 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
     setCurrentPage(1);
   };
 
+  const normalizeProtocolForSave = (protocol: PlanProtocolFields, risk: RiskInput | undefined): PlanProtocolFields =>
+    mergePlanProtocol(protocol, risk, form.owner || currentUserName);
+
   const saveForm = () => {
-    if (!form.riskId) {
-      toast.error("Selectionne un risque.");
-      return;
-    }
     if (!form.objective.trim()) {
       toast.error("L'objectif est obligatoire.");
       return;
     }
-    const risk = risks.find((riskItem) => riskItem.id === form.riskId);
-    if (!risk) {
-      toast.error("Risque introuvable.");
-      return;
-    }
+    const catalogRisk =
+      viewMode === "edit" && selectedPlan?.riskId?.trim()
+        ? risks.find((riskItem) => riskItem.id === selectedPlan.riskId)
+        : undefined;
+    const horsRefTitle =
+      form.objective
+        .trim()
+        .split("\n")
+        .find((line) => line.trim())
+        ?.trim()
+        .slice(0, 120) ||
+      form.protocol.prestationNature.trim().slice(0, 120) ||
+      "Plan de prévention — coactivité";
+    const listMeta =
+      catalogRisk !== undefined
+        ? {
+            riskId: catalogRisk.id,
+            riskNumber: catalogRisk.numeroRisque,
+            riskTitle: catalogRisk.title,
+            service: catalogRisk.service || "Non renseigne",
+            domain: catalogRisk.domain || "Non renseigne",
+            location: catalogRisk.site || "Non renseigne",
+          }
+        : viewMode === "edit" && selectedPlan && selectedPlan.riskId.trim()
+          ? {
+              riskId: selectedPlan.riskId,
+              riskNumber: selectedPlan.riskNumber,
+              riskTitle: selectedPlan.riskTitle,
+              service: selectedPlan.service,
+              domain: selectedPlan.domain,
+              location: selectedPlan.location,
+            }
+          : {
+              riskId: "",
+              riskNumber: "Hors référentiel",
+              riskTitle: horsRefTitle,
+              service: "Non renseigné",
+              domain: "Non renseigné",
+              location: form.protocol.lieuLivraison.trim() || "Non renseigné",
+            };
+
     const actions = form.actionsText
       .split("\n")
       .map((line) => line.trim())
@@ -370,13 +1074,14 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
           plan.id === selectedPlan.id
             ? {
                 ...plan,
+                ...listMeta,
                 owner: form.owner || currentUserName,
                 dueDate: form.dueDate,
                 priority: form.priority,
                 status: form.status,
                 objective: form.objective,
                 actions,
-                protocol: form.protocol,
+                protocol: normalizeProtocolForSave(form.protocol, catalogRisk),
                 updatedAt: new Date().toISOString(),
               }
             : plan,
@@ -387,22 +1092,14 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
       setPlans((prev) => [
         {
           id: `plan-custom-${Date.now()}`,
-          riskId: risk.id,
-          riskNumber: risk.numeroRisque,
-          riskTitle: risk.title,
-          service: risk.service || "Non renseigne",
-          domain: risk.domain || "Non renseigne",
-          location: risk.site || "Non renseigne",
+          ...listMeta,
           owner: form.owner || currentUserName,
           dueDate: form.dueDate,
           priority: form.priority,
           status: form.status,
           objective: form.objective,
           actions,
-          protocol: {
-            ...defaultProtocolFields(risk, form.owner || currentUserName),
-            ...form.protocol,
-          },
+          protocol: normalizeProtocolForSave(form.protocol, catalogRisk ?? undefined),
           updatedAt: new Date().toISOString(),
         },
         ...prev,
@@ -413,7 +1110,7 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
     setSelectedPlanSnapshot(null);
   };
 
-  const updateProtocol = (key: keyof PlanProtocolFields, value: string) => {
+  const updateProtocol = <K extends keyof PlanProtocolFields>(key: K, value: PlanProtocolFields[K]) => {
     setForm((prev) => ({
       ...prev,
       protocol: {
@@ -421,6 +1118,151 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
         [key]: value,
       },
     }));
+  };
+
+  const addRiskEvaluationRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        riskEvaluationRows: [...prev.protocol.riskEvaluationRows, newRiskEvaluationRow()],
+      },
+    }));
+  };
+
+  const removeRiskEvaluationRow = (rowId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        riskEvaluationRows:
+          prev.protocol.riskEvaluationRows.filter((row) => row.id !== rowId).length === 0
+            ? [newRiskEvaluationRow()]
+            : prev.protocol.riskEvaluationRows.filter((row) => row.id !== rowId),
+      },
+    }));
+  };
+
+  const patchRiskEvaluationRow = (rowId: string, patch: Partial<PlanRiskEvaluationRow>) => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        riskEvaluationRows: prev.protocol.riskEvaluationRows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)),
+      },
+    }));
+  };
+
+  const updateCoIntervenantRow = (rowId: string, field: keyof Omit<PlanCoIntervenantRow, "id">, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        coIntervenantRows: prev.protocol.coIntervenantRows.map((row) =>
+          row.id === rowId ? { ...row, [field]: value } : row,
+        ),
+      },
+    }));
+  };
+
+  const addCoIntervenantRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        coIntervenantRows: [...prev.protocol.coIntervenantRows, newCoIntervenantRow()],
+      },
+    }));
+  };
+
+  const removeCoIntervenantRow = (rowId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        coIntervenantRows:
+          prev.protocol.coIntervenantRows.filter((row) => row.id !== rowId).length === 0
+            ? [newCoIntervenantRow()]
+            : prev.protocol.coIntervenantRows.filter((row) => row.id !== rowId),
+      },
+    }));
+  };
+
+  const removeAnnexAttachment = (attId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      protocol: {
+        ...prev.protocol,
+        annexAttachments: prev.protocol.annexAttachments.filter((a) => a.id !== attId),
+      },
+    }));
+  };
+
+  const applySignatureDematerialisee = async (slot: 1 | 2 | 3, files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    const keys: Record<1 | 2 | 3, keyof PlanProtocolFields> = {
+      1: "signatureDematerialiseeUrl1",
+      2: "signatureDematerialiseeUrl2",
+      3: "signatureDematerialiseeUrl3",
+    };
+    try {
+      const { dataUrl } = await readFileAsDataUrlCapped(file, SIGNATURE_DEMAT_MAX_BYTES);
+      if (!/^data:image\//i.test(dataUrl)) {
+        toast.error("Utilisez une image (PNG, JPEG, WEBP…).");
+        return;
+      }
+      updateProtocol(keys[slot], dataUrl);
+      toast.success(`Image de signature enregistrée (signataire ${slot}).`);
+    } catch {
+      toast.error(`Image trop volumineuse (maximum ${formatByteSize(SIGNATURE_DEMAT_MAX_BYTES)}).`);
+    }
+  };
+
+  const appendAnnexFilesFromInput = (files: FileList | null) => {
+    if (!files?.length) return;
+    void (async () => {
+      const parsed: PlanAnnexAttachment[] = [];
+      for (const file of Array.from(files)) {
+        try {
+          const { dataUrl, sizeBytes } = await readFileAsDataUrlCapped(file, PLAN_ANNEX_MAX_BYTES);
+          parsed.push({
+            id: `annex-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            dataUrl,
+            sizeBytes,
+          });
+        } catch {
+          toast.error(
+            `Fichier trop volumineux ou illisible : ${file.name} (max. ${formatByteSize(PLAN_ANNEX_MAX_BYTES)}).`,
+          );
+        }
+      }
+      let mergedCount = 0;
+      setForm((prev) => {
+        const room = PLAN_ANNEX_MAX_COUNT - prev.protocol.annexAttachments.length;
+        if (room <= 0) {
+          toast.error(`Maximum ${PLAN_ANNEX_MAX_COUNT} pièces jointes par plan.`);
+          return prev;
+        }
+        const slice = parsed.slice(0, room);
+        if (slice.length < parsed.length) {
+          toast.error(`Seules ${slice.length} pièce(s) ajoutées (limite ${PLAN_ANNEX_MAX_COUNT}).`);
+        }
+        mergedCount = slice.length;
+        if (!slice.length) return prev;
+        return {
+          ...prev,
+          protocol: {
+            ...prev.protocol,
+            annexAttachments: [...prev.protocol.annexAttachments, ...slice],
+          },
+        };
+      });
+      if (mergedCount > 0) toast.success(`${mergedCount} pièce(s) jointe(s) ajoutée(s).`);
+      if (annexFilesInputRef.current) annexFilesInputRef.current.value = "";
+    })();
   };
 
   React.useEffect(() => {
@@ -433,6 +1275,18 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
   }, [selectedId, selectedPlan, viewMode]);
 
   const handleDownloadPlan = async (plan: PlanRecord) => {
+    const mergedProtocol = mergePlanProtocol(plan.protocol, risks.find((r) => r.id === plan.riskId), currentUserName);
+    try {
+      const { downloadPreventionPlanVisualPdf } = await import("./preventionPlanVisualPdf");
+      const visualOk = await downloadPreventionPlanVisualPdf(plan, mergedProtocol, risks);
+      if (visualOk) {
+        toast.success("PDF téléchargé (mise en page proche de la fiche à l’écran).");
+        return;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
     try {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -478,22 +1332,54 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
       y = 20;
 
       addTitle(`${plan.riskNumber} - ${plan.riskTitle}`);
-      addBlock("Reference", plan.protocol.codeTravailReference);
+      addBlock("Reference", mergedProtocol.codeTravailReference);
       addBlock("Objectif", plan.objective);
-      addBlock("1) Armement des phares et balises - APB", `${plan.protocol.entreprise1Name}\n${plan.protocol.entreprise1Address}\nNavire: ${plan.protocol.navireName}\nCapitaine: ${plan.protocol.capitaineName}`);
-      addBlock("2) Societe intervenante", `${plan.protocol.entreprise2Name}\n${plan.protocol.entreprise2Address}\nResponsable: ${plan.protocol.responsableName}\nEmail: ${plan.protocol.responsableEmail}`);
-      addBlock("3) Organisation du chargement/dechargement", `Lieu: ${plan.protocol.lieuLivraison}\nMateriels: ${plan.protocol.materielsSpecifiques}\nConsignes site: ${plan.protocol.consignesSite}\nConsignes operation: ${plan.protocol.consignesOperation}`);
-      addBlock("4) Evaluation des risques (CT R4515-5)", `Domaine: ${plan.protocol.evaluationDomaineRisques}\nNature: ${plan.protocol.evaluationNatureRisques}\nMesures: ${plan.protocol.evaluationMesuresPrevention}\nComplement: ${plan.protocol.evaluationRisques}`);
-      addBlock("5) Premiers secours (CT R4515-6)", `Personnes a prevenir: ${plan.protocol.personnesAPrevenir}\nMesures urgence: ${plan.protocol.mesuresUrgence}`);
-      addBlock("6) Plan de prevention transmis a (CT R4515-11)", `${plan.protocol.planTransmis}\nCellule securite: ${plan.protocol.transmissionCelluleSecuriteStatus} - ${plan.protocol.transmissionCelluleSecuriteNom} (${plan.protocol.transmissionCelluleSecuriteObs})\nCorrespondant site: ${plan.protocol.transmissionCorrespondantSiteStatus} - ${plan.protocol.transmissionCorrespondantSiteNom} (${plan.protocol.transmissionCorrespondantSiteObs})\nCorrespondant APB: ${plan.protocol.transmissionCorrespondantAPBStatus} - ${plan.protocol.transmissionCorrespondantAPBNom} (${plan.protocol.transmissionCorrespondantAPBObs})`);
-      addBlock("7) Observations / remarques", plan.protocol.observationsRemarques);
-      addBlock("8) Signatures", `${plan.protocol.signatureEntite1} - ${plan.protocol.signatureNom1} ${plan.protocol.signaturePrenom1} - ${plan.protocol.signatureDate1}\n${plan.protocol.signatureEntite2} - ${plan.protocol.signatureNom2} ${plan.protocol.signaturePrenom2} - ${plan.protocol.signatureDate2}\n${plan.protocol.signatureEntite3} - ${plan.protocol.signatureNom3} ${plan.protocol.signaturePrenom3} - ${plan.protocol.signatureDate3}`);
-      addBlock("10) Plan de circulation et de dechargement", plan.protocol.planCirculation);
-      addBlock("Materiel a remplacer", plan.protocol.materielRemplacer);
-      addBlock("Annexes et documents joints", plan.protocol.annexesDocuments);
+      addBlock(
+        "1) Co-intervenants (entreprises / administrations / organismes)",
+        formatCoIntervenantsForPdf(mergedProtocol.coIntervenantRows),
+      );
+      addBlock("2) Nature de la prestation (ensemble de l'operation)", mergedProtocol.prestationNature);
+      addBlock("3) Organisation du chargement/dechargement", `Lieu: ${mergedProtocol.lieuLivraison}\nMateriels: ${mergedProtocol.materielsSpecifiques}\nConsignes site: ${mergedProtocol.consignesSite}\nConsignes operation: ${mergedProtocol.consignesOperation}`);
+      const riskLines = mergedProtocol.riskEvaluationRows
+        .map((r, idx) => {
+          const refRisk = r.linkedEvaluationRiskId
+            ? risks.find((x) => x.id === r.linkedEvaluationRiskId)
+            : undefined;
+          const refNote = refRisk ? `\nReference evaluation interne : ${refRisk.numeroRisque}` : "";
+          const freeNote =
+            !refRisk && (r.evaluationRiskFreeText ?? "").trim().length > 0
+              ? `\nRisque (mention hors référentiel) : ${(r.evaluationRiskFreeText ?? "").trim()}`
+              : "";
+          return `Ligne ${idx + 1} — Situation dangereuse: ${r.domaine || "-"}\nDommages associés: ${r.natureRisques || "-"}\nMesures de prevention: ${r.mesuresPrevention || "-"}${refNote}${freeNote}`;
+        })
+        .join("\n\n");
+      addBlock(
+        "4) Evaluation des risques (CT R4515-5)",
+        `${riskLines || "Aucune ligne renseignee."}\n\nComplement libre:\n${mergedProtocol.evaluationRisques || "-"}`,
+      );
+      addBlock("5) Premiers secours (CT R4515-6)", `Personnes a prevenir: ${mergedProtocol.personnesAPrevenir}\nMesures urgence: ${mergedProtocol.mesuresUrgence}`);
+      addBlock("6) Plan de prevention transmis a (CT R4515-11)", `${mergedProtocol.planTransmis}\nCellule securite: ${mergedProtocol.transmissionCelluleSecuriteStatus} - ${mergedProtocol.transmissionCelluleSecuriteNom} (${mergedProtocol.transmissionCelluleSecuriteObs})\nCorrespondant site: ${mergedProtocol.transmissionCorrespondantSiteStatus} - ${mergedProtocol.transmissionCorrespondantSiteNom} (${mergedProtocol.transmissionCorrespondantSiteObs})\nCorrespondant APB: ${mergedProtocol.transmissionCorrespondantAPBStatus} - ${mergedProtocol.transmissionCorrespondantAPBNom} (${mergedProtocol.transmissionCorrespondantAPBObs})`);
+      addBlock("7) Observations / remarques", mergedProtocol.observationsRemarques);
+      addBlock("8) Signatures", `${mergedProtocol.signatureEntite1} - ${mergedProtocol.signatureNom1} ${mergedProtocol.signaturePrenom1} - ${mergedProtocol.signatureDate1}\n${mergedProtocol.signatureEntite2} - ${mergedProtocol.signatureNom2} ${mergedProtocol.signaturePrenom2} - ${mergedProtocol.signatureDate2}\n${mergedProtocol.signatureEntite3} - ${mergedProtocol.signatureNom3} ${mergedProtocol.signaturePrenom3} - ${mergedProtocol.signatureDate3}`);
+      addBlock("10) Plan de circulation et de dechargement", mergedProtocol.planCirculation);
+      addBlock("Materiel a remplacer", mergedProtocol.materielRemplacer);
+      const annexFilesBlock =
+        mergedProtocol.annexAttachments.length > 0
+          ? mergedProtocol.annexAttachments
+              .map((a, idx) => `${idx + 1}. ${a.fileName} (${formatByteSize(a.sizeBytes)})`)
+              .join("\n")
+          : "";
+      const annexComplement =
+        mergedProtocol.annexesDocuments.trim().length > 0 ? mergedProtocol.annexesDocuments.trim() : "";
+      addBlock(
+        "Annexes et documents joints",
+        [annexFilesBlock && `Fichiers (${mergedProtocol.annexAttachments.length}) :\n${annexFilesBlock}`, annexComplement]
+          .filter(Boolean)
+          .join("\n\n") || "-",
+      );
 
       doc.save(`plan-prevention-${plan.riskNumber || plan.id}.pdf`);
-      toast.success("Plan de prevention telecharge.");
+      toast.success("PDF téléchargé (version texte simplifiée, fallback).");
     } catch (error) {
       toast.error("Impossible de generer le PDF.");
     }
@@ -511,6 +1397,7 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
 
   if (viewMode === "detail" && selectedPlan && selectedProtocol) {
     return (
+      <>
       <div className="space-y-6 p-3 sm:p-6">
         <div className="space-y-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -528,6 +1415,16 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
                 className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
               >
                 Modifier
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button
+                variant="outline"
+                onClick={() => setPlanPendingDelete(selectedPlan)}
+                className="w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-900"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Supprimer
               </Button>
             ) : null}
           </div>
@@ -585,30 +1482,60 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card className="border-2 border-indigo-100 shadow-sm">
-            <CardHeader className="pb-3"><CardTitle className="text-base text-indigo-900">1) ARMEMENT DES PHARES ET BALISES - APB</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="rounded-lg bg-indigo-50 p-3"><p className="text-xs text-indigo-700 font-semibold uppercase">Adresse</p><p className="text-slate-800 mt-1">{selectedProtocol.entreprise1Address || "-"}</p></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Navire</p><p className="text-slate-800 mt-1">{selectedProtocol.navireName || "-"}</p></div>
-                <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Nom du capitaine</p><p className="text-slate-800 mt-1">{selectedProtocol.capitaineName || "-"}</p></div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">NATURE DE LA PRESTATION</p><p className="text-slate-800 mt-1">{selectedProtocol.prestationNature || "-"}</p></div>
-            </CardContent>
-          </Card>
-          <Card className="border-2 border-teal-100 shadow-sm">
-            <CardHeader className="pb-3"><CardTitle className="text-base text-teal-900">2) SOCIÉTÉ INTERVENANTE</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="rounded-lg bg-teal-50 p-3"><p className="text-xs text-teal-700 font-semibold uppercase">Société</p><p className="text-slate-800 mt-1">{selectedProtocol.entreprise2Name || "-"}</p></div>
-              <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Adresse</p><p className="text-slate-800 mt-1">{selectedProtocol.entreprise2Address || "-"}</p></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Nom du responsable</p><p className="text-slate-800 mt-1">{selectedProtocol.responsableName || "-"}</p></div>
-                <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Email</p><p className="text-slate-800 mt-1 break-all">{selectedProtocol.responsableEmail || "-"}</p></div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="border-2 border-indigo-100 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base text-indigo-900">1) Co-intervenants (entreprises, administrations, organismes)</CardTitle>
+            <CardDescription>Ajoutez autant de structures que nécessaire.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {selectedProtocol.coIntervenantRows.filter(coIntervenantRowHasContent).length === 0 ? (
+              <p className="text-sm text-slate-600 px-1">Aucune structure renseignée pour l’instant.</p>
+            ) : (
+              <>
+                {selectedProtocol.coIntervenantRows.filter(coIntervenantRowHasContent).map((row, idx) => (
+                  <div key={row.id} className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 space-y-2 text-sm">
+                    <p className="text-xs font-bold uppercase text-indigo-800">Structure {idx + 1}</p>
+                    {row.qualite.trim() ? (
+                      <p>
+                        <span className="text-xs font-semibold text-slate-500 uppercase">Qualité / rôle</span>
+                        <span className="block text-slate-900 mt-0.5">{row.qualite}</span>
+                      </p>
+                    ) : null}
+                    <p>
+                      <span className="text-xs font-semibold text-slate-500 uppercase">Dénomination</span>
+                      <span className="block text-slate-900 mt-0.5">{row.denomination.trim() ? row.denomination : "—"}</span>
+                    </p>
+                    <p>
+                      <span className="text-xs font-semibold text-slate-500 uppercase">Adresse</span>
+                      <span className="block text-slate-900 mt-0.5 whitespace-pre-wrap">{row.adresse.trim() ? row.adresse : "—"}</span>
+                    </p>
+                    {(row.contactNom.trim() || row.contactEmail.trim()) ? (
+                      <p>
+                        <span className="text-xs font-semibold text-slate-500 uppercase">Contact</span>
+                        <span className="block text-slate-900 mt-0.5">
+                          {[row.contactNom.trim(), row.contactEmail.trim()].filter(Boolean).join(" · ") || "—"}
+                        </span>
+                      </p>
+                    ) : null}
+                    {row.complements.trim() ? (
+                      <p>
+                        <span className="text-xs font-semibold text-slate-500 uppercase">Précisions</span>
+                        <span className="block text-slate-900 mt-0.5 whitespace-pre-wrap">{row.complements}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-slate-200 shadow-sm">
+          <CardHeader><CardTitle className="text-base">2) Nature de la prestation</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-800 whitespace-pre-wrap">{selectedProtocol.prestationNature || "-"}</p>
+          </CardContent>
+        </Card>
 
         <Card className="border-2 border-slate-200 shadow-sm">
           <CardHeader><CardTitle className="text-base">3) Organisation du chargement ou déchargement</CardTitle></CardHeader>
@@ -621,17 +1548,60 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
         </Card>
 
         <Card className="border-2 border-slate-200 shadow-sm overflow-hidden">
-          <CardHeader><CardTitle className="text-base">4) Évaluation des risques (CT R4515-5)</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base">4) Évaluation des risques (CT R4515-5)</CardTitle>
+            <CardDescription>
+              Colonnes : situation dangereuse, dommages associés, mesures de prévention — lignes multiples possibles ; contenu libre ou issu du référentiel selon vos saisies.
+            </CardDescription>
+          </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-0 rounded-xl overflow-hidden border border-slate-200">
-              <div className="bg-slate-100 p-3 text-xs font-bold uppercase text-slate-700">Domaine des risques</div>
-              <div className="bg-slate-100 p-3 text-xs font-bold uppercase text-slate-700 border-l border-slate-200">Nature des risques</div>
-              <div className="bg-slate-100 p-3 text-xs font-bold uppercase text-slate-700 border-l border-slate-200">Mesures de prévention</div>
-              <div className="p-3 text-sm text-slate-800 whitespace-pre-wrap bg-white">{selectedProtocol.evaluationDomaineRisques || "-"}</div>
-              <div className="p-3 text-sm text-slate-800 whitespace-pre-wrap border-l border-slate-200 bg-white">{selectedProtocol.evaluationNatureRisques || "-"}</div>
-              <div className="p-3 text-sm text-slate-800 whitespace-pre-wrap border-l border-slate-200 bg-white">{selectedProtocol.evaluationMesuresPrevention || "-"}</div>
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-100">
+                  <tr>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-slate-700 border-b border-slate-200 w-[28%]">Situation dangereuse</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-slate-700 border-l border-b border-slate-200 w-[34%]">Dommages associés</th>
+                    <th className="text-left p-3 text-xs font-bold uppercase text-slate-700 border-l border-b border-slate-200 w-[38%]">Mesures de prévention</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedProtocol.riskEvaluationRows.map((row) => {
+                    const evalRisk = row.linkedEvaluationRiskId
+                      ? risks.find((r) => r.id === row.linkedEvaluationRiskId)
+                      : undefined;
+                    return (
+                      <tr key={row.id} className="border-t border-slate-200 align-top bg-white">
+                        <td className="p-3 whitespace-pre-wrap text-slate-800">
+                          {evalRisk ? (
+                            <Badge variant="outline" className="mb-2 text-[10px] uppercase tracking-wide border-violet-300 text-violet-800">
+                              Réf. évaluation {evalRisk.numeroRisque}
+                            </Badge>
+                          ) : (row.evaluationRiskFreeText ?? "").trim() ? (
+                            <Badge variant="outline" className="mb-2 text-[10px] uppercase tracking-wide border-slate-400 text-slate-800">
+                              Mention hors référentiel
+                            </Badge>
+                          ) : null}
+                          {evalRisk ? null : (row.evaluationRiskFreeText ?? "").trim() ? (
+                            <p className="text-xs text-slate-600 mb-2 whitespace-pre-wrap">{(row.evaluationRiskFreeText ?? "").trim()}</p>
+                          ) : null}
+                          <div>{row.domaine.trim() ? row.domaine : "—"}</div>
+                        </td>
+                        <td className="p-3 border-l border-slate-200 whitespace-pre-wrap text-slate-800">
+                          {row.natureRisques.trim() ? row.natureRisques : "—"}
+                        </td>
+                        <td className="p-3 border-l border-slate-200 whitespace-pre-wrap text-slate-800">
+                          {row.mesuresPrevention.trim() ? row.mesuresPrevention : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Complément</p><p className="text-sm text-slate-800 whitespace-pre-wrap mt-1">{selectedProtocol.evaluationRisques || "-"}</p></div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs text-slate-500 font-semibold uppercase">Complément libre</p>
+              <p className="text-sm text-slate-800 whitespace-pre-wrap mt-1">{selectedProtocol.evaluationRisques || "-"}</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -671,19 +1641,42 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
         </div>
 
         <Card className="border-2 border-rose-100 shadow-sm">
-          <CardHeader><CardTitle className="text-base text-rose-900">8) Signatures</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-base text-rose-900">8) Signatures</CardTitle>
+            <CardDescription>
+              Mentions complétées sous chaque bloc ; une image peut compléter l’empreinte visuelle dans l’export PDF.
+            </CardDescription>
+          </CardHeader>
           <CardContent className="grid grid-cols-1 xl:grid-cols-3 gap-4 text-sm">
-            <div className="rounded-xl border border-rose-200 p-3 bg-rose-50/60">
+            <div className="rounded-xl border border-rose-200 p-3 bg-rose-50/60 space-y-2">
               <p className="font-semibold text-slate-900 mb-2">{selectedProtocol.signatureEntite1 || "Entité 1"}</p>
               <p><span className="font-medium">Nom:</span> {selectedProtocol.signatureNom1 || "-"}</p><p><span className="font-medium">Prénom:</span> {selectedProtocol.signaturePrenom1 || "-"}</p><p><span className="font-medium">Date:</span> {selectedProtocol.signatureDate1 || "-"}</p>
+              {selectedProtocol.signatureDematerialiseeUrl1 ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-white p-2">
+                  <p className="text-[10px] font-semibold uppercase text-rose-800 mb-1">Signature (image)</p>
+                  <img src={selectedProtocol.signatureDematerialiseeUrl1} alt="" className="max-h-28 w-full object-contain object-left" />
+                </div>
+              ) : null}
             </div>
-            <div className="rounded-xl border border-rose-200 p-3 bg-rose-50/60">
+            <div className="rounded-xl border border-rose-200 p-3 bg-rose-50/60 space-y-2">
               <p className="font-semibold text-slate-900 mb-2">{selectedProtocol.signatureEntite2 || "Entité 2"}</p>
               <p><span className="font-medium">Nom:</span> {selectedProtocol.signatureNom2 || "-"}</p><p><span className="font-medium">Prénom:</span> {selectedProtocol.signaturePrenom2 || "-"}</p><p><span className="font-medium">Date:</span> {selectedProtocol.signatureDate2 || "-"}</p>
+              {selectedProtocol.signatureDematerialiseeUrl2 ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-white p-2">
+                  <p className="text-[10px] font-semibold uppercase text-rose-800 mb-1">Signature (image)</p>
+                  <img src={selectedProtocol.signatureDematerialiseeUrl2} alt="" className="max-h-28 w-full object-contain object-left" />
+                </div>
+              ) : null}
             </div>
-            <div className="rounded-xl border border-rose-200 p-3 bg-rose-50/60">
+            <div className="rounded-xl border border-rose-200 p-3 bg-rose-50/60 space-y-2">
               <p className="font-semibold text-slate-900 mb-2">{selectedProtocol.signatureEntite3 || "Entité 3"}</p>
               <p><span className="font-medium">Nom:</span> {selectedProtocol.signatureNom3 || "-"}</p><p><span className="font-medium">Prénom:</span> {selectedProtocol.signaturePrenom3 || "-"}</p><p><span className="font-medium">Date:</span> {selectedProtocol.signatureDate3 || "-"}</p>
+              {selectedProtocol.signatureDematerialiseeUrl3 ? (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-white p-2">
+                  <p className="text-[10px] font-semibold uppercase text-rose-800 mb-1">Signature (image)</p>
+                  <img src={selectedProtocol.signatureDematerialiseeUrl3} alt="" className="max-h-28 w-full object-contain object-left" />
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -700,14 +1693,50 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
         </div>
         <Card className="border-2 border-slate-200 shadow-sm">
           <CardHeader><CardTitle className="text-base">Annexes et documents joints</CardTitle></CardHeader>
-          <CardContent><p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedProtocol.annexesDocuments || "-"}</p></CardContent>
+          <CardContent className="space-y-4">
+            {selectedProtocol.annexAttachments.length > 0 ? (
+              <ul className="space-y-2">
+                {selectedProtocol.annexAttachments.map((att) => (
+                  <li
+                    key={att.id}
+                    className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-start gap-2">
+                      <FileText className="h-5 w-5 shrink-0 text-slate-600" aria-hidden />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 break-all">{att.fileName}</p>
+                        <p className="text-xs text-slate-500">{formatByteSize(att.sizeBytes)}</p>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" className="shrink-0 w-full sm:w-auto" asChild>
+                      <a href={att.dataUrl} download={att.fileName}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Télécharger
+                      </a>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">Aucun fichier joint pour ce plan.</p>
+            )}
+            {selectedProtocol.annexesDocuments.trim() ? (
+              <div className="rounded-lg border border-slate-100 bg-white p-3">
+                <p className="text-xs font-semibold uppercase text-slate-500 mb-2">Complément rédactionnel</p>
+                <p className="text-sm text-slate-800 whitespace-pre-wrap">{selectedProtocol.annexesDocuments}</p>
+              </div>
+            ) : null}
+          </CardContent>
         </Card>
       </div>
+      {planDeleteConfirmDialog}
+    </>
     );
   }
 
   if ((viewMode === "create" || viewMode === "edit") && canEdit) {
     return (
+      <>
       <div className="space-y-6 p-3 sm:p-6">
         <div className="space-y-3">
           <div>
@@ -739,47 +1768,18 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
               <CardContent className="p-5">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">Document officiel</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">Plan de prévention</p>
                     <p className="text-lg font-semibold mt-1">{form.protocol.protocoleTitle}</p>
                     <p className="text-emerald-100 text-sm mt-1">{form.protocol.codeTravailReference}</p>
                   </div>
-                  <Badge className="bg-white text-slate-900 border-white/20">{viewMode === "create" ? "Creation" : "Modification"}</Badge>
+                  <Badge className="bg-white text-slate-900 border-white/20">
+                    {viewMode === "create" ? "Création du plan" : "Modification du plan"}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Risque *</Label>
-                <Select
-                  value={form.riskId}
-                  onValueChange={(value) => {
-                    const selectedRisk = risks.find((risk) => risk.id === value);
-                    setForm((prev) => ({
-                      ...prev,
-                      riskId: value,
-                      protocol: {
-                        ...prev.protocol,
-                        prestationNature: selectedRisk
-                          ? `Prevention du risque ${selectedRisk.numeroRisque} - ${selectedRisk.title}`
-                          : prev.protocol.prestationNature,
-                        lieuLivraison: selectedRisk?.site || prev.protocol.lieuLivraison,
-                      },
-                    }));
-                  }}
-                >
-                  <SelectTrigger className="border-2 border-slate-300">
-                    <SelectValue placeholder="Selectionner un risque" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {risks.map((risk) => (
-                      <SelectItem key={risk.id} value={risk.id}>
-                        {risk.numeroRisque} — {risk.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Responsable</Label>
                 <Input value={form.owner} onChange={(e) => setForm((prev) => ({ ...prev, owner: e.target.value }))} className="border-2 border-slate-300" />
@@ -813,31 +1813,103 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
 
             <Separator />
 
-            <h3 className="text-lg font-semibold text-slate-900">Champs complets du protocole / plan de prevention</h3>
+            <div className="rounded-lg border border-teal-200 bg-teal-50/80 p-4 flex gap-3">
+              <Info className="h-5 w-5 shrink-0 text-teal-700 mt-0.5" aria-hidden />
+              <p className="text-sm text-slate-800">
+                Vous éditez un <strong className="font-semibold">plan de prévention</strong> (coactivité, art. R4515-4 à R4515-11). Le document dédié au{" "}
+                <strong className="font-semibold">chargement / déchargement</strong> se saisit dans l’autre onglet de l’application.
+              </p>
+            </div>
+
+            <h3 className="text-lg font-semibold text-slate-900">Champs du plan de prévention</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Titre document</Label><Input value={form.protocol.protocoleTitle} onChange={(e) => updateProtocol("protocoleTitle", e.target.value)} className="border-2 border-slate-300" /></div>
+              <div className="space-y-2">
+                <Label>Titre du plan de prévention</Label>
+                <Input value={form.protocol.protocoleTitle} onChange={(e) => updateProtocol("protocoleTitle", e.target.value)} className="border-2 border-slate-300" />
+              </div>
               <div className="space-y-2"><Label>Référence (code du Travail)</Label><Input value={form.protocol.codeTravailReference} onChange={(e) => updateProtocol("codeTravailReference", e.target.value)} className="border-2 border-slate-300" /></div>
               <div className="space-y-2 md:col-span-2"><Label>Type operation</Label><Input value={form.protocol.operationType} onChange={(e) => updateProtocol("operationType", e.target.value)} className="border-2 border-slate-300" /></div>
             </div>
 
             <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Ship className="h-4 w-4 text-indigo-600" />1) Armement / APB</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nom structure</Label><Input value={form.protocol.entreprise1Name} onChange={(e) => updateProtocol("entreprise1Name", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Adresse</Label><Input value={form.protocol.entreprise1Address} onChange={(e) => updateProtocol("entreprise1Address", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Navire</Label><Input value={form.protocol.navireName} onChange={(e) => updateProtocol("navireName", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Nom du capitaine</Label><Input value={form.protocol.capitaineName} onChange={(e) => updateProtocol("capitaineName", e.target.value)} /></div>
-                <div className="space-y-2 md:col-span-2"><Label>Nature de la prestation</Label><Input value={form.protocol.prestationNature} onChange={(e) => updateProtocol("prestationNature", e.target.value)} /></div>
+              <CardHeader>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-indigo-600" />
+                    1) Co-intervenants (entreprises / administrations)
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCoIntervenantRow}
+                    className="w-full sm:w-auto shrink-0 border-indigo-300 text-indigo-800 hover:bg-indigo-50"
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Ajouter une structure
+                  </Button>
+                </div>
+                <CardDescription>Renseignez chaque organisme concerné.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {form.protocol.coIntervenantRows.map((row, idx) => (
+                  <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-800">Structure {idx + 1}</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                        onClick={() => removeCoIntervenantRow(row.id)}
+                        aria-label={`Supprimer la structure ${idx + 1}`}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Supprimer
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Qualité / rôle (facultatif)</Label>
+                        <Input
+                          placeholder="ex. APB, société intervenante, administration…"
+                          value={row.qualite}
+                          onChange={(e) => updateCoIntervenantRow(row.id, "qualite", e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Dénomination</Label>
+                        <Input value={row.denomination} onChange={(e) => updateCoIntervenantRow(row.id, "denomination", e.target.value)} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Adresse</Label>
+                        <Textarea rows={2} value={row.adresse} onChange={(e) => updateCoIntervenantRow(row.id, "adresse", e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Nom du contact</Label>
+                        <Input value={row.contactNom} onChange={(e) => updateCoIntervenantRow(row.id, "contactNom", e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email du contact</Label>
+                        <Input value={row.contactEmail} onChange={(e) => updateCoIntervenantRow(row.id, "contactEmail", e.target.value)} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Précisions (navire, capitaine, téléphone…)</Label>
+                        <Textarea rows={2} value={row.complements} onChange={(e) => updateCoIntervenantRow(row.id, "complements", e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
             <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4 text-teal-600" />2) Societe intervenante</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nom societe</Label><Input value={form.protocol.entreprise2Name} onChange={(e) => updateProtocol("entreprise2Name", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Adresse</Label><Input value={form.protocol.entreprise2Address} onChange={(e) => updateProtocol("entreprise2Address", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Nom responsable</Label><Input value={form.protocol.responsableName} onChange={(e) => updateProtocol("responsableName", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Email responsable</Label><Input value={form.protocol.responsableEmail} onChange={(e) => updateProtocol("responsableEmail", e.target.value)} /></div>
+              <CardHeader>
+                <CardTitle className="text-base">2) Nature de la prestation</CardTitle>
+                <CardDescription>Objet de l’opération pour l’ensemble des co-intervenants.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea rows={3} value={form.protocol.prestationNature} onChange={(e) => updateProtocol("prestationNature", e.target.value)} />
               </CardContent>
             </Card>
 
@@ -852,24 +1924,44 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
             </Card>
 
             <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-4 w-4 text-purple-600" />4) Évaluation des risques (CT R4515-5)</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-purple-600" />4) Évaluation des risques (CT R4515-5)
+                  </CardTitle>
+                  <Button type="button" variant="outline" size="sm" onClick={addRiskEvaluationRow} className="w-full sm:w-auto shrink-0 border-purple-300 text-purple-800 hover:bg-purple-50">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Ajouter un risque (ligne)
+                  </Button>
+                </div>
+                <CardDescription>
+                  Colonnes du tableau : <strong>Situation dangereuse</strong>, <strong>Dommages associés</strong>, <strong>Mesures de prévention</strong>. Liez éventuellement un risque du référentiel pour préremplir, et complétez en texte libre à tout moment (y compris hors liste).
+                </CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Domaine des risques</Label>
-                    <Textarea rows={4} value={form.protocol.evaluationDomaineRisques} onChange={(e) => updateProtocol("evaluationDomaineRisques", e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nature des risques</Label>
-                    <Textarea rows={4} value={form.protocol.evaluationNatureRisques} onChange={(e) => updateProtocol("evaluationNatureRisques", e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Mesures de prévention</Label>
-                    <Textarea rows={4} value={form.protocol.evaluationMesuresPrevention} onChange={(e) => updateProtocol("evaluationMesuresPrevention", e.target.value)} />
-                  </div>
+                <div className="space-y-4">
+                  {form.protocol.riskEvaluationRows.map((row, idx) => (
+                    <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800">Risque ligne {idx + 1}</p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                          onClick={() => removeRiskEvaluationRow(row.id)}
+                          aria-label={`Supprimer la ligne ${idx + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Supprimer
+                        </Button>
+                      </div>
+                      <RiskEvaluationLineEditor row={row} risks={risks} onPatch={(patch) => patchRiskEvaluationRow(row.id, patch)} />
+                    </div>
+                  ))}
                 </div>
                 <div className="space-y-2">
-                  <Label>Complément libre</Label>
+                  <Label>Complément libre (texte hors tableau)</Label>
                   <Textarea rows={4} value={form.protocol.evaluationRisques} onChange={(e) => updateProtocol("evaluationRisques", e.target.value)} />
                 </div>
               </CardContent>
@@ -937,25 +2029,99 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
             </Card>
 
             <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Signature className="h-4 w-4 text-rose-600" />8) Signatures</CardTitle></CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <Input placeholder="Entite 1" value={form.protocol.signatureEntite1} onChange={(e) => updateProtocol("signatureEntite1", e.target.value)} />
-                  <Input placeholder="Nom" value={form.protocol.signatureNom1} onChange={(e) => updateProtocol("signatureNom1", e.target.value)} />
-                  <Input placeholder="Prenom" value={form.protocol.signaturePrenom1} onChange={(e) => updateProtocol("signaturePrenom1", e.target.value)} />
-                  <Input type="date" value={form.protocol.signatureDate1} onChange={(e) => updateProtocol("signatureDate1", e.target.value)} />
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Signature className="h-4 w-4 text-rose-600" />
+                  8) Signatures
+                </CardTitle>
+                <CardDescription>
+                  Joignez une <strong className="font-semibold text-slate-800">image</strong> de signature (photo, scan PNG/JPEG) par signataire : elle sera intégrée au PDF exporté. Pour une signature électronique qualifiée (certificat), ouvrez le PDF dans Acrobat Reader après téléchargement.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-rose-900">Signataire 1</p>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Input placeholder="Entite 1" value={form.protocol.signatureEntite1} onChange={(e) => updateProtocol("signatureEntite1", e.target.value)} />
+                    <Input placeholder="Nom" value={form.protocol.signatureNom1} onChange={(e) => updateProtocol("signatureNom1", e.target.value)} />
+                    <Input placeholder="Prenom" value={form.protocol.signaturePrenom1} onChange={(e) => updateProtocol("signaturePrenom1", e.target.value)} />
+                    <Input type="date" value={form.protocol.signatureDate1} onChange={(e) => updateProtocol("signatureDate1", e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs">Signature dématérialisée (image)</Label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        className="border-2 border-slate-300"
+                        onChange={(e) => void applySignatureDematerialisee(1, e.target.files)}
+                      />
+                    </div>
+                    {form.protocol.signatureDematerialiseeUrl1 ? (
+                      <div className="flex items-center gap-2">
+                        <img src={form.protocol.signatureDematerialiseeUrl1} alt="" className="h-14 max-w-[180px] object-contain border rounded bg-white p-1" />
+                        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => updateProtocol("signatureDematerialiseeUrl1", "")}>
+                          Retirer l’image
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <Input placeholder="Entite 2" value={form.protocol.signatureEntite2} onChange={(e) => updateProtocol("signatureEntite2", e.target.value)} />
-                  <Input placeholder="Nom" value={form.protocol.signatureNom2} onChange={(e) => updateProtocol("signatureNom2", e.target.value)} />
-                  <Input placeholder="Prenom" value={form.protocol.signaturePrenom2} onChange={(e) => updateProtocol("signaturePrenom2", e.target.value)} />
-                  <Input type="date" value={form.protocol.signatureDate2} onChange={(e) => updateProtocol("signatureDate2", e.target.value)} />
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-rose-900">Signataire 2</p>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Input placeholder="Entite 2" value={form.protocol.signatureEntite2} onChange={(e) => updateProtocol("signatureEntite2", e.target.value)} />
+                    <Input placeholder="Nom" value={form.protocol.signatureNom2} onChange={(e) => updateProtocol("signatureNom2", e.target.value)} />
+                    <Input placeholder="Prenom" value={form.protocol.signaturePrenom2} onChange={(e) => updateProtocol("signaturePrenom2", e.target.value)} />
+                    <Input type="date" value={form.protocol.signatureDate2} onChange={(e) => updateProtocol("signatureDate2", e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs">Signature dématérialisée (image)</Label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        className="border-2 border-slate-300"
+                        onChange={(e) => void applySignatureDematerialisee(2, e.target.files)}
+                      />
+                    </div>
+                    {form.protocol.signatureDematerialiseeUrl2 ? (
+                      <div className="flex items-center gap-2">
+                        <img src={form.protocol.signatureDematerialiseeUrl2} alt="" className="h-14 max-w-[180px] object-contain border rounded bg-white p-1" />
+                        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => updateProtocol("signatureDematerialiseeUrl2", "")}>
+                          Retirer l’image
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <Input placeholder="Entite 3" value={form.protocol.signatureEntite3} onChange={(e) => updateProtocol("signatureEntite3", e.target.value)} />
-                  <Input placeholder="Nom" value={form.protocol.signatureNom3} onChange={(e) => updateProtocol("signatureNom3", e.target.value)} />
-                  <Input placeholder="Prenom" value={form.protocol.signaturePrenom3} onChange={(e) => updateProtocol("signaturePrenom3", e.target.value)} />
-                  <Input type="date" value={form.protocol.signatureDate3} onChange={(e) => updateProtocol("signatureDate3", e.target.value)} />
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-rose-900">Signataire 3</p>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Input placeholder="Entite 3" value={form.protocol.signatureEntite3} onChange={(e) => updateProtocol("signatureEntite3", e.target.value)} />
+                    <Input placeholder="Nom" value={form.protocol.signatureNom3} onChange={(e) => updateProtocol("signatureNom3", e.target.value)} />
+                    <Input placeholder="Prenom" value={form.protocol.signaturePrenom3} onChange={(e) => updateProtocol("signaturePrenom3", e.target.value)} />
+                    <Input type="date" value={form.protocol.signatureDate3} onChange={(e) => updateProtocol("signatureDate3", e.target.value)} />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="space-y-1 flex-1">
+                      <Label className="text-xs">Signature dématérialisée (image)</Label>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        className="border-2 border-slate-300"
+                        onChange={(e) => void applySignatureDematerialisee(3, e.target.files)}
+                      />
+                    </div>
+                    {form.protocol.signatureDematerialiseeUrl3 ? (
+                      <div className="flex items-center gap-2">
+                        <img src={form.protocol.signatureDematerialiseeUrl3} alt="" className="h-14 max-w-[180px] object-contain border rounded bg-white p-1" />
+                        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => updateProtocol("signatureDematerialiseeUrl3", "")}>
+                          Retirer l’image
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -965,27 +2131,130 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
               <CardContent className="space-y-4">
                 <div className="space-y-2"><Label>Plan de circulation et de dechargement</Label><Textarea rows={3} value={form.protocol.planCirculation} onChange={(e) => updateProtocol("planCirculation", e.target.value)} /></div>
                 <div className="space-y-2"><Label>Materiel a remplacer</Label><Textarea rows={2} value={form.protocol.materielRemplacer} onChange={(e) => updateProtocol("materielRemplacer", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Annexes / documents joints</Label><Textarea rows={2} value={form.protocol.annexesDocuments} onChange={(e) => updateProtocol("annexesDocuments", e.target.value)} /></div>
+              </CardContent>
+            </Card>
+
+            <Card className="border border-slate-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Paperclip className="h-4 w-4 text-slate-700" aria-hidden />
+                  Annexes et documents joints
+                </CardTitle>
+                <CardDescription>
+                  Joignez des fichiers (PDF, images, bureautique). Limite {formatByteSize(PLAN_ANNEX_MAX_BYTES)} par fichier, {PLAN_ANNEX_MAX_COUNT} fichiers maximum — stockage local à cette session.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <input
+                  ref={annexFilesInputRef}
+                  type="file"
+                  className="sr-only"
+                  multiple
+                  accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt"
+                  onChange={(e) => appendAnnexFilesFromInput(e.target.files)}
+                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-2 border-slate-300"
+                    onClick={() => annexFilesInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Ajouter des fichiers
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {form.protocol.annexAttachments.length} / {PLAN_ANNEX_MAX_COUNT} fichier(s)
+                  </p>
+                </div>
+                {form.protocol.annexAttachments.length > 0 ? (
+                  <ul className="space-y-2">
+                    {form.protocol.annexAttachments.map((att) => (
+                      <li
+                        key={att.id}
+                        className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <FileText className="h-5 w-5 shrink-0 text-slate-600" aria-hidden />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900 break-all">{att.fileName}</p>
+                            <p className="text-xs text-slate-500">{formatByteSize(att.sizeBytes)}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button type="button" variant="outline" size="sm" asChild>
+                            <a href={att.dataUrl} download={att.fileName}>
+                              <Download className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">Télécharger</span>
+                            </a>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-700 hover:text-red-800 hover:bg-red-50"
+                            onClick={() => removeAnnexAttachment(att.id)}
+                            aria-label={`Retirer ${att.fileName}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <div className="space-y-2">
+                  <Label>Complément rédactionnel (facultatif)</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="Précisions sur les pièces jointes, références internes, liens, etc."
+                    value={form.protocol.annexesDocuments}
+                    onChange={(e) => updateProtocol("annexesDocuments", e.target.value)}
+                    className="border-2 border-slate-200"
+                  />
+                </div>
               </CardContent>
             </Card>
 
             <Separator />
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setViewMode("list");
-                  setSelectedPlanSnapshot(null);
-                }}
-                className="w-full sm:w-auto"
-              >
-                Annuler
-              </Button>
-              <Button onClick={saveForm} className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700">Enregistrer</Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+              {viewMode === "edit" && selectedPlan ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPlanPendingDelete(selectedPlan)}
+                  className="w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-900"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Supprimer le plan
+                </Button>
+              ) : (
+                <span className="hidden sm:inline sm:flex-1" aria-hidden />
+              )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setViewMode("list");
+                    setSelectedPlanSnapshot(null);
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={saveForm}
+                  className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
+                >
+                  Enregistrer
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+      {planDeleteConfirmDialog}
+      </>
     );
   }
 
@@ -1017,6 +2286,14 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
         <Card className="border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50"><CardContent className="p-4"><p className="text-xs text-indigo-700 uppercase font-semibold">Plans visibles</p><p className="text-2xl font-bold text-indigo-900 mt-1">{visiblePlans.length}</p></CardContent></Card>
         <Card className="border-2 border-teal-100 bg-gradient-to-br from-teal-50 to-cyan-50"><CardContent className="p-4"><p className="text-xs text-teal-700 uppercase font-semibold">En cours</p><p className="text-2xl font-bold text-teal-900 mt-1">{inProgressCount}</p></CardContent></Card>
         <Card className="border-2 border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50"><CardContent className="p-4"><p className="text-xs text-emerald-700 uppercase font-semibold">Termines</p><p className="text-2xl font-bold text-emerald-900 mt-1">{doneCount}</p></CardContent></Card>
+      </div>
+
+      <div className="rounded-lg border border-teal-200 bg-teal-50/80 p-3 flex gap-3">
+        <Info className="h-5 w-5 shrink-0 text-teal-700 mt-0.5" aria-hidden />
+        <p className="text-sm text-slate-800">
+          Cet onglet concerne le <strong className="font-semibold">plan de prévention</strong> (coactivité, modèle type héliportage / opérations). Le document{" "}
+          <strong className="font-semibold">chargement / déchargement</strong> est saisi à part, dans l’onglet correspondant.
+        </p>
       </div>
 
       <Card className="border-2 bg-white/95">
@@ -1108,7 +2385,17 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
       </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {paginatedPlans.map((plan) => (
+        {paginatedPlans.map((plan) => {
+          const listProtocol = mergePlanProtocol(plan.protocol, risks.find((r) => r.id === plan.riskId), currentUserName);
+          const orgsFilled = listProtocol.coIntervenantRows.filter(coIntervenantRowHasContent);
+          const orgsSummary =
+            orgsFilled.length === 0
+              ? "—"
+              : `${orgsFilled
+                  .slice(0, 2)
+                  .map((r) => r.denomination.trim() || r.qualite.trim() || "(sans nom)")
+                  .join(" · ")}${orgsFilled.length > 2 ? ` · +${orgsFilled.length - 2}` : ""}`;
+          return (
           <Card key={plan.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur overflow-hidden relative">
             <div className="h-2 bg-gradient-to-r from-teal-500 to-emerald-500"></div>
             <CardContent className="p-5 space-y-4">
@@ -1129,34 +2416,26 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
                     <Target className="h-7 w-7 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">{plan.protocol.operationType || "Protocole de sécurité"}</p>
-                    <p className="text-lg font-semibold text-slate-900 leading-snug break-words">{plan.protocol.protocoleTitle || "PROTOCOLE DE SECURITE"}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
+                      {planCardSubtitle(plan)}
+                    </p>
+                    <p className="text-lg font-semibold text-slate-900 leading-snug break-words">
+                      {normalizeDocumentTitle(listProtocol.protocoleTitle, "PLAN DE PREVENTION")}
+                    </p>
                   </div>
                 </div>
                 <Badge className={statusClass[plan.status]}>{statusLabel[plan.status]}</Badge>
               </div>
-              <p className="text-sm text-slate-700 line-clamp-2">{plan.protocol.prestationNature || plan.objective}</p>
+              <p className="text-sm text-slate-700 line-clamp-2">{listProtocol.prestationNature || plan.objective}</p>
 
               <div className="space-y-2 text-xs text-slate-600">
-                <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-blue-700">Entité 1 :</span>
-                  <span className="text-sm font-semibold text-blue-700">{plan.protocol.entreprise1Name || "-"}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-indigo-700">Entité 2 :</span>
-                  <span className="text-sm font-semibold text-indigo-700">{plan.protocol.entreprise2Name || "-"}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-teal-700">Responsable protocole :</span>
-                  <span className="text-sm font-semibold text-indigo-700">{plan.protocol.responsableName || plan.owner}</span>
-                </div>
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                   <span className="font-bold uppercase tracking-wide text-emerald-700">Lieu :</span>
-                  <span className="text-sm font-semibold text-emerald-700">{plan.protocol.lieuLivraison || plan.location}</span>
+                  <span className="text-sm font-semibold text-emerald-700">{listProtocol.lieuLivraison || plan.location}</span>
                 </div>
                 <div className="flex items-center gap-2 bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2">
                   <span className="font-bold uppercase tracking-wide text-cyan-700">Plan transmis :</span>
-                  <span className="text-sm font-semibold text-cyan-700">{plan.protocol.planTransmis || "-"}</span>
+                  <span className="text-sm font-semibold text-cyan-700">{listProtocol.planTransmis || "-"}</span>
                 </div>
               </div>
 
@@ -1176,22 +2455,30 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
                 <div className="space-y-2">
                   <Label className="text-xs text-gray-600 font-semibold">Date signature</Label>
                   <div className="w-full text-center py-3 rounded-lg font-bold text-base border-2 bg-indigo-50 border-indigo-400 text-indigo-700">
-                    {plan.protocol.signatureDate1 || plan.protocol.signatureDate2 || plan.protocol.signatureDate3 || "-"}
+                    {listProtocol.signatureDate1 || listProtocol.signatureDate2 || listProtocol.signatureDate3 || "-"}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs text-gray-600 font-semibold">Navire</Label>
-                  <div className="w-full text-center py-3 rounded-lg font-bold text-base border-2 bg-cyan-50 border-cyan-400 text-cyan-700">
-                    {plan.protocol.navireName || "-"}
+                  <Label className="text-xs text-gray-600 font-semibold">Co-intervenants</Label>
+                  <div className="w-full rounded-lg border-2 bg-sky-50 border-sky-300 px-3 py-3 text-left">
+                    <p className="text-xs font-semibold text-sky-950 whitespace-normal break-words line-clamp-4">
+                      {orgsFilled.length === 0 ? "—" : orgsSummary}
+                    </p>
+                    {orgsFilled.length > 0 ? (
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-sky-700 mt-2">
+                        {orgsFilled.length} structure(s)
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>
 
-              <Badge className="w-full justify-center font-bold border-0 bg-gradient-to-r from-teal-500 to-emerald-600 text-white py-2">
-                {plan.protocol.operationType || "Plan de prévention"}
-              </Badge>
+              <div className="w-full rounded-xl px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md border border-teal-400/40">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-teal-100">Responsable du plan</p>
+                <p className="text-base font-bold leading-snug break-words">{plan.owner?.trim() || "—"}</p>
+              </div>
 
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
                 <Button variant="outline" className="w-full sm:flex-1" onClick={() => openDetail(plan)}>
                   <FileText className="h-4 w-4 mr-2" />
                   Consulter
@@ -1201,13 +2488,24 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
                     Modifier
                   </Button>
                 ) : null}
+                {canEdit ? (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:flex-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-900"
+                    onClick={() => setPlanPendingDelete(plan)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Supprimer
+                  </Button>
+                ) : null}
               </div>
                   </>
                 );
               })()}
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <ListPaginationBar
@@ -1227,6 +2525,7 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
           </CardContent>
         </Card>
       ) : null}
+      {planDeleteConfirmDialog}
     </div>
   );
 }
