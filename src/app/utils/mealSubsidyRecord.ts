@@ -415,13 +415,20 @@ export function getInmForDate(
   return fallbackInm ?? null;
 }
 
+/**
+ * INM applicable en fin de mois : historique prioritaire, sinon fiche utilisateur.
+ * (L'historique est mis à jour à chaque modification dans Administration → Utilisateurs.)
+ */
 export function getInmForMonth(
   history: UserInmHistoryEntry[],
   userId: string,
   month: string,
-  fallbackInm?: number,
+  profileInm?: number,
 ): number | null {
-  return getInmForDate(history, userId, getLastDayOfMonth(month), fallbackInm);
+  const monthEnd = getLastDayOfMonth(month);
+  const fromHistory = getInmForDate(history, userId, monthEnd, undefined);
+  if (fromHistory != null) return fromHistory;
+  return profileInm ?? null;
 }
 
 export function isEligibleInterministerial(
@@ -551,6 +558,18 @@ export function appendInmHistoryEntry(
       createdAt: new Date().toISOString(),
     },
   ];
+}
+
+/** Remplace l'entrée du même jour ou en ajoute une nouvelle (modification INM fiche utilisateur). */
+export function upsertInmHistoryEntry(
+  history: UserInmHistoryEntry[],
+  entry: Omit<UserInmHistoryEntry, "id" | "createdAt">,
+): UserInmHistoryEntry[] {
+  const day = entry.effectiveFrom.slice(0, 10);
+  const filtered = history.filter(
+    (e) => !(e.userId === entry.userId && e.effectiveFrom.slice(0, 10) === day),
+  );
+  return appendInmHistoryEntry(filtered, entry);
 }
 
 export function resolveLocationId(

@@ -24,8 +24,7 @@ import { PrestataireManagementView } from './PrestataireManagementView';
 import { ROLE_PRESTATAIRE } from '@/app/utils/userRoles';
 import {
   UserInmHistoryEntry,
-  appendInmHistoryEntry,
-  getInmForDate,
+  upsertInmHistoryEntry,
 } from '@/app/utils/mealSubsidyRecord';
 
 export interface AppUser {
@@ -167,17 +166,21 @@ export function UserManagementView({
     userData: Partial<AppUser>,
     inmMeta?: { inm?: number; inmEffectiveFrom?: string },
   ) => {
-    const syncInmHistory = (userId: string, previousInm?: number) => {
-      if (!onInmHistoryChange || inmMeta?.inm == null) return;
-      const effectiveFrom = (inmMeta.inmEffectiveFrom || new Date().toISOString().slice(0, 10)).slice(0, 10);
-      const known = getInmForDate(inmHistory, userId, effectiveFrom, previousInm);
-      if (known === inmMeta.inm) return;
+    const syncInmHistory = (userId: string, newInm: number | undefined, previousInm?: number) => {
+      if (!onInmHistoryChange || newInm == null || !Number.isFinite(newInm)) return;
+      const effectiveFrom = (inmMeta?.inmEffectiveFrom || new Date().toISOString().slice(0, 10)).slice(
+        0,
+        10,
+      );
       onInmHistoryChange((prev) =>
-        appendInmHistoryEntry(prev, {
+        upsertInmHistoryEntry(prev, {
           userId,
-          inm: inmMeta.inm!,
+          inm: newInm,
           effectiveFrom,
-          note: previousInm != null ? `Modification INM (${previousInm} → ${inmMeta.inm})` : "INM initial",
+          note:
+            previousInm != null && previousInm !== newInm
+              ? `Modification INM (${previousInm} → ${newInm})`
+              : "INM fiche utilisateur",
         }),
       );
     };
@@ -199,12 +202,18 @@ export function UserManagementView({
         createdAt: new Date().toISOString(),
         createdBy: createdByName,
       };
-      setUsers([...users, newUser]);
-      syncInmHistory(newId);
+      const newInm = inmMeta?.inm ?? userData.inm;
+      setUsers([...users, { ...newUser, inm: newInm }]);
+      syncInmHistory(newId, newInm);
       toast.success('Utilisateur créé avec succès');
     } else if (viewMode === 'edit' && selectedUser) {
-      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...userData, inm: inmMeta?.inm ?? userData.inm } : u));
-      syncInmHistory(selectedUser.id, selectedUser.inm);
+      const newInm = inmMeta?.inm ?? userData.inm;
+      setUsers(
+        users.map((u) =>
+          u.id === selectedUser.id ? { ...u, ...userData, inm: newInm } : u,
+        ),
+      );
+      syncInmHistory(selectedUser.id, newInm, selectedUser.inm);
       toast.success('Utilisateur modifié avec succès');
     }
     handleBack();
