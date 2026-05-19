@@ -64,6 +64,7 @@ const getRoleLabel = (role: string) => {
   if (role === "ROLE_ADMIN") return "Administrateur";
   if (role === "ROLE_CHEF") return "Chef de service";
   if (role === "ROLE_AGENT") return "Agent";
+  if (role === "ROLE_PRESTATAIRE") return "Prestataire";
   return role;
 };
 

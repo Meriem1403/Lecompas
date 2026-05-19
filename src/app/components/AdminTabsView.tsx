@@ -4,14 +4,15 @@ import { RoleManagementView, Role } from '@/app/components/admin/RoleManagementV
 import { ServiceManagementView, Service } from '@/app/components/admin/ServiceManagementView';
 import { SimpleEntityManagementView } from '@/app/components/admin/SimpleEntityManagementView';
 import { Layers, MapPin, Tag } from 'lucide-react';
+import { PRESTATAIRE_FIXTURES } from '@/app/fixtures/prestataireFixtures';
 
-// Fake data
-export const FAKE_USERS: AppUser[] = [
+const FAKE_PERSONNEL_USERS: AppUser[] = [
   {
     id: '0',
     firstName: 'Jean-Marc',
     lastName: 'DUBOIS',
     email: 'admin@dirm-med.gouv.fr',
+    password: 'admin123',
     position: 'Directeur interrégional',
     service: 'Direction',
     domain: 'Pilotage',
@@ -39,7 +40,8 @@ export const FAKE_USERS: AppUser[] = [
     id: '2',
     firstName: 'Marie',
     lastName: 'Martin',
-    email: 'marie.martin@example.com',
+    email: 'chef@dirm-med.gouv.fr',
+    password: 'chef123',
     position: 'Chef de service Maintenance',
     service: 'Maintenance',
     domain: 'Technique',
@@ -67,7 +69,8 @@ export const FAKE_USERS: AppUser[] = [
     id: '3',
     firstName: 'Pierre',
     lastName: 'Leclerc',
-    email: 'pierre.leclerc@example.com',
+    email: 'agent@dirm-med.gouv.fr',
+    password: 'agent123',
     position: 'Technicien maintenance',
     service: 'Maintenance',
     domain: 'Technique',
@@ -76,13 +79,58 @@ export const FAKE_USERS: AppUser[] = [
     role: 'ROLE_AGENT',
     createdAt: '2025-02-10T14:00:00Z',
     createdBy: 'Marie Martin'
+  },
+  {
+    id: '5',
+    firstName: 'Thomas',
+    lastName: 'Lambert',
+    email: 'thomas.lambert@example.com',
+    position: 'Technicien maintenance',
+    service: 'Maintenance',
+    domain: 'Technique',
+    location: 'Site Lyon',
+    category: 'Agent de maîtrise',
+    role: 'ROLE_AGENT',
+    createdAt: '2025-03-01T10:00:00Z',
+    createdBy: 'Marie Martin'
+  },
+  {
+    id: '6',
+    firstName: 'Claire',
+    lastName: 'Dubois',
+    email: 'claire.dubois@example.com',
+    position: 'Technicienne maintenance',
+    service: 'Maintenance',
+    domain: 'Technique',
+    location: 'Site Marseille',
+    category: 'Agent de maîtrise',
+    role: 'ROLE_AGENT',
+    createdAt: '2025-03-15T11:00:00Z',
+    createdBy: 'Marie Martin'
+  },
+  {
+    id: '7',
+    firstName: 'Nicolas',
+    lastName: 'Petit',
+    email: 'nicolas.petit@example.com',
+    position: 'Agent sécurité',
+    service: 'Sécurité',
+    domain: 'Prévention',
+    location: 'Siège Paris',
+    category: 'Agent',
+    role: 'ROLE_AGENT',
+    createdAt: '2025-04-01T09:00:00Z',
+    createdBy: 'Jean Dupont'
   }
 ];
+
+export const FAKE_USERS: AppUser[] = [...FAKE_PERSONNEL_USERS, ...PRESTATAIRE_FIXTURES];
 
 const FAKE_ROLES: Role[] = [
   { id: 1, code: 'ROLE_ADMIN', displayName: 'Administrateur' },
   { id: 2, code: 'ROLE_AGENT', displayName: 'Agent' },
-  { id: 3, code: 'ROLE_CHEF', displayName: 'Chef de service' }
+  { id: 3, code: 'ROLE_CHEF', displayName: 'Chef de service' },
+  { id: 4, code: 'ROLE_PRESTATAIRE', displayName: 'Prestataire' },
 ];
 
 export const FAKE_SERVICES: Service[] = [
@@ -177,6 +225,7 @@ interface AdminTabsViewProps {
   setDomainsData?: React.Dispatch<React.SetStateAction<typeof FAKE_DOMAINS>>;
   locationsData?: typeof FAKE_LOCATIONS;
   setLocationsData?: React.Dispatch<React.SetStateAction<typeof FAKE_LOCATIONS>>;
+  adminDisplayName?: string;
 }
 
 export function AdminTabsView({
@@ -189,6 +238,7 @@ export function AdminTabsView({
   setDomainsData,
   locationsData,
   setLocationsData,
+  adminDisplayName,
 }: AdminTabsViewProps) {
   const [internalUsers, setInternalUsers] = useState<AppUser[]>(FAKE_USERS);
   const [roles, setRoles] = useState<Role[]>(FAKE_ROLES);
@@ -216,6 +266,7 @@ export function AdminTabsView({
         domains={domains}
         locations={locations}
         categories={categories}
+        createdByName={adminDisplayName ?? "Administrateur"}
       />
     );
   }

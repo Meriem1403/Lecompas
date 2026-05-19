@@ -15,9 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { User, PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
+import { User, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Users, UtensilsCrossed } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
+import { PrestataireManagementView } from './PrestataireManagementView';
+import { ROLE_PRESTATAIRE } from '@/app/utils/userRoles';
 
 export interface AppUser {
   id: string;
@@ -30,6 +33,8 @@ export interface AppUser {
   location: string;
   category: string;
   role: string;
+  /** Mot de passe (démo locale) — défini à la création par l'administrateur */
+  password?: string;
   createdAt: string;
   createdBy: string;
 }
@@ -68,6 +73,7 @@ interface UserManagementViewProps {
   domains: Domain[];
   locations: Location[];
   categories: Category[];
+  createdByName?: string;
 }
 
 type ViewMode = 'list' | 'view' | 'edit' | 'create';
@@ -79,8 +85,18 @@ export function UserManagementView({
   services, 
   domains, 
   locations, 
-  categories 
+  categories,
+  createdByName = 'Administrateur',
 }: UserManagementViewProps) {
+  const personnelUsers = useMemo(
+    () => users.filter((u) => u.role !== ROLE_PRESTATAIRE),
+    [users],
+  );
+  const personnelRoles = useMemo(
+    () => roles.filter((r) => r.code !== ROLE_PRESTATAIRE),
+    [roles],
+  );
+
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -88,15 +104,15 @@ export function UserManagementView({
   const [listPage, setListPage] = useState(1);
 
   const listPageSize = TABLE_LIST_PAGE_SIZE;
-  const listTotalPages = Math.max(1, Math.ceil(users.length / listPageSize));
+  const listTotalPages = Math.max(1, Math.ceil(personnelUsers.length / listPageSize));
   const paginatedUsers = useMemo(() => {
     const start = (listPage - 1) * listPageSize;
-    return users.slice(start, start + listPageSize);
-  }, [users, listPage, listPageSize]);
+    return personnelUsers.slice(start, start + listPageSize);
+  }, [personnelUsers, listPage, listPageSize]);
 
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
-  }, [listPage, listTotalPages, users.length]);
+  }, [listPage, listTotalPages, personnelUsers.length]);
 
   const handleView = (user: AppUser) => {
     setSelectedUser(user);
@@ -135,7 +151,7 @@ export function UserManagementView({
   const handleSave = (userData: Partial<AppUser>) => {
     if (viewMode === 'create') {
       const newUser: AppUser = {
-        id: (Math.max(...users.map(u => parseInt(u.id)), 0) + 1).toString(),
+        id: crypto.randomUUID(),
         firstName: userData.firstName || '',
         lastName: userData.lastName || '',
         email: userData.email || '',
@@ -157,22 +173,53 @@ export function UserManagementView({
     handleBack();
   };
 
-  // Vue liste
+  // Vue liste avec onglets Personnel / Prestataires
   if (viewMode === 'list') {
     return (
       <>
-        <div className="space-y-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <Tabs defaultValue="personnel" className="space-y-4 sm:space-y-6 w-full min-w-0">
+          <div className="flex flex-col gap-4 min-w-0">
             <div className="min-w-0">
-              <h3 className="text-2xl font-bold text-gray-900">Gestion des utilisateurs</h3>
-              <p className="text-gray-600">Gérez les utilisateurs et leurs accès</p>
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Gestion des utilisateurs</h3>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">
+                Personnel DIRM et comptes prestataires repas
+              </p>
             </div>
+            <TabsList className="w-full grid grid-cols-2 h-auto p-1 gap-1">
+              <TabsTrigger
+                value="personnel"
+                className="gap-2 min-h-11 text-xs sm:text-sm data-[state=active]:bg-white"
+              >
+                <Users className="h-4 w-4 shrink-0" />
+                <span className="truncate">Personnel</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="prestataires"
+                className="gap-2 min-h-11 text-xs sm:text-sm data-[state=active]:bg-white"
+              >
+                <UtensilsCrossed className="h-4 w-4 shrink-0" />
+                <span className="truncate">Prestataires</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="prestataires" className="mt-0 min-w-0 focus-visible:outline-none">
+            <PrestataireManagementView
+              users={users}
+              setUsers={setUsers}
+              locations={locations}
+              createdByName={createdByName}
+            />
+          </TabsContent>
+
+          <TabsContent value="personnel" className="space-y-4 sm:space-y-6 mt-0 min-w-0 focus-visible:outline-none">
+          <div className="flex justify-end">
             <Button 
               onClick={handleCreate} 
               className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
             >
               <PlusCircle className="h-4 w-4 mr-2" />
-              Nouvel Utilisateur
+              Nouvel utilisateur
             </Button>
           </div>
 
@@ -255,11 +302,12 @@ export function UserManagementView({
           <ListPaginationBar
             currentPage={listPage}
             totalPages={listTotalPages}
-            totalItems={users.length}
+            totalItems={personnelUsers.length}
             onPageChange={setListPage}
             itemLabel="utilisateur(s)"
           />
-        </div>
+          </TabsContent>
+        </Tabs>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
@@ -372,7 +420,7 @@ export function UserManagementView({
       user={selectedUser} 
       onSave={handleSave} 
       onCancel={handleBack}
-      roles={roles}
+      roles={personnelRoles}
       services={services}
       domains={domains}
       locations={locations}

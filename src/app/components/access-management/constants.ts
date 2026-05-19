@@ -195,6 +195,12 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Processus de signature electronique DUERP.",
   },
   {
+    id: "repas",
+    label: "Repas",
+    section: "Comptabilité",
+    description: "Tickets repas mensuels avec QR code et validation prestataire.",
+  },
+  {
     id: "settings",
     label: "Paramètres",
     section: "Systeme",

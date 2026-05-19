@@ -31,7 +31,16 @@ import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
+import { RegistreAccidentSupplementFields, type RegistreFormExtended } from './RegistreAccidentSupplementFields';
+import type { AccidentDuerpRiskRef } from '@/app/utils/accidentRecord';
+import {
+  EMPTY_REGISTRE_EXTENDED,
+  normalizeRegistreAccident,
+} from '@/app/utils/registreAccidentRecord';
+import {
+  exportRegistreBeninDeclarationPdf,
+  exportRegistreBeninListPdf,
+} from '@/app/utils/registreAccidentPdfExport';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 
 interface AccidentBenin {
@@ -58,6 +67,17 @@ interface AccidentBenin {
   serviceAffectation?: string;
   domaineAffectation?: string;
   lieuAffectation?: string;
+  categorieAccident?: string;
+  typeAccidentNature?: string;
+  typeLegal?: '' | 'travail' | 'trajet' | 'maladie_pro';
+  descriptionFaits?: string;
+  causes?: string;
+  analyseCauses?: string;
+  commentaires?: string;
+  duerpRiskId?: string;
+  duerpRiskNumber?: string;
+  duerpRiskLabel?: string;
+  duerpRiskFreeText?: string;
 }
 
 interface AgentOption {
@@ -91,7 +111,13 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
     signatureSoignantImage: '',
     signatureVictimeImage: '',
     dateInscription: '2026-01-15T11:05:00',
-    observations: 'Pansement appliqué, pas de soins nécessaires'
+    observations: 'Pansement appliqué, pas de soins nécessaires',
+    categorieAccident: 'Travail',
+    typeAccidentNature: 'Coupure',
+    typeLegal: 'travail',
+    descriptionFaits: 'Coupure superficielle lors de la découpe',
+    causes: 'Lame non sécurisée',
+    commentaires: 'Surveillance 15 min',
   },
   {
     id: '2',
@@ -140,6 +166,7 @@ const FAKE_ACCIDENTS: AccidentBenin[] = [
 ];
 
 interface RegistreAccidentsViewProps {
+  risks?: AccidentDuerpRiskRef[];
   agents?: AgentOption[];
   serviceOptions?: string[];
   domainOptions?: string[];
@@ -147,6 +174,7 @@ interface RegistreAccidentsViewProps {
 }
 
 export function RegistreAccidentsView({
+  risks = [],
   agents = [],
   serviceOptions = [],
   domainOptions = [],
@@ -183,7 +211,11 @@ export function RegistreAccidentsView({
         victim.includes(normalizedSearch) ||
         acc.lieuAccident.toLowerCase().includes(normalizedSearch) ||
         acc.circonstances.toLowerCase().includes(normalizedSearch) ||
-        acc.natureLesions.toLowerCase().includes(normalizedSearch)
+        acc.natureLesions.toLowerCase().includes(normalizedSearch) ||
+        (acc.categorieAccident ?? '').toLowerCase().includes(normalizedSearch) ||
+        (acc.typeAccidentNature ?? '').toLowerCase().includes(normalizedSearch) ||
+        (acc.causes ?? '').toLowerCase().includes(normalizedSearch) ||
+        (acc.commentaires ?? '').toLowerCase().includes(normalizedSearch)
       );
     });
   }, [accidents, filterAnnee, searchTerm, filterSignature, filterSoignant]);
@@ -235,164 +267,14 @@ export function RegistreAccidentsView({
 
   const handleExportPDF = () => {
     try {
-      const pdf = new jsPDF();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      let yPos = 20;
-
-      // Header
-      pdf.setFillColor(220, 38, 38);
-      pdf.rect(0, 0, pageWidth, 50, 'F');
-      
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(24);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('REGISTRE DES ACCIDENTS', pageWidth / 2, 20, { align: 'center' });
-      pdf.setFontSize(18);
-      pdf.text('DU TRAVAIL', pageWidth / 2, 30, { align: 'center' });
-      pdf.setFontSize(12);
-      pdf.text('(Accidents bénins sans arrêt)', pageWidth / 2, 40, { align: 'center' });
-
-      yPos = 65;
-
-      // Cadre réglementaire
-      pdf.setFillColor(254, 242, 242);
-      pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 25, 3, 3, 'F');
-      pdf.setDrawColor(220, 38, 38);
-      pdf.setLineWidth(0.5);
-      pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 25, 3, 3, 'S');
-
-      yPos += 8;
-      pdf.setTextColor(153, 27, 27);
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('CADRE RÉGLEMENTAIRE', pageWidth / 2, yPos, { align: 'center' });
-      
-      yPos += 6;
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(55, 65, 81);
-      const regl = 'Article D.4711-3 du Code du travail - Registre destiné aux accidents bénins ne donnant lieu ni à arrêt de travail ni à soins pris en charge par la Sécurité sociale. Conservation: 5 ans.';
-      const reglLines = pdf.splitTextToSize(regl, pageWidth - 2 * margin - 10);
-      pdf.text(reglLines, pageWidth / 2, yPos, { align: 'center' });
-
-      yPos += 25;
-
-      // Informations générales
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(31, 41, 55);
-      pdf.text(`Date d'édition: ${new Date().toLocaleDateString('fr-FR')}`, margin, yPos);
-      pdf.text(`Total accidents: ${filteredAccidents.length}`, pageWidth - margin, yPos, { align: 'right' });
-
-      yPos += 15;
-
-      // Tableau des accidents
-      filteredAccidents.forEach((accident, index) => {
-        if (yPos > pageHeight - 60) {
-          pdf.addPage();
-          yPos = 20;
-          // Header répété
-          pdf.setFillColor(220, 38, 38);
-          pdf.rect(0, 0, pageWidth, 15, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(10);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('Registre des Accidents du Travail (suite)', pageWidth / 2, 10, { align: 'center' });
-          yPos = 30;
-        }
-
-        // Cadre accident
-        pdf.setFillColor(249, 250, 251);
-        pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 55, 2, 2, 'F');
-        pdf.setDrawColor(209, 213, 219);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 55, 2, 2, 'S');
-
-        // Numéro et date
-        pdf.setFillColor(220, 38, 38);
-        pdf.rect(margin, yPos, 25, 8, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(`N° ${accident.numero}/${accident.annee}`, margin + 12.5, yPos + 5.5, { align: 'center' });
-
-        pdf.setTextColor(31, 41, 55);
-        pdf.setFontSize(8);
-        pdf.text(`Date: ${new Date(accident.dateAccident).toLocaleDateString('fr-FR')} à ${accident.heureAccident}`, margin + 30, yPos + 5.5);
-
-        yPos += 12;
-
-        // Victime
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8);
-        pdf.setTextColor(55, 65, 81);
-        pdf.text('Victime:', margin + 3, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`${accident.prenomVictime} ${accident.nomVictime}`, margin + 20, yPos);
-
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Lieu:', margin + 90, yPos);
-        pdf.setFont('helvetica', 'normal');
-        const lieuText = pdf.splitTextToSize(accident.lieuAccident, 80);
-        pdf.text(lieuText, margin + 100, yPos);
-
-        yPos += 6;
-
-        // Circonstances
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Circonstances:', margin + 3, yPos);
-        pdf.setFont('helvetica', 'normal');
-        const circLines = pdf.splitTextToSize(accident.circonstances, pageWidth - 2 * margin - 40);
-        pdf.text(circLines, margin + 30, yPos);
-
-        yPos += 6 * circLines.length;
-
-        // Lésions
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Nature lésions:', margin + 3, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(accident.natureLesions, margin + 30, yPos);
-
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Siège:', margin + 90, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(accident.siegeLesions, margin + 100, yPos);
-
-        yPos += 6;
-
-        // Soignant
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Soignant:', margin + 3, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(accident.soignant, margin + 20, yPos);
-
-        // Signatures
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Signatures:', margin + 90, yPos);
-        pdf.setFont('helvetica', 'normal');
-        const sigText = `Soignant: ${hasSoignantSignature(accident) ? '✓' : '✗'} | Victime: ${hasVictimeSignature(accident) ? '✓' : '✗'}`;
-        pdf.text(sigText, margin + 110, yPos);
-
-        yPos += 60;
-      });
-
-      // Footer
-      const totalPages = pdf.internal.pages.length - 1;
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        const footY = pageHeight - 10;
-        pdf.setDrawColor(209, 213, 219);
-        pdf.line(margin, footY - 5, pageWidth - margin, footY - 5);
-        pdf.setTextColor(107, 114, 128);
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'italic');
-        pdf.text('Registre des Accidents du Travail - Conservation 5 ans', margin, footY);
-        pdf.text(`Page ${i}/${totalPages}`, pageWidth - margin, footY, { align: 'right' });
+      if (filteredAccidents.length === 0) {
+        toast.error('Aucun accident à exporter.');
+        return;
       }
-
-      pdf.save(`Registre_Accidents_${new Date().toISOString().split('T')[0]}.pdf`);
+      exportRegistreBeninListPdf(filteredAccidents, {
+        hasSoignantSignature,
+        hasVictimeSignature,
+      });
       toast.success('PDF généré avec succès !');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -402,6 +284,7 @@ export function RegistreAccidentsView({
 
   if (isCreating) {
     return <CreateAccidentView
+      risks={risks}
       onBack={() => setIsCreating(false)}
       agents={agents}
       serviceOptions={serviceOptions}
@@ -409,13 +292,13 @@ export function RegistreAccidentsView({
       locationOptions={locationOptions}
       onSave={(accident) => {
       const accidentYear = new Date(accident.dateAccident).getFullYear();
-      const newAccident = {
+      const newAccident = normalizeRegistreAccident({
         ...accident,
         id: Date.now().toString(),
         numero: Math.max(...accidents.map(a => a.numero), 0) + 1,
         annee: Number.isNaN(accidentYear) ? new Date().getFullYear() : accidentYear,
         dateInscription: new Date().toISOString()
-      };
+      }, risks);
       setAccidents([...accidents, newAccident]);
       setIsCreating(false);
       toast.success('Accident enregistré avec succès');
@@ -424,11 +307,12 @@ export function RegistreAccidentsView({
   }
 
   if (viewingAccident) {
-    return <ViewAccidentDetail accident={viewingAccident} onBack={() => setViewingAccident(null)} />;
+    return <ViewAccidentDetail accident={viewingAccident} risks={risks} onBack={() => setViewingAccident(null)} />;
   }
 
   if (editingAccident) {
     return <EditAccidentView 
+      risks={risks}
       accident={editingAccident} 
       onBack={() => setEditingAccident(null)}
       agents={agents}
@@ -437,10 +321,10 @@ export function RegistreAccidentsView({
       locationOptions={locationOptions}
       onSave={(updated) => {
         const updatedYear = new Date(updated.dateAccident).getFullYear();
-        setAccidents(accidents.map(a => a.id === updated.id ? {
+        setAccidents(accidents.map(a => a.id === updated.id ? normalizeRegistreAccident({
           ...updated,
           annee: Number.isNaN(updatedYear) ? a.annee : updatedYear
-        } : a));
+        }, risks) : a));
         setEditingAccident(null);
         toast.success('Accident modifié avec succès');
       }}
@@ -751,6 +635,7 @@ export function RegistreAccidentsView({
 function CreateAccidentView({
   onBack,
   onSave,
+  risks,
   agents,
   serviceOptions,
   domainOptions,
@@ -758,6 +643,7 @@ function CreateAccidentView({
 }: {
   onBack: () => void;
   onSave: (accident: Omit<AccidentBenin, 'id' | 'numero' | 'annee' | 'dateInscription'>) => void;
+  risks: AccidentDuerpRiskRef[];
   agents: AgentOption[];
   serviceOptions: string[];
   domainOptions: string[];
@@ -782,7 +668,8 @@ function CreateAccidentView({
     signatureVictimeDate: '',
     signatureSoignantImage: '',
     signatureVictimeImage: '',
-    observations: ''
+    observations: '',
+    ...EMPTY_REGISTRE_EXTENDED,
   });
 
   const filteredAgents = useMemo(
@@ -796,7 +683,7 @@ function CreateAccidentView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.nomVictime || !formData.prenomVictime || !formData.dateAccident || !formData.lieuAccident) {
+    if (!formData.nomVictime || !formData.prenomVictime || !formData.dateAccident || !formData.lieuAccident || !formData.circonstances?.trim()) {
       toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
@@ -947,25 +834,21 @@ function CreateAccidentView({
             </div>
           </div>
 
-          {/* Circonstances */}
+          <RegistreAccidentSupplementFields
+            value={formData as RegistreFormExtended}
+            onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+            risks={risks}
+            agents={agents}
+            filteredAgents={filteredAgents}
+          />
+
+          {/* Lésions */}
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
-              Circonstances et lésions
+              Lésions
             </h4>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="circonstances">Circonstances de l'accident *</Label>
-                <Textarea
-                  id="circonstances"
-                  value={formData.circonstances}
-                  onChange={(e) => setFormData({ ...formData, circonstances: e.target.value })}
-                  placeholder="Décrire ce qui s'est passé..."
-                  rows={3}
-                  required
-                />
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="natureLesions">Nature des lésions *</Label>
@@ -1077,76 +960,17 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
     hasSoignantSignature(acc) && hasVictimeSignature(acc);
   const handleExportDeclarationPDF = () => {
     try {
-      const pdf = new jsPDF();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const margin = 14;
-      let y = 18;
-
-      const addSection = (title: string, lines: string[]) => {
-        pdf.setFillColor(248, 250, 252);
-        pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 10 + lines.length * 6, 2, 2, 'F');
-        pdf.setDrawColor(226, 232, 240);
-        pdf.roundedRect(margin, y - 5, pageWidth - margin * 2, 10 + lines.length * 6, 2, 2, 'S');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(31, 41, 55);
-        pdf.setFontSize(11);
-        pdf.text(title, margin + 3, y + 1);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(51, 65, 85);
-        y += 7;
-        lines.forEach((line) => {
-          const wrapped = pdf.splitTextToSize(line, pageWidth - margin * 2 - 8);
-          pdf.text(wrapped, margin + 4, y + 1);
-          y += wrapped.length * 5;
-        });
-        y += 7;
-      };
-
-      pdf.setFillColor(220, 38, 38);
-      pdf.rect(0, 0, pageWidth, 28, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.text('Déclaration d’accident du travail', pageWidth / 2, 12, { align: 'center' });
-      pdf.setFontSize(11);
-      pdf.text(`N° ${accident.numero}/${accident.annee}`, pageWidth / 2, 20, { align: 'center' });
-
-      y = 36;
-      addSection('Identification', [
-        `Victime: ${accident.prenomVictime} ${accident.nomVictime}`,
-        `Date de l'accident: ${new Date(accident.dateAccident).toLocaleDateString('fr-FR')} à ${accident.heureAccident || 'Non renseignée'}`,
-        `Lieu: ${accident.lieuAccident}`,
-        `Date de déclaration: ${new Date(accident.dateInscription).toLocaleString('fr-FR')}`,
-      ]);
-
-      addSection('Circonstances et lésions', [
-        `Circonstances: ${accident.circonstances}`,
-        `Nature des lésions: ${accident.natureLesions}`,
-        `Siège des lésions: ${accident.siegeLesions}`,
-      ]);
-
-      addSection('Soignant et signatures', [
-        `Soignant: ${accident.soignant}`,
-        `Signature soignant: ${hasSoignantSignature(accident) ? 'Oui' : 'Non'}${accident.signatureSoignantDate ? ` (${new Date(accident.signatureSoignantDate).toLocaleDateString('fr-FR')})` : ''}`,
-        `Signature victime: ${hasVictimeSignature(accident) ? 'Oui' : 'Non'}${accident.signatureVictimeDate ? ` (${new Date(accident.signatureVictimeDate).toLocaleDateString('fr-FR')})` : ''}`,
-      ]);
-
-      if (accident.observations) {
-        addSection('Observations', [accident.observations]);
-      }
-
-      pdf.setTextColor(107, 114, 128);
-      pdf.setFontSize(8);
-      pdf.text('Document généré depuis le registre des accidents du travail', margin, 287);
-
-      pdf.save(`Declaration_Accident_${accident.numero}_${accident.annee}.pdf`);
+      exportRegistreBeninDeclarationPdf(accident, {
+        hasSoignantSignature: hasSoignantSignature(accident),
+        hasVictimeSignature: hasVictimeSignature(accident),
+      });
       toast.success('Déclaration téléchargée en PDF');
     } catch (error) {
       console.error('Error generating declaration PDF:', error);
       toast.error('Erreur lors du téléchargement de la déclaration');
     }
   };
+
 
   return (
     <div className="space-y-6">
@@ -1223,6 +1047,44 @@ function ViewAccidentDetail({ accident, onBack }: { accident: AccidentBenin; onB
             <p className="text-gray-900">{accident.circonstances}</p>
           </div>
         </div>
+
+        {(accident.categorieAccident || accident.typeAccidentNature || accident.typeLegal) && (
+          <div className="bg-indigo-50 rounded-lg p-4 space-y-2">
+            <h4 className="text-lg font-semibold text-indigo-950 mb-2">Catégorisation</h4>
+            {accident.categorieAccident && <p><span className="font-medium">Catégorie:</span> {accident.categorieAccident}</p>}
+            {accident.typeAccidentNature && <p><span className="font-medium">Type (nature):</span> {accident.typeAccidentNature}</p>}
+            {accident.typeLegal && <p><span className="font-medium">Type légal:</span> {accident.typeLegal}</p>}
+          </div>
+        )}
+        {accident.descriptionFaits && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">Description des faits</h4>
+            <p className="text-gray-900 whitespace-pre-wrap">{accident.descriptionFaits}</p>
+          </div>
+        )}
+        {(accident.causes || accident.analyseCauses) && (
+          <div className="bg-amber-50 rounded-lg p-4 space-y-2">
+            <h4 className="text-lg font-semibold text-amber-950 mb-2">Causes et analyse</h4>
+            {accident.causes && <p className="whitespace-pre-wrap"><span className="font-medium">Causes:</span> {accident.causes}</p>}
+            {accident.analyseCauses && <p className="whitespace-pre-wrap"><span className="font-medium">Analyse:</span> {accident.analyseCauses}</p>}
+          </div>
+        )}
+        {((accident.duerpRiskNumber && accident.duerpRiskLabel) || accident.duerpRiskFreeText) && (
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h4 className="text-lg font-semibold text-blue-950 mb-2">Risque DUERP</h4>
+            <p className="text-blue-900 font-medium">
+              {accident.duerpRiskNumber && accident.duerpRiskLabel
+                ? `${accident.duerpRiskNumber} — ${accident.duerpRiskLabel}`
+                : accident.duerpRiskFreeText}
+            </p>
+          </div>
+        )}
+        {accident.commentaires && (
+          <div className="bg-slate-50 rounded-lg p-4">
+            <h4 className="text-lg font-semibold text-gray-900 mb-2">Commentaires</h4>
+            <p className="text-gray-900 whitespace-pre-wrap">{accident.commentaires}</p>
+          </div>
+        )}
 
         {/* Lésions */}
         <div>
@@ -1321,6 +1183,7 @@ function EditAccidentView({
   accident,
   onBack,
   onSave,
+  risks,
   agents,
   serviceOptions,
   domainOptions,
@@ -1329,6 +1192,7 @@ function EditAccidentView({
   accident: AccidentBenin;
   onBack: () => void;
   onSave: (accident: AccidentBenin) => void;
+  risks: AccidentDuerpRiskRef[];
   agents: AgentOption[];
   serviceOptions: string[];
   domainOptions: string[];
@@ -1338,11 +1202,21 @@ function EditAccidentView({
   const hasVictimeSignature = (acc: AccidentBenin) => Boolean(acc.signatureVictimeImage) || Boolean(acc.signatureVictimeDate) || acc.signatureVictime;
 
   const [formData, setFormData] = useState({
+    ...EMPTY_REGISTRE_EXTENDED,
     ...accident,
     signatureSoignantDate: accident.signatureSoignantDate || '',
     signatureVictimeDate: accident.signatureVictimeDate || '',
     signatureSoignantImage: accident.signatureSoignantImage || '',
     signatureVictimeImage: accident.signatureVictimeImage || '',
+    categorieAccident: accident.categorieAccident ?? '',
+    typeAccidentNature: accident.typeAccidentNature ?? '',
+    typeLegal: accident.typeLegal ?? '',
+    descriptionFaits: accident.descriptionFaits ?? '',
+    causes: accident.causes ?? '',
+    analyseCauses: accident.analyseCauses ?? '',
+    commentaires: accident.commentaires ?? '',
+    duerpRiskId: accident.duerpRiskId ?? '',
+    duerpRiskFreeText: accident.duerpRiskFreeText ?? '',
   });
   const filteredAgents = useMemo(
     () => agents.filter((agent) =>
@@ -1355,6 +1229,10 @@ function EditAccidentView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.circonstances?.trim()) {
+      toast.error('Indiquez les circonstances de l\'accident.');
+      return;
+    }
     onSave(formData);
   };
 
@@ -1508,23 +1386,20 @@ function EditAccidentView({
             </div>
           </div>
 
+          <RegistreAccidentSupplementFields
+            value={formData as RegistreFormExtended}
+            onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+            risks={risks}
+            agents={agents}
+            filteredAgents={filteredAgents}
+          />
+
           <div>
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
               <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
-              Circonstances et lésions
+              Lésions
             </h4>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="circonstances">Circonstances de l'accident *</Label>
-                <Textarea
-                  id="circonstances"
-                  value={formData.circonstances}
-                  onChange={(e) => setFormData({ ...formData, circonstances: e.target.value })}
-                  rows={3}
-                  required
-                />
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="natureLesions">Nature des lésions *</Label>

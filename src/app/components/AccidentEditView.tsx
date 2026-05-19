@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -13,7 +13,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Calendar,
-  User,
+  Clock,
   Users,
   Check,
   X,
@@ -22,6 +22,18 @@ import {
   Trash2,
   ArrowLeft
 } from 'lucide-react';
+import { AccidentFormSidebar, isAccidentStoppageFormValid } from './AccidentFormSidebar';
+import { enrichAccidentWithRegulatoryGravity, normalizeAccidentStoppageFields } from '@/app/utils/accidentRegulatoryGravity';
+import { normalizeAccidentTime } from '@/app/utils/accidentDateTime';
+import { AccidentLesionsFields } from './AccidentLesionsFields';
+import { AccidentExtendedFields } from './AccidentExtendedFields';
+import {
+  normalizeAccidentRecord,
+  splitVictimName,
+  validateAccidentCore,
+  type AccidentDuerpRiskRef,
+} from '@/app/utils/accidentRecord';
+import { toast } from 'sonner';
 
 interface Accident {
   id: string;
@@ -29,8 +41,26 @@ interface Accident {
   title: string;
   description: string;
   severity: 'bénin' | 'modéré' | 'grave' | 'très_grave';
+  hasWorkStoppage?: boolean;
+  workStoppageStartDate?: string;
+  workStoppageEndDate?: string;
+  workStoppageDays?: number;
+  hasReturnToWorkMedicalConditions?: boolean;
+  returnToWorkMedicalConditions?: string;
+  regulatoryGravity?: 'G1' | 'G2' | 'G3' | 'G4' | 'G5';
+  time?: string;
   type: 'travail' | 'trajet' | 'maladie_pro';
   victim: string;
+  victimFirstName?: string;
+  victimLastName?: string;
+  accidentCategory?: string;
+  accidentEventType?: string;
+  circumstances?: string;
+  accidentCauses?: string;
+  causeAnalysis?: string;
+  comments?: string;
+  duerpRiskId?: string;
+  duerpRiskFreeText?: string;
   location: string;
   witnesses: string[];
   measures: string;
@@ -46,6 +76,7 @@ interface AccidentEditViewProps {
   accident: Accident;
   onSave: (accident: Accident) => void;
   onCancel: () => void;
+  risks: AccidentDuerpRiskRef[];
   agents: Array<{
     id: string;
     firstName: string;
@@ -63,17 +94,34 @@ export function AccidentEditView({
   accident, 
   onSave, 
   onCancel,
+  risks,
   agents,
   serviceOptions,
   domainOptions,
   locationOptions
 }: AccidentEditViewProps) {
-  const DEFAULT_LESION_SITE_OPTIONS = ['Tête', 'Cou', 'Dos', 'Membre supérieur', 'Membre inférieur', 'Main', 'Pied', 'Yeux', 'Voies respiratoires'];
-  const DEFAULT_LESION_NATURE_OPTIONS = ['Contusion', 'Coupure', 'Brûlure', 'Fracture', 'Entorse', 'Irritation', 'Lombalgie', 'Plaie', 'Traumatisme'];
-  const DEFAULT_CORRECTIVE_ACTION_OPTIONS = ['Analyse des causes', 'Mise à jour consigne sécurité', 'Formation complémentaire', 'Ajout EPI', 'Balisage de zone', 'Maintenance corrective', 'Contrôle périodique renforcé'];
-
+  const victimSplit = splitVictimName(accident.victim);
+  const stoppageInit = normalizeAccidentStoppageFields(accident);
   const [formData, setFormData] = useState<Accident>({
     ...accident,
+    victimFirstName: accident.victimFirstName ?? victimSplit.firstName,
+    victimLastName: accident.victimLastName ?? victimSplit.lastName,
+    accidentCategory: accident.accidentCategory ?? '',
+    accidentEventType: accident.accidentEventType ?? '',
+    circumstances: accident.circumstances ?? '',
+    accidentCauses: accident.accidentCauses ?? '',
+    causeAnalysis: accident.causeAnalysis ?? '',
+    comments: accident.comments ?? '',
+    duerpRiskId: accident.duerpRiskId ?? '',
+    duerpRiskFreeText: accident.duerpRiskFreeText ?? '',
+    ...stoppageInit,
+    time: normalizeAccidentTime(accident.time, accident.createdAt),
+    workStoppageStartDate:
+      stoppageInit.workStoppageStartDate ??
+      (stoppageInit.hasWorkStoppage ? accident.date : ''),
+    workStoppageEndDate: stoppageInit.workStoppageEndDate ?? '',
+    hasReturnToWorkMedicalConditions: stoppageInit.hasReturnToWorkMedicalConditions,
+    returnToWorkMedicalConditions: stoppageInit.returnToWorkMedicalConditions ?? '',
     lesionSites: accident.lesionSites || [],
     lesionNatures: accident.lesionNatures || [],
     correctiveActions: accident.correctiveActions || [],
@@ -81,16 +129,31 @@ export function AccidentEditView({
     domain: accident.domain && domainOptions.includes(accident.domain) ? accident.domain : '',
     location: locationOptions.includes(accident.location) ? accident.location : ''
   });
-  const [lesionSiteOptions, setLesionSiteOptions] = useState(DEFAULT_LESION_SITE_OPTIONS);
-  const [lesionNatureOptions, setLesionNatureOptions] = useState(DEFAULT_LESION_NATURE_OPTIONS);
-  const [correctiveActionOptions, setCorrectiveActionOptions] = useState(DEFAULT_CORRECTIVE_ACTION_OPTIONS);
-  const [newLesionSiteOption, setNewLesionSiteOption] = useState('');
-  const [newLesionNatureOption, setNewLesionNatureOption] = useState('');
-  const [newCorrectiveActionOption, setNewCorrectiveActionOption] = useState('');
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const coreError = validateAccidentCore(formData);
+    if (coreError) {
+      toast.error(coreError);
+      return;
+    }
+    const sidebarState = {
+      severity: formData.severity,
+      hasWorkStoppage: Boolean(formData.hasWorkStoppage),
+      workStoppageStartDate: formData.workStoppageStartDate ?? '',
+      workStoppageEndDate: formData.workStoppageEndDate ?? '',
+      hasReturnToWorkMedicalConditions: Boolean(formData.hasReturnToWorkMedicalConditions),
+      returnToWorkMedicalConditions: formData.returnToWorkMedicalConditions ?? '',
+    };
+    const stoppageError = isAccidentStoppageFormValid(sidebarState);
+    if (stoppageError) {
+      toast.error(stoppageError);
+      return;
+    }
+    onSave(
+      enrichAccidentWithRegulatoryGravity(
+        normalizeAccidentRecord(formData, risks),
+      ) as Accident,
+    );
   };
 
   const addWitness = () => {
@@ -183,15 +246,6 @@ export function AccidentEditView({
     );
   }, [agents, filteredAgents]);
 
-  useEffect(() => {
-    if (
-      formData.victim &&
-      !filteredAgents.some((agent) => `${agent.firstName} ${agent.lastName}` === formData.victim)
-    ) {
-      setFormData((prev) => ({ ...prev, victim: '' }));
-    }
-  }, [filteredAgents, formData.victim]);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
@@ -251,8 +305,8 @@ export function AccidentEditView({
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Date et Type */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Date, heure et type */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="date" className="text-sm font-bold text-gray-700 mb-2 flex items-center">
                   <Calendar className="h-4 w-4 mr-2 text-purple-500" />
@@ -263,6 +317,19 @@ export function AccidentEditView({
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="time" className="text-sm font-bold text-gray-700 mb-2 flex items-center">
+                  <Clock className="h-4 w-4 mr-2 text-purple-500" />
+                  Heure de l'accident
+                </Label>
+                <Input
+                  id="time"
+                  type="time"
+                  value={formData.time}
+                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   required
                 />
               </div>
@@ -289,125 +356,14 @@ export function AccidentEditView({
 
             <Separator />
 
-            <div className="bg-gradient-to-br from-red-50 to-pink-50 p-4 rounded-xl space-y-4">
-              <h3 className="font-bold text-lg text-red-700">🩺 Lésions et actions correctives</h3>
-              <div className="space-y-3">
-                <Label className="text-sm font-bold text-red-900">Siège(s) de lésion</Label>
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                  <Input value={newLesionSiteOption} onChange={(e) => setNewLesionSiteOption(e.target.value)} placeholder="Ajouter un siège de lésion" />
-                  <Button type="button" variant="outline" onClick={() => addOption(newLesionSiteOption, lesionSiteOptions, setLesionSiteOptions, () => setNewLesionSiteOption(''))}>
-                    Ajouter à la liste
-                  </Button>
-                </div>
-                {(formData.lesionSites || []).map((value, idx) => (
-                  <div key={`lesion-site-${idx}`} className="flex gap-2">
-                    <Select
-                      value={value}
-                      onValueChange={(selected) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          lesionSites: (prev.lesionSites || []).map((item, i) => (i === idx ? selected : item)),
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Sélectionner un siège de lésion" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {lesionSiteOptions.map((option) => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="ghost" className="text-red-600" onClick={() => setFormData((prev) => ({ ...prev, lesionSites: (prev.lesionSites || []).filter((_, i) => i !== idx) }))}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" size="sm" onClick={() => setFormData((prev) => ({ ...prev, lesionSites: [...(prev.lesionSites || []), lesionSiteOptions[0] || ''] }))}>
-                  <PlusCircle className="h-4 w-4 mr-1" />
-                  Ajouter un siège
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-bold text-red-900">Nature(s) de lésion</Label>
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                  <Input value={newLesionNatureOption} onChange={(e) => setNewLesionNatureOption(e.target.value)} placeholder="Ajouter une nature de lésion" />
-                  <Button type="button" variant="outline" onClick={() => addOption(newLesionNatureOption, lesionNatureOptions, setLesionNatureOptions, () => setNewLesionNatureOption(''))}>
-                    Ajouter à la liste
-                  </Button>
-                </div>
-                {(formData.lesionNatures || []).map((value, idx) => (
-                  <div key={`lesion-nature-${idx}`} className="flex gap-2">
-                    <Select
-                      value={value}
-                      onValueChange={(selected) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          lesionNatures: (prev.lesionNatures || []).map((item, i) => (i === idx ? selected : item)),
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Sélectionner une nature de lésion" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {lesionNatureOptions.map((option) => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="ghost" className="text-red-600" onClick={() => setFormData((prev) => ({ ...prev, lesionNatures: (prev.lesionNatures || []).filter((_, i) => i !== idx) }))}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" size="sm" onClick={() => setFormData((prev) => ({ ...prev, lesionNatures: [...(prev.lesionNatures || []), lesionNatureOptions[0] || ''] }))}>
-                  <PlusCircle className="h-4 w-4 mr-1" />
-                  Ajouter une nature
-                </Button>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-bold text-red-900">Action(s) corrective(s)</Label>
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                  <Input value={newCorrectiveActionOption} onChange={(e) => setNewCorrectiveActionOption(e.target.value)} placeholder="Ajouter une action corrective" />
-                  <Button type="button" variant="outline" onClick={() => addOption(newCorrectiveActionOption, correctiveActionOptions, setCorrectiveActionOptions, () => setNewCorrectiveActionOption(''))}>
-                    Ajouter à la liste
-                  </Button>
-                </div>
-                {(formData.correctiveActions || []).map((value, idx) => (
-                  <div key={`corrective-action-${idx}`} className="flex gap-2">
-                    <Select
-                      value={value}
-                      onValueChange={(selected) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          correctiveActions: (prev.correctiveActions || []).map((item, i) => (i === idx ? selected : item)),
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Sélectionner une action corrective" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {correctiveActionOptions.map((option) => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="ghost" className="text-red-600" onClick={() => setFormData((prev) => ({ ...prev, correctiveActions: (prev.correctiveActions || []).filter((_, i) => i !== idx) }))}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                <Button type="button" size="sm" onClick={() => setFormData((prev) => ({ ...prev, correctiveActions: [...(prev.correctiveActions || []), correctiveActionOptions[0] || ''] }))}>
-                  <PlusCircle className="h-4 w-4 mr-1" />
-                  Ajouter une action corrective
-                </Button>
-              </div>
-            </div>
+            <AccidentLesionsFields
+              value={{
+                lesionSites: formData.lesionSites || [],
+                lesionNatures: formData.lesionNatures || [],
+                correctiveActions: formData.correctiveActions || [],
+              }}
+              onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+            />
 
             <Separator />
 
@@ -474,37 +430,27 @@ export function AccidentEditView({
 
             <Separator />
 
-            {/* Victime */}
-            <div className="grid grid-cols-1 gap-4">
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl">
-                <Label htmlFor="victim" className="text-sm font-bold text-purple-900 mb-2 flex items-center">
-                  <User className="h-4 w-4 mr-2" />
-                  Victime (agents filtrés)
-                </Label>
-                <Select
-                  value={formData.victim}
-                  onValueChange={(value) => setFormData({ ...formData, victim: value })}
-                  disabled={filteredAgents.length === 0}
-                >
-                  <SelectTrigger id="victim" className="bg-white border-purple-200">
-                    <SelectValue placeholder={filteredAgents.length === 0 ? "Aucun agent pour ce filtre" : "Sélectionner un agent"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredAgents.map((agent) => {
-                      const fullName = `${agent.firstName} ${agent.lastName}`;
-                      return (
-                        <SelectItem key={agent.id} value={fullName}>
-                          {fullName}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-purple-700 mt-2">
-                  Service : {formData.service || "Non défini"} · Domaine : {formData.domain || "Non défini"} · Lieu : {formData.location || "Non défini"}
-                </p>
-              </div>
-            </div>
+            <AccidentExtendedFields
+              value={{
+                accidentCategory: formData.accidentCategory ?? '',
+                accidentEventType: formData.accidentEventType ?? '',
+                victimFirstName: formData.victimFirstName ?? '',
+                victimLastName: formData.victimLastName ?? '',
+                circumstances: formData.circumstances ?? '',
+                accidentCauses: formData.accidentCauses ?? '',
+                causeAnalysis: formData.causeAnalysis ?? '',
+                comments: formData.comments ?? '',
+                duerpRiskId: formData.duerpRiskId ?? '',
+                duerpRiskFreeText: formData.duerpRiskFreeText ?? '',
+              }}
+              onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+              risks={risks}
+              agents={agents}
+              filteredAgents={filteredAgents}
+              location={formData.location}
+              accidentDate={formData.date}
+              accidentTime={formData.time ?? ''}
+            />
 
             <Separator />
 
@@ -519,7 +465,7 @@ export function AccidentEditView({
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 className="bg-white border-orange-200 min-h-[120px]"
-                placeholder="Décrivez les circonstances de l'accident..."
+                placeholder="Résumé factuel de l'accident (constat immédiat)…"
                 required
               />
             </div>
@@ -602,58 +548,18 @@ export function AccidentEditView({
           </CardContent>
         </Card>
 
-        {/* Sidebar - Severity */}
-        <div className="space-y-6">
-          {/* Severity Card */}
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <AlertTriangle className="h-5 w-5 mr-2 text-red-500" />
-                Gravité
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Select
-                value={formData.severity}
-                onValueChange={(value) => setFormData({ ...formData, severity: value as any })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bénin">Bénin</SelectItem>
-                  <SelectItem value="modéré">Modéré</SelectItem>
-                  <SelectItem value="grave">Grave</SelectItem>
-                  <SelectItem value="très_grave">Très grave</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className={`text-center p-4 rounded-xl bg-gradient-to-br ${severityGradient} bg-opacity-10 border-2`}>
-                <p className={`${severityTextClass} text-xs font-semibold mb-1`}>Niveau de gravité sélectionné</p>
-                <p className={`${severityTextClass} font-bold text-2xl`}>
-                  {getSeverityLabel(formData.severity)}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Info Card */}
-          <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-50 to-cyan-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                <div className="text-sm text-blue-900">
-                  <p className="font-bold mb-2">Informations importantes</p>
-                  <ul className="space-y-1 text-blue-800">
-                    <li>• Vérifiez tous les champs</li>
-                    <li>• Ajoutez les témoins si présents</li>
-                    <li>• Décrivez les mesures prises</li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <AccidentFormSidebar
+          isEdit
+          formData={{
+            severity: formData.severity,
+            hasWorkStoppage: Boolean(formData.hasWorkStoppage),
+            workStoppageStartDate: formData.workStoppageStartDate ?? '',
+            workStoppageEndDate: formData.workStoppageEndDate ?? '',
+            hasReturnToWorkMedicalConditions: Boolean(formData.hasReturnToWorkMedicalConditions),
+            returnToWorkMedicalConditions: formData.returnToWorkMedicalConditions ?? '',
+          }}
+          onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+        />
       </div>
     </form>
   );

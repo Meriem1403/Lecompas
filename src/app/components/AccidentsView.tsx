@@ -5,7 +5,14 @@ import { Separator } from './ui/separator';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Activity, MapPin, AlertCircle, AlertTriangle, Calendar, User, Users, Check, Edit, Trash2, PlusCircle, ArrowLeft } from 'lucide-react';
+import { Activity, MapPin, AlertCircle, AlertTriangle, Calendar, Clock, User, Users, Check, Edit, Trash2, PlusCircle, ArrowLeft, Stethoscope, Bandage, ClipboardList, CalendarRange, HeartPulse, Scale, BookOpen, FileText, Download } from 'lucide-react';
+import {
+  exportAccidentDeclarationPdf,
+  exportAccidentsListPdf,
+  type AccidentPdfSource,
+} from '@/app/utils/accidentPdfExport';
+import { getLegalTypeLabel } from '@/app/utils/accidentRecord';
+import type { AccidentDuerpRiskRef } from '@/app/utils/accidentRecord';
 import { AccidentEditView } from './AccidentEditView';
 import { AccidentCreateView } from './AccidentCreateView';
 import { toast } from 'sonner';
@@ -20,16 +27,48 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from './ui/list-pagination-bar';
+import {
+  getRegulatoryGravityBadgeClass,
+  normalizeAccidentStoppageFields,
+  REGULATORY_GRAVITY_LABELS,
+  REGULATORY_GRAVITY_SHORT,
+  formatStoppagePeriodFr,
+} from '@/app/utils/accidentRegulatoryGravity';
+import {
+  formatAccidentDateFr,
+  formatAccidentDateTimeFr,
+  normalizeAccidentTime,
+} from '@/app/utils/accidentDateTime';
 
 interface Accident {
   id: string;
   date: string;
+  time?: string;
   title: string;
   description: string;
+  accidentCategory?: string;
+  accidentEventType?: string;
   severity: 'bénin' | 'modéré' | 'grave' | 'très_grave';
+  hasWorkStoppage?: boolean;
+  workStoppageStartDate?: string;
+  workStoppageEndDate?: string;
+  workStoppageDays?: number;
+  hasReturnToWorkMedicalConditions?: boolean;
+  returnToWorkMedicalConditions?: string;
+  regulatoryGravity?: 'G1' | 'G2' | 'G3' | 'G4' | 'G5';
   type: 'travail' | 'trajet' | 'maladie_pro';
   victim: string;
+  victimFirstName?: string;
+  victimLastName?: string;
   location: string;
+  circumstances?: string;
+  accidentCauses?: string;
+  causeAnalysis?: string;
+  comments?: string;
+  duerpRiskId?: string;
+  duerpRiskNumber?: string;
+  duerpRiskLabel?: string;
+  duerpRiskFreeText?: string;
   witnesses: string[];
   measures: string;
   lesionSites?: string[];
@@ -42,6 +81,7 @@ interface Accident {
 
 interface AccidentsViewProps {
   accidents: Accident[];
+  risks: AccidentDuerpRiskRef[];
   onAdd: (accident: Omit<Accident, 'id' | 'createdAt'>) => void;
   onUpdate: (accident: Omit<Accident, 'createdAt'> & { id: string }) => void;
   onDelete: (id: string) => void;
@@ -58,8 +98,56 @@ interface AccidentsViewProps {
   locationOptions: string[];
 }
 
+function toAccidentPdfSource(accident: Accident): AccidentPdfSource {
+  return {
+    id: accident.id,
+    title: accident.title,
+    date: accident.date,
+    time: accident.time,
+    createdAt: accident.createdAt,
+    type: accident.type,
+    accidentCategory: accident.accidentCategory,
+    accidentEventType: accident.accidentEventType,
+    victim: accident.victim,
+    victimFirstName: accident.victimFirstName,
+    victimLastName: accident.victimLastName,
+    location: accident.location,
+    service: accident.service,
+    domain: accident.domain,
+    description: accident.description,
+    circumstances: accident.circumstances,
+    accidentCauses: accident.accidentCauses,
+    causeAnalysis: accident.causeAnalysis,
+    comments: accident.comments,
+    measures: accident.measures,
+    severity: accident.severity,
+    witnesses: accident.witnesses ?? [],
+    lesionSites: accident.lesionSites,
+    lesionNatures: accident.lesionNatures,
+    correctiveActions: accident.correctiveActions,
+    duerpRiskNumber: accident.duerpRiskNumber,
+    duerpRiskLabel: accident.duerpRiskLabel,
+    duerpRiskFreeText: accident.duerpRiskFreeText,
+    hasWorkStoppage: accident.hasWorkStoppage,
+    workStoppageStartDate: accident.workStoppageStartDate,
+    workStoppageEndDate: accident.workStoppageEndDate,
+    workStoppageDays: accident.workStoppageDays,
+    hasReturnToWorkMedicalConditions: accident.hasReturnToWorkMedicalConditions,
+    returnToWorkMedicalConditions: accident.returnToWorkMedicalConditions,
+    regulatoryGravity: accident.regulatoryGravity,
+  };
+}
+
+function formatDuerpRiskLine(accident: Accident): string {
+  if (accident.duerpRiskNumber && accident.duerpRiskLabel) {
+    return `${accident.duerpRiskNumber} — ${accident.duerpRiskLabel}`;
+  }
+  return accident.duerpRiskFreeText?.trim() || '';
+}
+
 export function AccidentsView({
   accidents,
+  risks,
   onAdd,
   onUpdate,
   onDelete,
@@ -83,11 +171,21 @@ export function AccidentsView({
   const filteredAccidents = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return accidents.filter((accident) => {
+      const victimSearch = [
+        accident.victim,
+        accident.victimFirstName,
+        accident.victimLastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
       const matchesSearch =
         normalizedSearch.length === 0 ||
         accident.title.toLowerCase().includes(normalizedSearch) ||
-        accident.victim.toLowerCase().includes(normalizedSearch) ||
-        accident.location.toLowerCase().includes(normalizedSearch);
+        victimSearch.includes(normalizedSearch) ||
+        accident.location.toLowerCase().includes(normalizedSearch) ||
+        (accident.accidentCategory ?? '').toLowerCase().includes(normalizedSearch) ||
+        (accident.accidentEventType ?? '').toLowerCase().includes(normalizedSearch);
       const matchesType = typeFilter === 'all' || accident.type === typeFilter;
       const matchesSeverity = severityFilter === 'all' || accident.severity === severityFilter;
       const matchesDate = !dateFilter || accident.date === dateFilter;
@@ -150,6 +248,30 @@ export function AccidentsView({
     }
   };
 
+  const handleExportListPdf = () => {
+    try {
+      if (filteredAccidents.length === 0) {
+        toast.error('Aucun accident à exporter pour les filtres actuels.');
+        return;
+      }
+      exportAccidentsListPdf(filteredAccidents.map(toAccidentPdfSource));
+      toast.success('Export PDF généré avec succès');
+    } catch (error) {
+      console.error(error);
+      toast.error('Erreur lors de la génération du PDF');
+    }
+  };
+
+  const handleExportDetailPdf = (accident: Accident) => {
+    try {
+      exportAccidentDeclarationPdf(toAccidentPdfSource(accident));
+      toast.success('Déclaration téléchargée en PDF');
+    } catch (error) {
+      console.error(error);
+      toast.error('Erreur lors du téléchargement de la déclaration');
+    }
+  };
+
   // Si on est en mode création, afficher uniquement la page de création
   if (isCreating) {
     return (
@@ -157,6 +279,7 @@ export function AccidentsView({
         onSave={handleSaveCreate}
         onCancel={handleCancelCreate}
         agents={agents}
+        risks={risks}
         serviceOptions={serviceOptions}
         domainOptions={domainOptions}
         locationOptions={locationOptions}
@@ -172,6 +295,7 @@ export function AccidentsView({
         onSave={handleSaveEdit}
         onCancel={handleCancelEdit}
         agents={agents}
+        risks={risks}
         serviceOptions={serviceOptions}
         domainOptions={domainOptions}
         locationOptions={locationOptions}
@@ -211,6 +335,15 @@ export function AccidentsView({
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:flex-wrap pt-4 border-t border-gray-200">
               <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleExportDetailPdf(viewingAccident)}
+                className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Télécharger la déclaration
+              </Button>
+              <Button
                 onClick={() => {
                   setEditingAccident(viewingAccident);
                   setViewingAccident(null);
@@ -241,16 +374,19 @@ export function AccidentsView({
                   <div className="flex-1">
                     <h3 className="font-bold text-xl text-gray-900">{viewingAccident.title}</h3>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-purple-500" />
-                        <span className="font-semibold text-gray-700">
-                          {new Date(viewingAccident.date).toLocaleDateString('fr-FR', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })}
-                        </span>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-purple-500" />
+                          <span className="font-semibold text-gray-700">
+                            {formatAccidentDateFr(viewingAccident.date)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Clock className="h-4 w-4 text-purple-500" />
+                          <span className="font-semibold text-gray-700">
+                            {normalizeAccidentTime(viewingAccident.time, viewingAccident.createdAt)}
+                          </span>
+                        </div>
                       </div>
                       <Badge variant="outline" className={`capitalize font-bold bg-gradient-to-r ${severityGradient} text-white border-0`}>
                         {viewingAccident.type.replace('_', ' ')}
@@ -258,9 +394,19 @@ export function AccidentsView({
                     </div>
                   </div>
                 </div>
-                <Badge className={`bg-gradient-to-r ${severityGradient} text-white border-0 shadow-lg text-base px-4 py-2 capitalize`}>
-                  {viewingAccident.severity}
-                </Badge>
+                <div className="flex flex-col gap-2 items-end">
+                  {(() => {
+                    const g = normalizeAccidentStoppageFields(viewingAccident).regulatoryGravity;
+                    return (
+                      <Badge className={`${getRegulatoryGravityBadgeClass(g)} border-0 shadow-lg text-base px-4 py-2`}>
+                        {g} — {REGULATORY_GRAVITY_SHORT[g]}
+                      </Badge>
+                    );
+                  })()}
+                  <Badge className={`bg-gradient-to-r ${severityGradient} text-white border-0 shadow-lg text-base px-4 py-2 capitalize`}>
+                    Dashboard : {viewingAccident.severity}
+                  </Badge>
+                </div>
               </div>
 
               <Separator className="my-4" />
@@ -271,13 +417,16 @@ export function AccidentsView({
                   <p className="font-mono text-sm font-semibold text-slate-900 mt-1">{viewingAccident.id}</p>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Type</p>
-                  <p className="text-sm font-semibold text-slate-900 mt-1 capitalize">{viewingAccident.type.replace('_', ' ')}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Type légal</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{getLegalTypeLabel(viewingAccident.type)}</p>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Date de l'accident</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Date et heure</p>
                   <p className="text-sm font-semibold text-slate-900 mt-1">
-                    {new Date(viewingAccident.date).toLocaleDateString('fr-FR')}
+                    {formatAccidentDateTimeFr(
+                      viewingAccident.date,
+                      viewingAccident.time ?? normalizeAccidentTime(undefined, viewingAccident.createdAt),
+                    )}
                   </p>
                 </div>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
@@ -286,7 +435,72 @@ export function AccidentsView({
                     {new Date(viewingAccident.createdAt).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
+                {(() => {
+                  const stoppage = normalizeAccidentStoppageFields(viewingAccident);
+                  return (
+                    <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 md:col-span-2 xl:col-span-4 space-y-2">
+                      <p className="text-xs uppercase tracking-wide text-teal-700 flex items-center gap-1.5">
+                        <Scale className="h-3.5 w-3.5" aria-hidden />
+                        Arrêt de travail et gravité réglementaire
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={getRegulatoryGravityBadgeClass(stoppage.regulatoryGravity)}>
+                          {stoppage.regulatoryGravity}
+                        </Badge>
+                        <span className="text-sm font-semibold text-teal-950">
+                          {REGULATORY_GRAVITY_LABELS[stoppage.regulatoryGravity]}
+                        </span>
+                      </div>
+                      <p className="text-sm text-teal-900 flex items-start gap-2">
+                        <CalendarRange className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+                        <span>
+                          {formatStoppagePeriodFr(
+                            stoppage.hasWorkStoppage,
+                            stoppage.workStoppageStartDate,
+                            stoppage.workStoppageEndDate,
+                          )}
+                          {stoppage.hasWorkStoppage && stoppage.workStoppageDays != null && (
+                            <>
+                              {" "}
+                              — {stoppage.workStoppageDays} jour
+                              {stoppage.workStoppageDays > 1 ? "s" : ""} calendaire
+                              {stoppage.workStoppageDays > 1 ? "s" : ""}
+                            </>
+                          )}
+                        </span>
+                      </p>
+                      <p className="text-sm text-teal-900 flex items-start gap-2">
+                        <HeartPulse className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+                        {stoppage.hasReturnToWorkMedicalConditions ? (
+                          <span>
+                            <span className="font-semibold">Reprise — médecine du travail : </span>
+                            {stoppage.returnToWorkMedicalConditions || "Oui (non détaillé)"}
+                          </span>
+                        ) : (
+                          <span>Aucune condition médicale de reprise renseignée</span>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
+
+              {(viewingAccident.accidentCategory || viewingAccident.accidentEventType) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {viewingAccident.accidentCategory && (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                      <p className="text-xs uppercase tracking-wide text-indigo-700">Catégorie</p>
+                      <p className="text-sm font-semibold text-indigo-950 mt-1">{viewingAccident.accidentCategory}</p>
+                    </div>
+                  )}
+                  {viewingAccident.accidentEventType && (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                      <p className="text-xs uppercase tracking-wide text-indigo-700">Type (nature)</p>
+                      <p className="text-sm font-semibold text-indigo-950 mt-1">{viewingAccident.accidentEventType}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-xl border border-purple-100">
@@ -295,6 +509,13 @@ export function AccidentsView({
                     Victime
                   </p>
                   <p className="font-bold text-lg text-purple-700">{viewingAccident.victim}</p>
+                  {(viewingAccident.victimFirstName || viewingAccident.victimLastName) && (
+                    <p className="text-sm text-purple-800 mt-1">
+                      Prénom : <span className="font-medium">{viewingAccident.victimFirstName || '—'}</span>
+                      {' · '}
+                      Nom : <span className="font-medium">{viewingAccident.victimLastName || '—'}</span>
+                    </p>
+                  )}
                 </div>
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
                   <p className="text-sm font-bold text-blue-900 mb-2 flex items-center">
@@ -312,6 +533,43 @@ export function AccidentsView({
                 </p>
                 <p className="text-gray-700 leading-relaxed">{viewingAccident.description}</p>
               </div>
+
+              {viewingAccident.circumstances && (
+                <div className="bg-orange-50/80 border border-orange-200 rounded-xl p-5 mb-4">
+                  <p className="text-sm font-bold text-orange-950 mb-2 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" aria-hidden />
+                    Circonstances
+                  </p>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{viewingAccident.circumstances}</p>
+                </div>
+              )}
+
+              {(viewingAccident.accidentCauses || viewingAccident.causeAnalysis) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-4 space-y-4">
+                  {viewingAccident.accidentCauses && (
+                    <div>
+                      <p className="text-sm font-bold text-amber-950 mb-2">Causes de l&apos;accident</p>
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{viewingAccident.accidentCauses}</p>
+                    </div>
+                  )}
+                  {viewingAccident.causeAnalysis && (
+                    <div>
+                      <p className="text-sm font-bold text-amber-950 mb-2">Analyse des causes</p>
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{viewingAccident.causeAnalysis}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formatDuerpRiskLine(viewingAccident) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                  <p className="text-sm font-bold text-blue-950 mb-2 flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" aria-hidden />
+                    Risque DUERP
+                  </p>
+                  <p className="text-sm text-blue-900 font-medium">{formatDuerpRiskLine(viewingAccident)}</p>
+                </div>
+              )}
 
               <div className="mb-4 bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-xl border border-amber-100">
                 <p className="text-sm font-bold text-amber-900 mb-3 flex items-center">
@@ -341,31 +599,90 @@ export function AccidentsView({
                 </p>
               </div>
 
-              {((viewingAccident.lesionSites && viewingAccident.lesionSites.length > 0) ||
-                (viewingAccident.lesionNatures && viewingAccident.lesionNatures.length > 0) ||
-                (viewingAccident.correctiveActions && viewingAccident.correctiveActions.length > 0)) && (
-                <div className="mt-4 space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
-                  <p className="text-sm font-bold text-rose-900">Lésions et actions correctives</p>
-                  <p className="text-sm text-slate-700">
-                    <span className="font-semibold">Siège(s) de lésion : </span>
-                    {(viewingAccident.lesionSites || []).join(', ') || '—'}
+              {viewingAccident.comments && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 mt-4">
+                  <p className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                    <FileText className="h-4 w-4" aria-hidden />
+                    Commentaires
                   </p>
-                  <p className="text-sm text-slate-700">
-                    <span className="font-semibold">Nature(s) de lésion : </span>
-                    {(viewingAccident.lesionNatures || []).join(', ') || '—'}
-                  </p>
-                  <p className="text-sm text-slate-700">
-                    <span className="font-semibold">Action(s) corrective(s) : </span>
-                    {(viewingAccident.correctiveActions || []).join(', ') || '—'}
-                  </p>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{viewingAccident.comments}</p>
                 </div>
               )}
+
+              <section className="mt-4 rounded-xl border border-rose-200 bg-rose-50/80 p-4 space-y-4" aria-labelledby="consult-lesions-heading">
+                <h4 id="consult-lesions-heading" className="text-sm font-bold text-rose-950 flex items-center gap-2">
+                  <Stethoscope className="h-5 w-5 text-rose-700" aria-hidden />
+                  Lésions et actions correctives
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold text-rose-900 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                      <Bandage className="h-3.5 w-3.5" aria-hidden />
+                      Siège(s) de lésion
+                    </p>
+                    {(viewingAccident.lesionSites || []).length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(viewingAccident.lesionSites || []).map((site) => (
+                          <Badge key={site} variant="outline" className="bg-white border-rose-300 text-rose-950">
+                            {site}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-600">Non renseigné</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-rose-900 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                      <Stethoscope className="h-3.5 w-3.5" aria-hidden />
+                      Nature(s) de lésion
+                    </p>
+                    {(viewingAccident.lesionNatures || []).length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(viewingAccident.lesionNatures || []).map((nature) => (
+                          <Badge key={nature} variant="outline" className="bg-white border-rose-300 text-rose-950">
+                            {nature}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-600">Non renseigné</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-rose-900 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+                      <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                      Action(s) corrective(s)
+                    </p>
+                    {(viewingAccident.correctiveActions || []).length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(viewingAccident.correctiveActions || []).map((action) => (
+                          <Badge key={action} variant="outline" className="bg-white border-rose-300 text-rose-950">
+                            {action}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-600">Non renseigné</p>
+                    )}
+                  </div>
+                </div>
+              </section>
 
               <div className="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p className="text-sm font-bold text-slate-800 mb-2">Synthèse consultation</p>
                 <p className="text-sm text-slate-700">
-                  Accident de type <span className="font-semibold capitalize">{viewingAccident.type.replace('_', ' ')}</span>,
-                  gravité <span className="font-semibold capitalize">{viewingAccident.severity}</span>, déclaré le{" "}
+                  Survenu le{" "}
+                  <span className="font-semibold">
+                    {formatAccidentDateTimeFr(viewingAccident.date, viewingAccident.time)}
+                  </span>
+                  , type <span className="font-semibold capitalize">{viewingAccident.type.replace('_', ' ')}</span>,
+                  gravité dashboard <span className="font-semibold capitalize">{viewingAccident.severity}</span>,{" "}
+                  classement réglementaire{" "}
+                  <span className="font-semibold">
+                    {normalizeAccidentStoppageFields(viewingAccident).regulatoryGravity}
+                  </span>
+                  , déclaré le{" "}
                   <span className="font-semibold">{new Date(viewingAccident.createdAt).toLocaleDateString('fr-FR')}</span>.
                 </p>
               </div>
@@ -401,20 +718,31 @@ export function AccidentsView({
             <h3 className="text-2xl font-bold text-gray-900">Liste des accidents</h3>
             <p className="text-gray-600">Gérez les déclarations d'accidents du travail</p>
           </div>
-          <Button
-            onClick={handleAdd}
-            className="w-full lg:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
-          >
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Déclarer un accident
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleExportListPdf}
+              className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exporter PDF
+            </Button>
+            <Button
+              onClick={handleAdd}
+              className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Déclarer un accident
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher par titre, victime ou lieu"
+            placeholder="Rechercher par titre, victime, catégorie ou lieu"
             className="bg-white"
           />
           <Input
@@ -489,14 +817,12 @@ export function AccidentsView({
                           <h3 className="font-bold text-xl text-gray-900">{accident.title}</h3>
                           <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 text-sm">
                             <div className="flex items-center space-x-2">
-                              <Calendar className="h-4 w-4 text-purple-500" />
+                              <Calendar className="h-4 w-4 text-purple-500 shrink-0" />
                               <span className="font-semibold text-gray-700">
-                                {new Date(accident.date).toLocaleDateString('fr-FR', { 
-                                  weekday: 'long', 
-                                  year: 'numeric', 
-                                  month: 'long', 
-                                  day: 'numeric' 
-                                })}
+                                {formatAccidentDateTimeFr(
+                                  accident.date,
+                                  accident.time ?? normalizeAccidentTime(undefined, accident.createdAt),
+                                )}
                               </span>
                             </div>
                             <Badge variant="outline" className={`capitalize font-bold bg-gradient-to-r ${severityGradient} text-white border-0`}>
@@ -530,9 +856,14 @@ export function AccidentsView({
                             Supprimer
                           </Button>
                         </div>
-                        <Badge className={`bg-gradient-to-r ${severityGradient} text-white border-0 shadow-lg text-base px-4 py-2 capitalize`}>
-                          {accident.severity}
-                        </Badge>
+                        <div className="flex flex-col gap-1 items-end">
+                          <Badge className={`${getRegulatoryGravityBadgeClass(normalizeAccidentStoppageFields(accident).regulatoryGravity)} border-0 text-sm px-3 py-1`}>
+                            {normalizeAccidentStoppageFields(accident).regulatoryGravity}
+                          </Badge>
+                          <Badge className={`bg-gradient-to-r ${severityGradient} text-white border-0 shadow-lg text-sm px-3 py-1 capitalize`}>
+                            {accident.severity}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
 
