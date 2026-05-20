@@ -268,6 +268,26 @@ export function countUserMonthTickets(
   return getUserMonthTickets(tickets, userId, month).length;
 }
 
+/**
+ * Base pour attribuer mealIndex aux nouveaux tickets (toujours > aux numéros déjà pris).
+ * Évite deux « Repas n°1 » lorsque des doublons existent ou que la liste d’agents contient deux fois la même personne.
+ */
+export function getNextMealIndexBase(
+  tickets: MealTicket[],
+  userId: string,
+  month: string,
+): number {
+  const list = getUserMonthTickets(tickets, userId, month);
+  let maxDeclared = 0;
+  for (const t of list) {
+    const n = t.mealIndex;
+    if (typeof n === "number" && Number.isFinite(n) && n > maxDeclared) {
+      maxDeclared = n;
+    }
+  }
+  return Math.max(list.length, maxDeclared);
+}
+
 /** @deprecated Utiliser countUserMonthTickets / userHasFullMealAllocation */
 export function hasActiveTicketForMonth(
   tickets: MealTicket[],
@@ -433,6 +453,16 @@ export function generateMonthlyTickets({
     eligibleRecipients = eligibleRecipients.filter((u) => idSet.has(u.id));
   }
 
+  /** Évite deux passes de génération sur le même id (liste annuaire dupliquée). */
+  {
+    const seen = new Set<string>();
+    eligibleRecipients = eligibleRecipients.filter((u) => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id);
+      return true;
+    });
+  }
+
   const perPerson = Math.max(1, Math.min(31, Math.floor(mealsPerPerson)));
 
   const monthTickets = ticketsBase.filter((t) => t.month === month);
@@ -468,8 +498,10 @@ export function generateMonthlyTickets({
       });
     }
 
+    const mealIndexBase = getNextMealIndexBase(ticketsBase, agent.id, month);
+
     for (let i = 0; i < toCreate; i += 1) {
-      const mealIndex = existingCount + i + 1;
+      const mealIndex = mealIndexBase + i + 1;
       const ticket: MealTicket = {
         id: crypto.randomUUID(),
         ticketNumber: generateTicketNumber(month, sequence),
