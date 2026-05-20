@@ -1,16 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr" translate="no" class="notranslate">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Empêcher Google / Chrome / Edge d’injecter des wrappers autour du texte React (crash insertBefore) -->
+    <meta name="google" content="notranslate" />
+    <meta name="googlebot" content="notranslate" />
+    <title>Le Compas</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      #root {
+        height: 100%;
+      }
+    </style>
+  </head>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Le Compas</title>
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-    </head>
-
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+  <body translate="no" class="notranslate">
+    <div id="root" translate="no" class="notranslate"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
