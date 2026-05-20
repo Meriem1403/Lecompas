@@ -65,9 +65,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       if (!success) {
         setError('Email ou mot de passe incorrect');
         toast.error('Échec de la connexion');
-      } else {
-        toast.success('Connexion réussie !');
       }
+      /** Pas de toast de succès : il provoquait insertBefore sur Chrome Android (Sonner + swap de vue). */
     } catch (err) {
       setError('Une erreur est survenue lors de la connexion');
       toast.error('Erreur de connexion');
@@ -83,11 +82,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       const success = await onLogin(demoEmail, demoPassword, false);
-      
-      if (success) {
-        toast.success(`Connecté en tant que ${demoEmail}`);
+      if (!success) {
+        setError("Compte ou mot de passe non reconnu.");
+        toast.error("Échec de la connexion");
       }
     } catch (err) {
       setError('Erreur lors de la connexion démo');
@@ -295,9 +294,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
               {/* Demo accounts */}
               <div className="space-y-3">
-                {demoAccounts.map((account, index) => (
+                {demoAccounts.map((account) => (
                   <button
-                    key={index}
+                    key={account.email}
                     type="button"
                     onClick={() => handleDemoLogin(account.email, account.password)}
                     disabled={isLoading}

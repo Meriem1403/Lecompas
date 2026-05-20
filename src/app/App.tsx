@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, startTransition } from "react";
 import {
   Card,
   CardContent,
@@ -1289,25 +1289,32 @@ export default function App() {
       location: fallback.location,
     });
 
-    setUser(resolvedUser);
-    setAccessToken(token);
-    setIsAuthenticated(true);
+    /**
+     * startTransition évite un conflit DOM (insertBefore) sur Chrome Android :
+     * le démontage brutal de la page de login + mise à jour Sonner en même temps
+     * faisait planter le moteur de rendu.
+     */
+    startTransition(() => {
+      setUser(resolvedUser);
+      setAccessToken(token);
+      setIsAuthenticated(true);
 
-    if (rememberMe) {
-      localStorage.setItem(
-        "duerp_user",
-        JSON.stringify({
-          id: resolvedUser.id,
-          email: resolvedUser.email,
-          name: resolvedUser.name,
-          role: resolvedUser.role,
-          service: resolvedUser.service,
-          domain: resolvedUser.domain,
-          location: resolvedUser.location,
-        }),
-      );
-      localStorage.setItem("duerp_token", token);
-    }
+      if (rememberMe) {
+        localStorage.setItem(
+          "duerp_user",
+          JSON.stringify({
+            id: resolvedUser.id,
+            email: resolvedUser.email,
+            name: resolvedUser.name,
+            role: resolvedUser.role,
+            service: resolvedUser.service,
+            domain: resolvedUser.domain,
+            location: resolvedUser.location,
+          }),
+        );
+        localStorage.setItem("duerp_token", token);
+      }
+    });
 
     return true;
   };
@@ -1320,7 +1327,7 @@ export default function App() {
     setActiveView("dashboard");
     localStorage.removeItem("duerp_user");
     localStorage.removeItem("duerp_token");
-    toast.info("Déconnexion réussie");
+    queueMicrotask(() => toast.info("Déconnexion réussie"));
   };
 
   // Vérifier si l'utilisateur est déjà connecté au chargement
