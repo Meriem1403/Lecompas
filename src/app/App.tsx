@@ -186,7 +186,7 @@ import {
   UtensilsCrossed,
   Coins,
 } from "lucide-react";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
 
 interface User {
@@ -2273,7 +2273,6 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <Toaster position="top-right" />
         <LoginPage onLogin={handleLogin} />
       </>
     );
@@ -2283,7 +2282,6 @@ export default function App() {
   if (activeView === "categories") {
     return (
       <>
-        <Toaster position="top-right" />
         <CategoriesView
           onSelectCategory={(categoryId) => {
             setCategoryView(categoryId);
@@ -2301,7 +2299,6 @@ export default function App() {
     if (categoryView === "duerp") {
       return (
         <>
-          <Toaster position="top-right" />
           <DUERPModulesView
             onSelectModule={(moduleId) => {
               setActiveView(moduleId);
@@ -2315,7 +2312,6 @@ export default function App() {
     if (categoryView === "rh") {
       return (
         <>
-          <Toaster position="top-right" />
           <RHModulesView
             onSelectModule={(moduleId) => {
               setActiveView(moduleId);
@@ -2329,7 +2325,6 @@ export default function App() {
     if (categoryView === "environnement") {
       return (
         <>
-          <Toaster position="top-right" />
           <EnvironnementModulesView
             onSelectModule={(moduleId) => {
               setActiveView(moduleId);
@@ -2347,7 +2342,6 @@ export default function App() {
     if (categoryView === "applications") {
       return (
         <>
-          <Toaster position="top-right" />
           <ApplicationsModulesView
             onSelectModule={(moduleId) => {
               setActiveView(moduleId);
@@ -2361,7 +2355,6 @@ export default function App() {
     if (categoryView === "administration") {
       return (
         <>
-          <Toaster position="top-right" />
           <AdministrationModulesView
             onSelectModule={(moduleId) => {
               setActiveView(moduleId);
@@ -2383,7 +2376,6 @@ export default function App() {
     if (categoryView === "comptabilite") {
       return (
         <>
-          <Toaster position="top-right" />
           <ComptabiliteModulesView
             isAdmin={user?.role === "admin"}
             onSelectModule={(moduleId) => {
@@ -2399,7 +2391,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex">
-      <Toaster position="top-right" />
 
       {/* Sidebar */}
       {isMobileSidebarOpen && (
