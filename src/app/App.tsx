@@ -91,7 +91,8 @@ import {
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
 import { loadAdminUsers, saveAdminUsers } from "./utils/adminUserRecord";
-import { loadMealTickets, MealTicket, saveMealTickets } from "./utils/mealTicketRecord";
+import { hydrateMealTickets } from "./utils/mealTicketIndexedDb";
+import { MealTicket, getMealTicketsResetNonce, saveMealTickets, subscribeMealTicketsReset } from "./utils/mealTicketRecord";
 import {
   loadMealSubsidyConfig,
   loadUserInmHistory,
@@ -842,9 +843,9 @@ export default function App() {
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
   const [accidents, setAccidents] =
     useState<Accident[]>(FAKE_ACCIDENTS);
-  const [mealTickets, setMealTickets] = useState<MealTicket[]>(() =>
-    loadMealTickets(),
-  );
+  const [mealTickets, setMealTickets] = useState<MealTicket[]>([]);
+  const [mealTicketsHydrated, setMealTicketsHydrated] = React.useState(false);
+  const mealTicketsResetNonceRef = React.useRef(getMealTicketsResetNonce());
   const [mealSubsidyConfig, setMealSubsidyConfig] = useState<MealSubsidyConfig>(() =>
     loadMealSubsidyConfig(FAKE_LOCATIONS),
   );
@@ -1380,8 +1381,38 @@ export default function App() {
   }, [adminUsers]);
 
   React.useEffect(() => {
-    saveMealTickets(mealTickets);
-  }, [mealTickets]);
+    return subscribeMealTicketsReset(() => {
+      mealTicketsResetNonceRef.current = getMealTicketsResetNonce();
+      setMealTickets([]);
+    });
+  }, []);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void hydrateMealTickets().then((loaded) => {
+      if (!cancelled) {
+        setMealTickets(loaded);
+        setMealTicketsHydrated(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!mealTicketsHydrated) return;
+    const nonceAtSchedule = mealTicketsResetNonceRef.current;
+    const timer = window.setTimeout(() => {
+      const nonceNow = getMealTicketsResetNonce();
+      if (nonceNow !== nonceAtSchedule && mealTickets.length > 0) {
+        return;
+      }
+      mealTicketsResetNonceRef.current = nonceNow;
+      saveMealTickets(mealTickets);
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [mealTickets, mealTicketsHydrated]);
 
   React.useEffect(() => {
     setMealSubsidyConfig((prev) => repairMealSubsidyConfig(prev, adminLocations));

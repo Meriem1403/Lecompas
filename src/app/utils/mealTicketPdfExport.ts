@@ -6,6 +6,7 @@ import {
   buildQrPayload,
   formatMonthLabel,
   formatTicketDate,
+  resolveTicketMoneyEUR,
 } from "./mealTicketRecord";
 import { formatEuro } from "./mealSubsidyRecord";
 import { pdfWriteLine } from "./pdfText";
@@ -92,15 +93,16 @@ export async function generateMealTicketPdfBlob(
     }
     lines.push(["Valide le", used]);
   }
-  if (ticket.subsidyTotal != null && ticket.subsidyTotal > 0) {
-    lines.push(["Subvention totale", formatEuro(ticket.subsidyTotal)]);
-    if (ticket.subsidyMinisterial != null) {
-      lines.push(["Subvention ministerielle", formatEuro(ticket.subsidyMinisterial)]);
+  const mv = resolveTicketMoneyEUR(ticket);
+  if (mv.ticketAmountEUR > 0) {
+    lines.push(["Montant du ticket", formatEuro(mv.ticketAmountEUR)]);
+    if (mv.subsidyMinisterialEUR > 0) {
+      lines.push(["Subvention ministerielle", formatEuro(mv.subsidyMinisterialEUR)]);
     }
-    if (ticket.subsidyInterministerial != null && ticket.subsidyInterministerial > 0) {
+    if (mv.subsidyInterministerialEUR > 0) {
       lines.push([
         "Subvention interministerielle",
-        formatEuro(ticket.subsidyInterministerial),
+        formatEuro(mv.subsidyInterministerialEUR),
       ]);
     }
     if (ticket.agentInm != null) {
