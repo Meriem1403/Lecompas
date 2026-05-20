@@ -12,3 +12,9 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Déclarer la langue (complète lang=fr dans index.html pour les applis SPA)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Language = "fr-FR"
