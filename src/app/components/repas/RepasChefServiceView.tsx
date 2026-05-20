@@ -164,38 +164,38 @@ export function RepasChefServiceView({
           label="Collaborateurs"
           value={teamMembers.length}
           icon={Users}
-          gradient="from-indigo-500 to-violet-500"
+          accent="violet"
         />
         <RepasStatCard
           label="Tickets émis"
           value={stats.ticketsIssued}
           sub={formatMonthLabel(filterMonth)}
           icon={Ticket}
-          gradient="from-violet-500 to-purple-500"
+          accent="amber"
         />
         <RepasStatCard
           label="Actifs"
           value={stats.ticketsActive}
           icon={ClipboardList}
-          gradient="from-emerald-500 to-teal-500"
+          accent="emerald"
         />
         <RepasStatCard
           label="Utilisés"
           value={stats.ticketsUsed}
           icon={CheckCircle2}
-          gradient="from-blue-500 to-cyan-500"
+          accent="sky"
         />
         <RepasStatCard
           label="Repas restants"
           value={stats.mealsRemaining}
           icon={UtensilsCrossed}
-          gradient="from-teal-500 to-cyan-500"
+          accent="teal"
         />
         <RepasStatCard
           label="Repas consommés"
           value={stats.mealsUsed}
           icon={TrendingUp}
-          gradient="from-cyan-500 to-sky-500"
+          accent="cyan"
         />
       </div>
 

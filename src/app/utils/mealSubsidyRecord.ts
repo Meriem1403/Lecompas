@@ -14,6 +14,16 @@ export interface MealSubsidyPeriod {
    * selon les tranches d'INM de la période.
    */
   interministerialAmount: number;
+  /**
+   * Ancien nom : conservé à la désérialisation. Préférez `ticketParticipationEUR`.
+   * @deprecated utiliser ticketParticipationEUR
+   */
+  referenceMealPriceEUR?: number;
+  /**
+   * Montant de participation par ticket (€ par repas / QR) : ce que vous facturez ou retenez
+   * au titre du ticket pour la participation de l’agent au paiement des repas.
+   */
+  ticketParticipationEUR?: number;
 }
 
 /** Tranche d'indice majoré (INM) déterminant l'éligibilité interministérielle. */
@@ -168,6 +178,11 @@ function ensureYearPeriod(config: MealSubsidyConfig, year: string): MealSubsidyC
     validFrom: yearStart,
     validTo: yearEnd,
     interministerialAmount: template.interministerialAmount || 1.62,
+    ticketParticipationEUR:
+      template.ticketParticipationEUR ??
+      (template.referenceMealPriceEUR != null && template.referenceMealPriceEUR > 0
+        ? template.referenceMealPriceEUR
+        : 8),
   };
 
   let ministerialRates = [...config.ministerialRates];
@@ -204,6 +219,9 @@ export function repairMealSubsidyConfig(
     ...p,
     validFrom: normalizeDateIso(p.validFrom),
     validTo: p.validTo ? normalizeDateIso(p.validTo) : undefined,
+    ticketParticipationEUR:
+      p.ticketParticipationEUR ??
+      (p.referenceMealPriceEUR != null && p.referenceMealPriceEUR > 0 ? p.referenceMealPriceEUR : undefined),
   }));
 
   let result: MealSubsidyConfig = { ...config, periods };
@@ -399,6 +417,36 @@ export function getActivePeriodForMonth(
   }
 
   return config.periods[0] ?? null;
+}
+
+const DEFAULT_TICKET_PARTICIPATION_FALLBACK_EUR = 8;
+
+/**
+ * Montant de participation par ticket (€) défini pour la période applicable au mois donné.
+ */
+export function getTicketParticipationForMonth(
+  config: MealSubsidyConfig | undefined,
+  month: string,
+): number {
+  if (!config) return DEFAULT_TICKET_PARTICIPATION_FALLBACK_EUR;
+  const period = getActivePeriodForMonth(config, month);
+  const p =
+    period?.ticketParticipationEUR ??
+    (period?.referenceMealPriceEUR != null && period.referenceMealPriceEUR > 0
+      ? period.referenceMealPriceEUR
+      : undefined);
+  if (p != null && Number.isFinite(p) && p > 0) {
+    return roundMoney(p);
+  }
+  return DEFAULT_TICKET_PARTICIPATION_FALLBACK_EUR;
+}
+
+/** @deprecated Alias de {@link getTicketParticipationForMonth}. */
+export function getReferenceMealPriceForMonth(
+  config: MealSubsidyConfig | undefined,
+  month: string,
+): number {
+  return getTicketParticipationForMonth(config, month);
 }
 
 export function getInmForDate(

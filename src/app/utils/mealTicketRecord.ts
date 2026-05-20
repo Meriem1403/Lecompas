@@ -7,7 +7,13 @@ import {
   computeAgentMealSubsidy,
   getInmForMonth,
   resolveLocationId,
+  roundMoney,
 } from "./mealSubsidyRecord";
+import {
+  clearMealTicketsIndexedDb,
+  clearMealTicketsLocalStoragePayload,
+  saveMealTicketsToIndexedDb,
+} from "./mealTicketIndexedDb";
 
 export type MealTicketStatus = "active" | "used" | "cancelled";
 
@@ -36,7 +42,16 @@ export interface MealTicket {
   agentInm?: number;
   subsidyMinisterial?: number;
   subsidyInterministerial?: number;
+  /** Montant du ticket = subventions totales agent (ministérielle + interministérielle) pour ce repas. */
   subsidyTotal?: number;
+  /**
+   * @deprecated Le montant ticket est `subsidyTotal`. Conservé pour anciens jeux de données.
+   */
+  ticketParticipationEUR?: number;
+  /** @deprecated */
+  referenceMealPriceEUR?: number;
+  /** @deprecated */
+  agentCopayEUR?: number;
 }
 
 export interface MealTicketFilters {
@@ -51,14 +66,73 @@ export interface MealTicketFilters {
 const TICKETS_STORAGE_KEY = "goudurix_meal_tickets_v2";
 const TICKETS_STORAGE_VERSION_KEY = "goudurix_meal_tickets_version";
 /** Incrémenter pour remettre à zéro les tickets en local (tests / changement de modèle). */
-const TICKETS_STORAGE_VERSION = "4";
+const TICKETS_STORAGE_VERSION = "5";
 const LEGACY_TICKETS_STORAGE_KEY = "goudurix_meal_tickets";
+const MEAL_TICKETS_RESET_NONCE_KEY = "goudurix_meal_tickets_reset_nonce";
+export const MEAL_TICKETS_RESET_EVENT = "goudurix-meal-tickets-reset";
 const QR_PREFIX = "GOUDURIX-REPAS";
 
-export function resetMealTicketsStorage(): void {
+function broadcastMealTicketsReset(nonce: string): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(MEAL_TICKETS_RESET_EVENT, { detail: nonce }));
+}
+
+/** Écoute les réinitialisations (autre onglet via storage, même onglet via CustomEvent). */
+export function subscribeMealTicketsReset(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const onCustom = () => listener();
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === MEAL_TICKETS_RESET_NONCE_KEY && event.newValue) {
+      listener();
+    }
+  };
+
+  window.addEventListener(MEAL_TICKETS_RESET_EVENT, onCustom);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(MEAL_TICKETS_RESET_EVENT, onCustom);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+export function getMealTicketsResetNonce(): string {
+  if (typeof localStorage === "undefined") return "0";
+  return localStorage.getItem(MEAL_TICKETS_RESET_NONCE_KEY) ?? "0";
+}
+
+/**
+ * Remise à zéro complète (IndexedDB + secours localStorage) et synchronisation multi-onglets /
+ * multi-vues (admin, prestataire, agent, chef).
+ */
+export async function resetMealTicketsStorageAsync(): Promise<void> {
+  const nonce = String(Date.now());
+
+  // Signaler les autres onglets avant toute écriture pour éviter qu'un save différé restaure d'anciens tickets.
+  localStorage.setItem(MEAL_TICKETS_RESET_NONCE_KEY, nonce);
+  broadcastMealTicketsReset(nonce);
+
   localStorage.removeItem(TICKETS_STORAGE_KEY);
   localStorage.removeItem(LEGACY_TICKETS_STORAGE_KEY);
+  clearMealTicketsLocalStoragePayload();
   localStorage.setItem(TICKETS_STORAGE_VERSION_KEY, TICKETS_STORAGE_VERSION);
+
+  try {
+    await clearMealTicketsIndexedDb();
+  } catch {
+    /* ignore */
+  }
+
+  try {
+    await saveMealTicketsToIndexedDb([]);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @deprecated Préférer {@link resetMealTicketsStorageAsync} */
+export function resetMealTicketsStorage(): void {
+  void resetMealTicketsStorageAsync();
 }
 
 export function loadMealTickets(): MealTicket[] {
@@ -77,9 +151,20 @@ export function loadMealTickets(): MealTicket[] {
   }
 }
 
+/** Persistance principale : IndexedDB (volumétrie). Garde un secours court dans localStorage si IDB échoue. */
 export function saveMealTickets(tickets: MealTicket[]): void {
-  localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
-  localStorage.setItem(TICKETS_STORAGE_VERSION_KEY, TICKETS_STORAGE_VERSION);
+  void saveMealTicketsToIndexedDb(tickets)
+    .then(() => {
+      localStorage.setItem(TICKETS_STORAGE_VERSION_KEY, TICKETS_STORAGE_VERSION);
+    })
+    .catch(() => {
+      try {
+        localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+        localStorage.setItem(TICKETS_STORAGE_VERSION_KEY, TICKETS_STORAGE_VERSION);
+      } catch {
+        /* ignore quota */
+      }
+    });
 }
 
 export function formatMonthLabel(month: string): string {
@@ -123,6 +208,12 @@ interface QrTicketSnapshotCompact {
   m: string;
   x?: number;
   g?: string;
+  /** Participation au ticket € / repas (= subventions totales agent, champ `st`). */
+  rp?: number;
+  /** Subvention totale € / repas (= montant du ticket). */
+  st?: number;
+  /** Ancien reste agent € / repas (tickets avant refonte participation). */
+  ap?: number;
 }
 
 export interface ParsedQrPayload {
@@ -133,6 +224,11 @@ export interface ParsedQrPayload {
 }
 
 function encodeSnapshot(ticket: MealTicket): string {
+  const ticketAmount =
+    ticket.subsidyTotal != null && Number.isFinite(ticket.subsidyTotal) && ticket.subsidyTotal >= 0
+      ? roundMoney(ticket.subsidyTotal)
+      : undefined;
+
   const compact: QrTicketSnapshotCompact = {
     i: ticket.id,
     t: ticket.qrToken,
@@ -146,6 +242,8 @@ function encodeSnapshot(ticket: MealTicket): string {
     m: ticket.month,
     ...(ticket.mealIndex != null ? { x: ticket.mealIndex } : {}),
     g: ticket.generatedAt,
+    ...(ticketAmount != null ? { rp: ticketAmount, st: ticketAmount } : {}),
+    ...(ticket.agentCopayEUR != null && ticket.agentCopayEUR >= 0 ? { ap: ticket.agentCopayEUR } : {}),
   };
   const json = JSON.stringify(compact);
   const bytes = new TextEncoder().encode(json);
@@ -187,6 +285,12 @@ function ticketFromSnapshot(snapshot: QrTicketSnapshotCompact): MealTicket {
     status: "active",
     generatedAt: snapshot.g ?? new Date().toISOString(),
     generatedBy: "QR",
+    ...(snapshot.st != null
+      ? { subsidyTotal: snapshot.st }
+      : snapshot.rp != null
+        ? { subsidyTotal: snapshot.rp }
+        : {}),
+    ...(snapshot.ap != null && snapshot.ap >= 0 ? { agentCopayEUR: snapshot.ap } : {}),
   };
 }
 
@@ -308,6 +412,140 @@ export function userHasFullMealAllocation(
 
 function mealUnitsOnTicket(ticket: MealTicket): number {
   return Math.max(1, ticket.mealCount);
+}
+
+/** Montants résolus pour affichage et agrégats compta. */
+export interface ResolvedTicketMoneyEUR {
+  /** Montant du ticket = subventions totales agent (€ / repas). */
+  ticketAmountEUR: number;
+  subsidyTotalEUR: number;
+  subsidyMinisterialEUR: number;
+  subsidyInterministerialEUR: number;
+  /** @deprecated alias de {@link ResolvedTicketMoneyEUR.ticketAmountEUR} */
+  ticketParticipationEUR: number;
+  /** @deprecated alias de ticketAmountEUR */
+  referenceMealPriceEUR: number;
+  /** @deprecated alias de ticketAmountEUR */
+  agentCopayEUR: number;
+}
+
+/**
+ * Montant d’un ticket = total des subventions auxquelles l’agent a droit pour ce repas
+ * (ministérielle + interministérielle, figées à la génération).
+ */
+export function resolveTicketMoneyEUR(ticket: MealTicket): ResolvedTicketMoneyEUR {
+  const subsidyTotalEUR = roundMoney(ticket.subsidyTotal ?? 0);
+  const ticketAmountEUR = subsidyTotalEUR;
+
+  return {
+    ticketAmountEUR,
+    subsidyTotalEUR,
+    subsidyMinisterialEUR: roundMoney(ticket.subsidyMinisterial ?? 0),
+    subsidyInterministerialEUR: roundMoney(ticket.subsidyInterministerial ?? 0),
+    ticketParticipationEUR: ticketAmountEUR,
+    referenceMealPriceEUR: ticketAmountEUR,
+    agentCopayEUR: ticketAmountEUR,
+  };
+}
+
+/** Agrégation des montants tickets (= subventions agent) pour une liste. */
+export interface MealTicketMoneyRollup {
+  /** Somme des montants ticket (= subventions totales agent) × repas. */
+  totalTicketParticipationEUR: number;
+  totalComptabiliteSubventionEUR: number;
+  mealUnits: number;
+  /** @deprecated alias de totalTicketParticipationEUR */
+  totalPrestataireEUR: number;
+  /** @deprecated alias de totalTicketParticipationEUR */
+  totalAgentCopayEUR: number;
+}
+
+/** Synthèse compta prestataire : tickets générés vs scannés vs reste (montant = subventions agent). */
+export interface MealTicketAccountingRollup {
+  generatedTicketCount: number;
+  scannedTicketCount: number;
+  remainingTicketCount: number;
+  /** Montant cumulé des tickets émis (= Σ subventions totales agent). */
+  generatedAmountEUR: number;
+  /** Montant à facturer par le prestataire (tickets scannés). */
+  scannedAmountEUR: number;
+  /** Montant des tickets actifs non encore scannés. */
+  remainingAmountEUR: number;
+  /** @deprecated alias de generatedAmountEUR */
+  generatedParticipationEUR: number;
+  /** @deprecated alias de scannedAmountEUR */
+  scannedParticipationEUR: number;
+  /** @deprecated alias de remainingAmountEUR */
+  remainingParticipationEUR: number;
+  /** @deprecated alias de scannedAmountEUR */
+  scannedSubventionEUR: number;
+  /** @deprecated alias de generatedAmountEUR */
+  generatedSubventionEUR: number;
+}
+
+export function rollupMealTicketsAccounting(tickets: MealTicket[]): MealTicketAccountingRollup {
+  let generatedTicketCount = 0;
+  let scannedTicketCount = 0;
+  let remainingTicketCount = 0;
+  let generatedAmount = 0;
+  let scannedAmount = 0;
+  let remainingAmount = 0;
+
+  for (const t of tickets) {
+    if (t.status === "cancelled") continue;
+
+    const u = mealUnitsOnTicket(t);
+    const amount = resolveTicketMoneyEUR(t).ticketAmountEUR * u;
+
+    generatedTicketCount += 1;
+    generatedAmount += amount;
+
+    if (t.status === "used") {
+      scannedTicketCount += 1;
+      scannedAmount += amount;
+    } else if (t.status === "active") {
+      remainingTicketCount += 1;
+      remainingAmount += amount;
+    }
+  }
+
+  const generatedAmountEUR = roundMoney(generatedAmount);
+  const scannedAmountEUR = roundMoney(scannedAmount);
+  const remainingAmountEUR = roundMoney(remainingAmount);
+
+  return {
+    generatedTicketCount,
+    scannedTicketCount,
+    remainingTicketCount,
+    generatedAmountEUR,
+    scannedAmountEUR,
+    remainingAmountEUR,
+    generatedParticipationEUR: generatedAmountEUR,
+    scannedParticipationEUR: scannedAmountEUR,
+    remainingParticipationEUR: remainingAmountEUR,
+    scannedSubventionEUR: scannedAmountEUR,
+    generatedSubventionEUR: generatedAmountEUR,
+  };
+}
+
+export function rollupMealTicketsMoney(tickets: MealTicket[]): MealTicketMoneyRollup {
+  let totalAmount = 0;
+  let mealUnitsCounted = 0;
+  for (const t of tickets) {
+    if (t.status === "cancelled") continue;
+    const u = mealUnitsOnTicket(t);
+    const m = resolveTicketMoneyEUR(t);
+    totalAmount += m.ticketAmountEUR * u;
+    mealUnitsCounted += u;
+  }
+  const totalTicketParticipationEUR = roundMoney(totalAmount);
+  return {
+    totalTicketParticipationEUR,
+    totalComptabiliteSubventionEUR: totalTicketParticipationEUR,
+    mealUnits: mealUnitsCounted,
+    totalPrestataireEUR: totalTicketParticipationEUR,
+    totalAgentCopayEUR: totalTicketParticipationEUR,
+  };
 }
 
 export function countUserActiveMeals(

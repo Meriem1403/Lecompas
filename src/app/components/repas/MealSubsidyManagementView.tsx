@@ -249,6 +249,14 @@ export function MealSubsidyManagementView({
                     Appliqué aux agents dont l&apos;INM est dans une tranche éligible.
                   </p>
                 </div>
+                <div className="md:col-span-2 rounded-lg border border-emerald-100 bg-emerald-50/80 p-4">
+                  <p className="text-sm font-medium text-emerald-900">Montant des tickets</p>
+                  <p className="mt-1 text-xs text-emerald-800/90 leading-relaxed">
+                    Chaque ticket vaut le <strong>total des subventions</strong> (ministérielle +
+                    interministérielle) calculé pour l&apos;agent à la génération, selon son lieu et son INM.
+                    Ce montant est figé sur le QR et sert aux indicateurs compta / facture prestataire.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

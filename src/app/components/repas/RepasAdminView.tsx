@@ -5,6 +5,7 @@ import {
   Building2,
   CheckCircle2,
   ClipboardList,
+  Coins,
   MapPin,
   PlusCircle,
   Search,
@@ -45,7 +46,6 @@ import {
   UserInmHistoryEntry,
 } from "../../utils/mealSubsidyRecord";
 import { MealSubsidyManagementView } from "./MealSubsidyManagementView";
-import { Coins } from "lucide-react";
 import { cn } from "../ui/utils";
 import { RepasStatCard } from "./RepasStatCard";
 import { MealTicketStatusBadge } from "./MealTicketStatusBadge";
@@ -61,9 +61,11 @@ import {
   generateMonthlyTickets,
   getAdminTicketStats,
   getCurrentMonth,
+  resolveTicketMoneyEUR,
+  rollupMealTicketsAccounting,
   countUserMonthTickets,
   previewTicketsToCreate,
-  resetMealTicketsStorage,
+  resetMealTicketsStorageAsync,
   userHasFullMealAllocation,
 } from "../../utils/mealTicketRecord";
 
@@ -85,13 +87,20 @@ const DEFAULT_MEAL_COUNT = 22;
 /** Service de démo où sont la plupart des agents et chefs */
 const DEFAULT_REPAS_SERVICE = "Maintenance";
 
+/** Montant ticket = subventions totales agent ; générés / scannés / reste pour la facture prestataire. */
+const ACCOUNTING_EXPLANATION_ADMIN =
+  "Chaque ticket vaut le total des subventions (ministérielle + interministérielle) calculé pour l’agent à la génération. « Générés » = plafond du mois · « Scannés » = montant à facturer · « Reste » = tickets actifs non encore validés.";
+
 function AdminTicketCard({
   ticket,
   onCancel,
+  mealSubsidyConfig,
 }: {
   ticket: MealTicket;
   onCancel: (id: string) => void;
+  mealSubsidyConfig?: MealSubsidyConfig;
 }) {
+  const mv = resolveTicketMoneyEUR(ticket);
   return (
     <Card className="border-l-4 border-l-amber-500 shadow-sm bg-white">
       <CardContent className="p-4 sm:p-5">
@@ -113,12 +122,36 @@ function AdminTicketCard({
           <p>
             <span className="text-gray-500">Lieu :</span> {ticket.location || "—"}
           </p>
-          {ticket.subsidyTotal != null && ticket.subsidyTotal > 0 && (
-            <p className="col-span-2">
-              <span className="text-gray-500">Subvention :</span>{" "}
-              <span className="font-semibold text-emerald-700">
-                {formatEuro(ticket.subsidyTotal)} / repas
+          <p className="col-span-2 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-50/90 to-white p-3 text-xs text-slate-600 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.85)]">
+            <span className="inline-flex flex-wrap gap-x-1 gap-y-0.5 [&>span]:whitespace-nowrap">
+              <span className="font-semibold text-amber-800 tabular-nums">
+                Montant ticket&nbsp;: {formatEuro(mv.ticketAmountEUR)}
               </span>
+              {mv.subsidyMinisterialEUR > 0 && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="font-semibold text-violet-800 tabular-nums">
+                    Min.&nbsp;: {formatEuro(mv.subsidyMinisterialEUR)}
+                  </span>
+                </>
+              )}
+              {mv.subsidyInterministerialEUR > 0 && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="font-semibold text-teal-800 tabular-nums">
+                    Inter.&nbsp;: {formatEuro(mv.subsidyInterministerialEUR)}
+                  </span>
+                </>
+              )}
+            </span>
+          </p>
+          {ticket.subsidyTotal != null && (
+            <p className="col-span-2">
+              <span className="text-gray-500">Subvention enregistrée :</span>{" "}
+              <span className="font-semibold text-emerald-700">
+                {formatEuro(ticket.subsidyTotal)}
+              </span>
+              {" / repas"}
               {ticket.agentInm != null && (
                 <span className="text-xs text-gray-500 block">INM {ticket.agentInm}</span>
               )}
@@ -200,6 +233,7 @@ export function RepasAdminView({
   const [search, setSearch] = useState("");
   const [listPage, setListPage] = useState(1);
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [resettingTickets, setResettingTickets] = useState(false);
 
   const genFilters = useMemo(
     () => ({
@@ -236,13 +270,20 @@ export function RepasAdminView({
     }
   }, [services, genService]);
 
-  const handleResetAllTickets = () => {
-    resetMealTicketsStorage();
-    setMealTickets([]);
-    setSelectedUserIds([]);
-    toast.success(
-      "Tous les tickets repas ont été supprimés. Vous pouvez régénérer des QR pour vos tests.",
-    );
+  const handleResetAllTickets = async () => {
+    setResettingTickets(true);
+    try {
+      await resetMealTicketsStorageAsync();
+      setMealTickets([]);
+      setSelectedUserIds([]);
+      toast.success(
+        "Tous les tickets repas ont été supprimés (admin, prestataire, agents). Vous pouvez régénérer des QR pour vos tests.",
+      );
+    } catch {
+      toast.error("Échec de la réinitialisation des tickets.");
+    } finally {
+      setResettingTickets(false);
+    }
   };
 
   const generationPreview = useMemo(() => {
@@ -291,6 +332,23 @@ export function RepasAdminView({
   );
 
   const stats = useMemo(() => getAdminTicketStats(filteredTickets), [filteredTickets]);
+
+  const accountingScopeTickets = useMemo(
+    () =>
+      filterTickets(mealTickets, {
+        month: filterMonth,
+        service: filterService,
+        domain: filterDomain,
+        location: filterLocation,
+        search,
+      }),
+    [mealTickets, filterMonth, filterService, filterDomain, filterLocation, search],
+  );
+
+  const accountingRollup = useMemo(
+    () => rollupMealTicketsAccounting(accountingScopeTickets),
+    [accountingScopeTickets],
+  );
 
   const availableMonths = useMemo(() => {
     const months = new Set(mealTickets.map((t) => t.month));
@@ -370,7 +428,7 @@ export function RepasAdminView({
       ),
     );
     toast.success(
-      `Subventions recalculées pour ${formatMonthLabel(genMonth)} (INM et barèmes actuels).`,
+      `Subventions et participations recalculées pour ${formatMonthLabel(genMonth)} (barèmes actuels).`,
     );
   };
 
@@ -452,14 +510,157 @@ export function RepasAdminView({
         )
       ) : (
         <div className="space-y-4 sm:space-y-6">
+          {/* Indicateurs en tête : les filtres de liste sont plus bas (même logique métier que les agrégés) */}
+          <section aria-labelledby="admin-repas-indicateurs" className="space-y-4">
+            <div>
+              <h2 id="admin-repas-indicateurs" className="text-sm font-semibold text-slate-900">
+                Indicateurs · tickets repas
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Volumes&nbsp;: mêmes filtres que la liste (y compris statut). Synthèse compta ci-dessous&nbsp;:
+                mois, service, domaine, lieu et recherche — <strong>sans</strong> le filtre statut, pour
+                comparer tickets générés, scannés et reste à scanner.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+              <RepasStatCard
+                label="Tickets (filtre)"
+                value={stats.ticketsTotal}
+                sub={formatMonthLabel(filterMonth)}
+                icon={Ticket}
+                accent="amber"
+              />
+              <RepasStatCard
+                label="Actifs"
+                value={stats.ticketsActive}
+                icon={ClipboardList}
+                accent="emerald"
+              />
+              <RepasStatCard
+                label="Utilisés"
+                value={stats.ticketsUsed}
+                icon={CheckCircle2}
+                accent="sky"
+              />
+              <RepasStatCard
+                label="Annulés"
+                value={stats.ticketsCancelled}
+                icon={XCircle}
+                accent="slate"
+              />
+              <RepasStatCard
+                label="Repas restants"
+                value={stats.mealsRemaining}
+                icon={UtensilsCrossed}
+                accent="teal"
+              />
+              <RepasStatCard
+                label="Repas consommés"
+                value={stats.mealsUsed}
+                icon={TrendingUp}
+                accent="cyan"
+              />
+            </div>
+
+            <div
+              className={cn(
+                "overflow-hidden rounded-3xl border border-emerald-200/60",
+                "bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/30",
+                "shadow-[0_4px_32px_-12px_rgba(15,118,110,0.25),inset_0_1px_0_0_rgba(255,255,255,0.9)]",
+              )}
+            >
+              <div className="border-b border-emerald-200/35 bg-emerald-950/[0.02] px-5 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800/85">
+                  Synthèse comptabilité · prestataire
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-slate-900 sm:text-lg">
+                  Générés · Scannés · Reste
+                </h3>
+                <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-600">
+                  {formatMonthLabel(filterMonth)}
+                  {filterService !== "all" ? ` · ${filterService}` : ""}
+                  {filterLocation !== "all" ? ` · ${filterLocation}` : ""}. {ACCOUNTING_EXPLANATION_ADMIN}
+                </p>
+              </div>
+              <div className="grid gap-4 p-5 sm:grid-cols-3">
+                <div className="group relative flex flex-col gap-2 rounded-2xl border border-amber-200/60 bg-white/85 p-4 shadow-sm ring-1 ring-slate-900/[0.02] transition hover:border-amber-300/80 hover:shadow-md">
+                  <div className="flex items-center gap-2 text-amber-900">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 ring-1 ring-amber-600/10">
+                      <Ticket className="h-4 w-4" strokeWidth={1.85} />
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-900/90">
+                      Tickets générés
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {accountingRollup.generatedTicketCount} ticket
+                    {accountingRollup.generatedTicketCount !== 1 ? "s" : ""} · Σ subventions agent
+                  </p>
+                  <p className="text-xl font-bold tabular-nums tracking-tight text-amber-950 sm:text-2xl">
+                    {formatEuro(accountingRollup.generatedAmountEUR)}
+                  </p>
+                </div>
+                <div className="group relative flex flex-col gap-2 rounded-2xl border border-teal-200/60 bg-white/85 p-4 shadow-sm ring-1 ring-slate-900/[0.02] transition hover:border-teal-300/80 hover:shadow-md">
+                  <div className="flex items-center gap-2 text-teal-900">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500/10 ring-1 ring-teal-600/10">
+                      <CheckCircle2 className="h-4 w-4" strokeWidth={1.85} />
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-900/90">
+                      Scannés · facture
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {accountingRollup.scannedTicketCount} ticket
+                    {accountingRollup.scannedTicketCount !== 1 ? "s" : ""} validés
+                    {accountingRollup.generatedTicketCount > 0
+                      ? ` (${accountingRollup.scannedTicketCount}/${accountingRollup.generatedTicketCount})`
+                      : ""}
+                  </p>
+                  <p className="text-xl font-bold tabular-nums tracking-tight text-teal-950 sm:text-2xl">
+                    {formatEuro(accountingRollup.scannedAmountEUR)}
+                  </p>
+                </div>
+                <div className="group relative flex flex-col gap-2 rounded-2xl border border-slate-200/90 bg-white/85 p-4 shadow-sm ring-1 ring-slate-900/[0.02] transition hover:border-slate-300 hover:shadow-md">
+                  <div className="flex items-center gap-2 text-slate-800">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-500/10 ring-1 ring-slate-600/10">
+                      <ClipboardList className="h-4 w-4" strokeWidth={1.85} />
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-800">
+                      Reste à scanner
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {accountingRollup.remainingTicketCount} ticket
+                    {accountingRollup.remainingTicketCount !== 1 ? "s" : ""} actifs
+                  </p>
+                  <p className="text-xl font-bold tabular-nums tracking-tight text-slate-950 sm:text-2xl">
+                    {formatEuro(accountingRollup.remainingAmountEUR)}
+                  </p>
+                </div>
+              </div>
+              {accountingRollup.generatedAmountEUR > 0 &&
+                Math.abs(
+                  accountingRollup.generatedAmountEUR -
+                    (accountingRollup.scannedAmountEUR + accountingRollup.remainingAmountEUR),
+                ) > 0.01 && (
+                  <p className="border-t border-emerald-200/35 px-5 py-3 text-xs text-amber-800">
+                    Écart de réconciliation — vérifiez les tickets sans statut actif/utilisé ou sans subvention
+                    enregistrée.
+                  </p>
+                )}
+            </div>
+          </section>
+
       <Button
         type="button"
         variant="outline"
         size="sm"
         className="border-amber-300 text-amber-900 hover:bg-amber-100"
-        onClick={handleResetAllTickets}
+        disabled={resettingTickets}
+        onClick={() => void handleResetAllTickets()}
       >
-        Réinitialiser tous les tickets (tests)
+        {resettingTickets ? "Réinitialisation…" : "Réinitialiser tous les tickets (tests)"}
       </Button>
 
       <Card className="border-2 border-amber-200 shadow-md bg-white">
@@ -644,46 +845,6 @@ export function RepasAdminView({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <RepasStatCard
-          label="Tickets (filtre)"
-          value={stats.ticketsTotal}
-          sub={formatMonthLabel(filterMonth)}
-          icon={Ticket}
-          gradient="from-amber-500 to-orange-500"
-        />
-        <RepasStatCard
-          label="Actifs"
-          value={stats.ticketsActive}
-          icon={ClipboardList}
-          gradient="from-emerald-500 to-teal-500"
-        />
-        <RepasStatCard
-          label="Utilisés"
-          value={stats.ticketsUsed}
-          icon={CheckCircle2}
-          gradient="from-blue-500 to-cyan-500"
-        />
-        <RepasStatCard
-          label="Annulés"
-          value={stats.ticketsCancelled}
-          icon={XCircle}
-          gradient="from-slate-500 to-gray-500"
-        />
-        <RepasStatCard
-          label="Repas restants"
-          value={stats.mealsRemaining}
-          icon={UtensilsCrossed}
-          gradient="from-teal-500 to-cyan-500"
-        />
-        <RepasStatCard
-          label="Repas consommés"
-          value={stats.mealsUsed}
-          icon={TrendingUp}
-          gradient="from-cyan-500 to-sky-500"
-        />
-      </div>
-
       <Card className="border-0 shadow-md bg-white/90">
         <CardContent className="p-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
@@ -806,7 +967,12 @@ export function RepasAdminView({
         <>
           <div className="grid grid-cols-1 gap-3 lg:hidden">
             {paginated.map((ticket) => (
-              <AdminTicketCard key={ticket.id} ticket={ticket} onCancel={handleCancel} />
+              <AdminTicketCard
+                key={ticket.id}
+                ticket={ticket}
+                mealSubsidyConfig={mealSubsidyConfig}
+                onCancel={handleCancel}
+              />
             ))}
           </div>
 

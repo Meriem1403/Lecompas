@@ -113,21 +113,21 @@ export function RepasAgentView({ agent, mealTickets }: RepasAgentViewProps) {
           value={summary.mealsRemaining}
           sub={`${summary.activeTickets.length} QR actif(s) — ${formatMonthLabel(filterMonth)}`}
           icon={UtensilsCrossed}
-          gradient="from-emerald-500 to-teal-500"
+          accent="emerald"
         />
         <RepasStatCard
           label="Repas utilisés"
           value={summary.mealsUsed}
           sub={`${summary.usedTickets.length} scan(s) ce mois`}
           icon={Ticket}
-          gradient="from-blue-500 to-cyan-500"
+          accent="sky"
         />
         <RepasStatCard
           label="Tickets émis"
           value={summary.totalTickets}
           sub={formatMonthLabel(filterMonth)}
           icon={Calendar}
-          gradient="from-sky-500 to-indigo-500"
+          accent="violet"
         />
       </div>
 
