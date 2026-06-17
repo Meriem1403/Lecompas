@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, startTransition } from "react";
+import React, { useState, useEffect, useMemo, startTransition, useCallback } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -66,6 +67,11 @@ import {
 } from "./components/admin/RiskReferencesManagementView";
 import { RISK_REFERENCE_FIXTURES } from "./fixtures/riskReferenceFixtures";
 import { CSN_PACA_CORSE_RISK_FIXTURES } from "./fixtures/csnPacaCorseRiskFixtures";
+import {
+  DEFAULT_AUTHENTICATED_PATH,
+  getPathForView,
+  resolveViewFromPathname,
+} from "./routes/paths";
 import { MercuryView } from "./components/MercuryView";
 import { AsbestosView } from "./components/AsbestosView";
 import { AsbestosAttestationsView } from "./components/AsbestosAttestationsView";
@@ -452,8 +458,18 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [accessToken, setAccessToken] = useState<string>("");
   const [user, setUser] = useState<User | null>(null);
-  const [activeView, setActiveView] = useState("categories");
-  const [categoryView, setCategoryView] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { viewId: activeView, categoryId: categoryView } = useMemo(
+    () => resolveViewFromPathname(location.pathname),
+    [location.pathname],
+  );
+  const goToView = useCallback(
+    (viewId: string, categoryId?: string | null) => {
+      navigate(getPathForView(viewId, categoryId ?? null));
+    },
+    [navigate],
+  );
   const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
   const [adminUsers, setAdminUsers] = useState<AppUser[]>(() => loadAdminUsers(FAKE_USERS));
   const [accessProfiles, setAccessProfiles] = useState<
@@ -980,7 +996,7 @@ export default function App() {
     setUser(null);
     setAccessToken("");
     setIsAuthenticated(false);
-    setActiveView("dashboard");
+    navigate(DEFAULT_AUTHENTICATED_PATH);
     localStorage.removeItem("duerp_user");
     localStorage.removeItem("duerp_token");
     queueMicrotask(() => toast.info("Déconnexion réussie"));
@@ -1335,7 +1351,7 @@ export default function App() {
   // Risk CRUD handlers
   const handleAddRisk = () => {
     setRiskToEdit(null);
-    setActiveView("create_risk");
+    goToView("create_risk");
   };
 
   const handleEditRisk = (risk: Risk, e?: React.MouseEvent) => {
@@ -1427,7 +1443,7 @@ export default function App() {
     );
 
     // Revenir à la carte de risque
-    setActiveView("risks");
+    goToView("risks");
   };
 
   const handleValidateActionReturn = (
@@ -1958,9 +1974,9 @@ export default function App() {
     if (activeView === "categories" || activeView === "category-modules") return;
     if (!hasViewAccess(activeView)) {
       toast.error("Accès non autorisé pour cet onglet.");
-      setActiveView("dashboard");
+      navigate(getPathForView("dashboard"));
     }
-  }, [activeView, user, accessProfiles, currentAdminUser]);
+  }, [activeView, user, accessProfiles, currentAdminUser, navigate]);
 
   // Si l'utilisateur n'est pas authentifié, afficher la page de login
   if (!isAuthenticated) {
@@ -1976,12 +1992,11 @@ export default function App() {
     return (
       <>
         <CategoriesView
-          onSelectCategory={(categoryId) => {
-            setCategoryView(categoryId);
-            setActiveView("category-modules");
-          }}
-          onGoToDashboard={() => setActiveView("dashboard")}
-          onGoToRisks={() => setActiveView("risks")}
+          onSelectCategory={(categoryId) =>
+            goToView("category-modules", categoryId)
+          }
+          onGoToDashboard={() => goToView("dashboard")}
+          onGoToRisks={() => goToView("risks")}
         />
       </>
     );
@@ -1993,11 +2008,8 @@ export default function App() {
       return (
         <>
           <DUERPModulesView
-            onSelectModule={(moduleId) => {
-              setActiveView(moduleId);
-              setCategoryView(null);
-            }}
-            onGoBack={() => setActiveView("categories")}
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
           />
         </>
       );
@@ -2006,11 +2018,8 @@ export default function App() {
       return (
         <>
           <RHModulesView
-            onSelectModule={(moduleId) => {
-              setActiveView(moduleId);
-              setCategoryView(null);
-            }}
-            onGoBack={() => setActiveView("categories")}
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
           />
         </>
       );
@@ -2019,28 +2028,21 @@ export default function App() {
       return (
         <>
           <EnvironnementModulesView
-            onSelectModule={(moduleId) => {
-              setActiveView(moduleId);
-              setCategoryView(null);
-            }}
-            onGoBack={() => setActiveView("categories")}
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
           />
         </>
       );
     }
     if (categoryView === "communication") {
-      setActiveView("actualites");
-      setCategoryView(null);
+      return <Navigate to={getPathForView("actualites")} replace />;
     }
     if (categoryView === "applications") {
       return (
         <>
           <ApplicationsModulesView
-            onSelectModule={(moduleId) => {
-              setActiveView(moduleId);
-              setCategoryView(null);
-            }}
-            onGoBack={() => setActiveView("categories")}
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
           />
         </>
       );
@@ -2049,33 +2051,25 @@ export default function App() {
       return (
         <>
           <AdministrationModulesView
-            onSelectModule={(moduleId) => {
-              setActiveView(moduleId);
-              setCategoryView(null);
-            }}
-            onGoBack={() => setActiveView("categories")}
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
           />
         </>
       );
     }
     if (categoryView === "validation") {
-      setActiveView("signature-duerp");
-      setCategoryView(null);
+      return <Navigate to={getPathForView("signature-duerp")} replace />;
     }
     if (categoryView === "informatique") {
-      setActiveView("cerbere");
-      setCategoryView(null);
+      return <Navigate to={getPathForView("cerbere")} replace />;
     }
     if (categoryView === "comptabilite") {
       return (
         <>
           <ComptabiliteModulesView
             isAdmin={user?.role === "admin"}
-            onSelectModule={(moduleId) => {
-              setActiveView(moduleId);
-              setCategoryView(null);
-            }}
-            onGoBack={() => setActiveView("categories")}
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
           />
         </>
       );
@@ -2131,7 +2125,7 @@ export default function App() {
           {/* Bouton retour aux catégories */}
           <button
             onClick={() => {
-              setActiveView("categories");
+              goToView("categories");
               setIsMobileSidebarOpen(false);
             }}
             className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg transition-all hover:scale-105"
@@ -2188,7 +2182,7 @@ export default function App() {
                 };
                 toast.success(`Rôle changé : ${roleLabels[newRole]}`);
                 if (newRole === "prestataire") {
-                  setActiveView("repas");
+                  goToView("repas");
                   setIsMobileSidebarOpen(false);
                 }
               }}
@@ -2228,7 +2222,7 @@ export default function App() {
                               toast.error("Accès non autorisé pour cet onglet.");
                               return;
                             }
-                            setActiveView(item.id);
+                            goToView(item.id);
                             setIsMobileSidebarOpen(false);
                           }}
                           className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
@@ -2366,7 +2360,7 @@ export default function App() {
                     );
                   }}
                   onNavigateToActualites={() =>
-                    setActiveView("actualites")
+                    goToView("actualites")
                   }
                   onReviewActionReturn={(actionReturnId) => {
                     const actionReturn = actionReturns.find(
@@ -2382,7 +2376,7 @@ export default function App() {
                       );
                       if (risk) {
                         setSelectedRisk(risk);
-                        setActiveView("retour_action");
+                        goToView("retour_action");
                       }
                     }
                   }}
@@ -2400,7 +2394,7 @@ export default function App() {
               accidents={accidents}
               onNavigateToRisk={(risk) => {
                 setSelectedRisk(risk);
-                setActiveView("risks");
+                goToView("risks");
               }}
               getCategoryIcon={getCategoryIcon}
               getCategoryColor={getCategoryColor}
@@ -2461,13 +2455,17 @@ export default function App() {
           )}
 
           {/* Retour Action View */}
+          {activeView === "retour_action" && !selectedRisk && (
+            <Navigate to={getPathForView("risks")} replace />
+          )}
+
           {activeView === "retour_action" && selectedRisk && (
             <RetourActionView
               risk={selectedRisk}
               user={user}
               actionReturns={actionReturns}
               onBack={() => {
-                setActiveView("risks");
+                goToView("risks");
               }}
               onSubmitRetourAction={handleSubmitActionReturn}
               onValidateRetourAction={
@@ -2490,10 +2488,10 @@ export default function App() {
                   updatedAt: new Date().toISOString(),
                 };
                 setRisks([...risks, newRisk]);
-                setActiveView("risks");
+                goToView("risks");
                 toast.success("Risque créé avec succès");
               }}
-              onCancel={() => setActiveView("risks")}
+              onCancel={() => goToView("risks")}
               getCategoryIcon={getCategoryIcon}
               getCategoryColor={getCategoryColor}
               getRiskLevelColor={getRiskLevelColor}
@@ -2991,7 +2989,7 @@ export default function App() {
                               <Button
                                 size="sm"
                                 onClick={() =>
-                                  setActiveView("retour_action")
+                                  goToView("retour_action")
                                 }
                                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
                               >
@@ -3307,7 +3305,7 @@ export default function App() {
                           <div className="flex justify-center">
                             <Button
                               onClick={() =>
-                                setActiveView("retour_action")
+                                goToView("retour_action")
                               }
                               size="lg"
                               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg hover:shadow-xl transition-all"
@@ -3328,7 +3326,7 @@ export default function App() {
                           )}
                           userRole={user?.role}
                           onManageActionReturns={() => {
-                            setActiveView("retour_action");
+                            goToView("retour_action");
                           }}
                         />
                       </CardContent>
@@ -3648,7 +3646,7 @@ export default function App() {
                         className="border-0 shadow-xl hover:shadow-2xl transition-all cursor-pointer group hover:scale-[1.01] bg-white/80 backdrop-blur overflow-hidden"
                         onClick={() => {
                           setSelectedRisk(risk);
-                          setActiveView("retour_action");
+                          goToView("retour_action");
                         }}
                       >
                         <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
@@ -3753,7 +3751,7 @@ export default function App() {
               config={mealSubsidyConfig}
               setConfig={setMealSubsidyConfig}
               locations={adminLocations}
-              onGoBack={() => setCategoryView("comptabilite")}
+              onGoBack={() => goToView("category-modules", "comptabilite")}
             />
           )}
 
