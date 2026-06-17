@@ -17,7 +17,7 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[Goudurix]", error, info.componentStack);
+    console.error("[Lecompas]", error, info.componentStack);
   }
 
   render() {

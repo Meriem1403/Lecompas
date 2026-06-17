@@ -39,7 +39,20 @@ export const FAKE_SERVICES: Service[] = [
     active: true,
     domains: ['Fabrication', 'Qualité'],
     locations: ['Site Lyon', 'Site Marseille', 'Site Bordeaux']
-  }
+  },
+  {
+    id: '4',
+    name: 'CSN PACA-CORSE',
+    active: true,
+    domains: ['CSN'],
+    locations: [
+      'Tous sites inspections CSN (Navires, ateliers, chantiers ..)',
+      'Locaux-bureaux tous CSN',
+      'Martigues-Antenne CSN PACA Corse',
+      'Sète-CSN Occitanie',
+      'Antennes CSN (agents hébergés) en PACA, Corse et Occitanie',
+    ],
+  },
 ];
 
 export const FAKE_DOMAINS = [
@@ -67,7 +80,12 @@ export const FAKE_DOMAINS = [
     id: '5',
     name: 'Qualité',
     services: ['Production']
-  }
+  },
+  {
+    id: '6',
+    name: 'CSN',
+    services: ['CSN PACA-CORSE'],
+  },
 ];
 
 export const FAKE_LOCATIONS = [
@@ -112,6 +130,36 @@ export const FAKE_LOCATIONS = [
     name: 'Sète',
     services: ['Production'],
     regionCode: '34',
+  },
+  {
+    id: '8',
+    name: 'Tous sites inspections CSN (Navires, ateliers, chantiers ..)',
+    services: ['CSN PACA-CORSE'],
+    regionCode: '13',
+  },
+  {
+    id: '9',
+    name: 'Locaux-bureaux tous CSN',
+    services: ['CSN PACA-CORSE'],
+    regionCode: '13',
+  },
+  {
+    id: '10',
+    name: 'Martigues-Antenne CSN PACA Corse',
+    services: ['CSN PACA-CORSE'],
+    regionCode: '13',
+  },
+  {
+    id: '11',
+    name: 'Sète-CSN Occitanie',
+    services: ['CSN PACA-CORSE'],
+    regionCode: '34',
+  },
+  {
+    id: '12',
+    name: 'Antennes CSN (agents hébergés) en PACA, Corse et Occitanie',
+    services: ['CSN PACA-CORSE'],
+    regionCode: '2A',
   },
 ];
 

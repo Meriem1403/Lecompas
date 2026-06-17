@@ -1,18 +1,18 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: goudurix-db
+    container_name: lecompas-db
     environment:
-      POSTGRES_DB: goudurix
-      POSTGRES_USER: goudurix
-      POSTGRES_PASSWORD: goudurix
+      POSTGRES_DB: lecompas
+      POSTGRES_USER: lecompas
+      POSTGRES_PASSWORD: lecompas
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - lecompas_pg_data:/var/lib/postgresql/data
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U goudurix -d goudurix"]
+      test: ["CMD-SHELL", "pg_isready -U lecompas -d lecompas"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -22,10 +22,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: goudurix-backend
+    container_name: lecompas-backend
     environment:
       PORT: 8000
-      DATABASE_URL: postgresql://goudurix:goudurix@db:5432/goudurix
+      DATABASE_URL: postgresql://lecompas:lecompas@db:5432/lecompas
       API_PREFIX: /make-server-cfb78916
     ports:
       - "8000:8000"
@@ -38,11 +38,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: goudurix-frontend
+    container_name: lecompas-frontend
     environment:
       VITE_API_BASE: http://localhost:8000/make-server-cfb78916
     ports:
-      - "5173:5173"
+      - "5174:5173"
     volumes:
       - .:/app
       - /app/node_modules
@@ -52,4 +52,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  pg_data:
+  lecompas_pg_data:

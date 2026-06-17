@@ -1,6 +1,6 @@
 import { AppUser } from "../components/admin/UserManagementView";
 
-const ADMIN_USERS_KEY = "goudurix_admin_users";
+const ADMIN_USERS_KEY = "lecompas_admin_users";
 
 export function loadAdminUsers(defaultUsers: AppUser[]): AppUser[] {
   try {
