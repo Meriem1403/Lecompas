@@ -13,9 +13,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
-import { PlusCircle, Edit, Trash2, ArrowLeft } from "lucide-react";
+import { PlusCircle, Edit, Trash2, ArrowLeft, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "@/app/components/ui/list-pagination-bar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/ui/select";
 
 export interface RiskReference {
   id: string;
@@ -29,6 +36,14 @@ interface RiskReferencesManagementViewProps {
 }
 
 type ViewMode = "list" | "create" | "edit";
+type SortOption = "numero-asc" | "numero-desc" | "title-asc" | "title-desc";
+
+function compareNumero(a: string, b: string): number {
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+  return a.localeCompare(b, "fr", { numeric: true });
+}
 
 export function RiskReferencesManagementView({
   references,
@@ -47,17 +62,69 @@ export function RiskReferencesManagementView({
     title: "",
   });
   const [listPage, setListPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [numeroFilter, setNumeroFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<SortOption>("numero-asc");
+
+  const numeroOptions = useMemo(
+    () =>
+      [...new Set(references.map((ref) => ref.numeroRisque))].sort(compareNumero),
+    [references],
+  );
+
+  const filteredReferences = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const result = references.filter((ref) => {
+      const matchesSearch =
+        !query ||
+        ref.numeroRisque.toLowerCase().includes(query) ||
+        ref.title.toLowerCase().includes(query);
+      const matchesNumero =
+        numeroFilter === "all" || ref.numeroRisque === numeroFilter;
+      return matchesSearch && matchesNumero;
+    });
+
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case "numero-desc":
+          return compareNumero(b.numeroRisque, a.numeroRisque);
+        case "title-asc":
+          return a.title.localeCompare(b.title, "fr");
+        case "title-desc":
+          return b.title.localeCompare(a.title, "fr");
+        default:
+          return compareNumero(a.numeroRisque, b.numeroRisque);
+      }
+    });
+  }, [references, searchQuery, numeroFilter, sortBy]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== "" || numeroFilter !== "all" || sortBy !== "numero-asc";
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setNumeroFilter("all");
+    setSortBy("numero-asc");
+    setListPage(1);
+  };
 
   const listPageSize = TABLE_LIST_PAGE_SIZE;
-  const listTotalPages = Math.max(1, Math.ceil(references.length / listPageSize));
+  const listTotalPages = Math.max(
+    1,
+    Math.ceil(filteredReferences.length / listPageSize),
+  );
   const paginatedReferences = useMemo(() => {
     const start = (listPage - 1) * listPageSize;
-    return references.slice(start, start + listPageSize);
-  }, [references, listPage, listPageSize]);
+    return filteredReferences.slice(start, start + listPageSize);
+  }, [filteredReferences, listPage, listPageSize]);
 
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
-  }, [listPage, listTotalPages, references.length]);
+  }, [listPage, listTotalPages, filteredReferences.length]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery, numeroFilter, sortBy]);
 
   const handleCreate = () => {
     setSelectedReference(null);
@@ -146,8 +213,9 @@ export function RiskReferencesManagementView({
                 Référentiel des risques
               </h3>
               <p className="text-gray-600">
-                Gérez les couples Numéro risque / Risque pour les
-                listes déroulantes
+                {filteredReferences.length === references.length
+                  ? `${references.length} référence${references.length > 1 ? "s" : ""}`
+                  : `${filteredReferences.length} référence${filteredReferences.length > 1 ? "s" : ""} sur ${references.length}`}
               </p>
             </div>
             <Button
@@ -158,6 +226,60 @@ export function RiskReferencesManagementView({
               Nouvelle référence
             </Button>
           </div>
+
+          <Card className="border-2 border-slate-200 shadow-lg bg-gradient-to-r from-slate-50 to-slate-100">
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative w-full lg:flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Rechercher par numéro ou intitulé du risque..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white border-2 border-slate-400 pl-9 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                  />
+                </div>
+                <Select value={numeroFilter} onValueChange={setNumeroFilter}>
+                  <SelectTrigger className="w-full lg:w-[200px] bg-white border-2 border-slate-400 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                    <SelectValue placeholder="N° risque" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les numéros</SelectItem>
+                    {numeroOptions.map((numero) => (
+                      <SelectItem key={numero} value={numero}>
+                        N° {numero}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={sortBy}
+                  onValueChange={(value) => setSortBy(value as SortOption)}
+                >
+                  <SelectTrigger className="w-full lg:w-[220px] bg-white border-2 border-slate-400 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                    <SelectValue placeholder="Tri" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="numero-asc">N° croissant</SelectItem>
+                    <SelectItem value="numero-desc">N° décroissant</SelectItem>
+                    <SelectItem value="title-asc">Intitulé A → Z</SelectItem>
+                    <SelectItem value="title-desc">Intitulé Z → A</SelectItem>
+                  </SelectContent>
+                </Select>
+                {hasActiveFilters && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={resetFilters}
+                    className="w-full lg:w-auto border-slate-400"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Réinitialiser
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
             <CardContent className="p-0">
@@ -212,13 +334,15 @@ export function RiskReferencesManagementView({
                         </td>
                       </tr>
                     ))}
-                    {references.length === 0 && (
+                    {paginatedReferences.length === 0 && (
                       <tr>
                         <td
                           className="px-6 py-8 text-center text-sm text-gray-500"
                           colSpan={3}
                         >
-                          Aucune référence enregistrée
+                          {references.length === 0
+                            ? "Aucune référence enregistrée"
+                            : "Aucune référence ne correspond aux filtres"}
                         </td>
                       </tr>
                     )}
@@ -231,7 +355,7 @@ export function RiskReferencesManagementView({
           <ListPaginationBar
             currentPage={listPage}
             totalPages={listTotalPages}
-            totalItems={references.length}
+            totalItems={filteredReferences.length}
             onPageChange={setListPage}
             itemLabel="référence(s)"
           />

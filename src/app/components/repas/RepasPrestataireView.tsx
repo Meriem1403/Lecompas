@@ -164,7 +164,7 @@ export function RepasPrestataireView({
     const trimmed = manualCode.trim();
     if (!trimmed) return;
 
-    if (trimmed.startsWith("GOUDURIX-REPAS")) {
+    if (trimmed.startsWith("LECOMPAS-REPAS") || trimmed.startsWith("GOUDURIX-REPAS")) {
       processValidation(trimmed);
     } else {
       const ticket = mealTickets.find(

@@ -1,11 +1,11 @@
 import type { MealTicket } from "./mealTicketRecord";
 
 /** Base locale IndexedDB pour les volumes de tickets (> limite typical localStorage ~5 Mo). */
-const DB_NAME = "goudurix-repas-tickets";
+const DB_NAME = "lecompas-repas-tickets";
 const DB_VERSION = 1;
 const STORE = "tickets";
 
-const LS_KEY = "goudurix_meal_tickets_v2";
+const LS_KEY = "lecompas_meal_tickets_v2";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

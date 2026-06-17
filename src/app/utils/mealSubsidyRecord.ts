@@ -69,16 +69,16 @@ export interface AgentMealSubsidyBreakdown {
   eligibleInterministerial: boolean;
 }
 
-const SUBSIDY_CONFIG_KEY = "goudurix_meal_subsidy_config";
-const SUBSIDY_CONFIG_VERSION_KEY = "goudurix_meal_subsidy_config_version";
+const SUBSIDY_CONFIG_KEY = "lecompas_meal_subsidy_config";
+const SUBSIDY_CONFIG_VERSION_KEY = "lecompas_meal_subsidy_config_version";
 /** Incrémenter pour ré-harmoniser lieux / barèmes en local. */
 const SUBSIDY_CONFIG_VERSION = "3";
 
 export function normalizeLocationKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
-const INM_HISTORY_KEY = "goudurix_user_inm_history";
-const INM_HISTORY_VERSION_KEY = "goudurix_user_inm_history_version";
+const INM_HISTORY_KEY = "lecompas_user_inm_history";
+const INM_HISTORY_VERSION_KEY = "lecompas_user_inm_history_version";
 /** Incrémenter pour réinitialiser l'historique INM de démo en local. */
 const INM_HISTORY_VERSION = "1";
 

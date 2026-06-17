@@ -63,14 +63,15 @@ export interface MealTicketFilters {
   search?: string;
 }
 
-const TICKETS_STORAGE_KEY = "goudurix_meal_tickets_v2";
-const TICKETS_STORAGE_VERSION_KEY = "goudurix_meal_tickets_version";
+const TICKETS_STORAGE_KEY = "lecompas_meal_tickets_v2";
+const TICKETS_STORAGE_VERSION_KEY = "lecompas_meal_tickets_version";
 /** Incrémenter pour remettre à zéro les tickets en local (tests / changement de modèle). */
 const TICKETS_STORAGE_VERSION = "5";
 const LEGACY_TICKETS_STORAGE_KEY = "goudurix_meal_tickets";
-const MEAL_TICKETS_RESET_NONCE_KEY = "goudurix_meal_tickets_reset_nonce";
-export const MEAL_TICKETS_RESET_EVENT = "goudurix-meal-tickets-reset";
-const QR_PREFIX = "GOUDURIX-REPAS";
+const MEAL_TICKETS_RESET_NONCE_KEY = "lecompas_meal_tickets_reset_nonce";
+export const MEAL_TICKETS_RESET_EVENT = "lecompas-meal-tickets-reset";
+const QR_PREFIX = "LECOMPAS-REPAS";
+const LEGACY_QR_PREFIX = "GOUDURIX-REPAS";
 
 function broadcastMealTicketsReset(nonce: string): void {
   if (typeof window === "undefined") return;
@@ -301,7 +302,7 @@ export function buildQrPayload(ticket: MealTicket): string {
 
 export function parseQrPayload(payload: string): ParsedQrPayload | null {
   const trimmed = payload.trim();
-  if (!trimmed.startsWith(QR_PREFIX)) return null;
+  if (!trimmed.startsWith(QR_PREFIX) && !trimmed.startsWith(LEGACY_QR_PREFIX)) return null;
   const parts = trimmed.split("|");
   if (parts.length < 4) return null;
   const snapshotEncoded = parts[4];
