@@ -1,6 +1,6 @@
 import { Toaster } from "sonner";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import App from "./app/App.tsx";
 import { ErrorBoundary } from "./app/components/ErrorBoundary.tsx";
 import "./styles/index.css";
@@ -33,10 +33,7 @@ if (rootEl) {
         */}
         <Toaster position="top-center" duration={4500} closeButton richColors />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/accueil" replace />} />
-            <Route path="/*" element={<App />} />
-          </Routes>
+          <App />
         </BrowserRouter>
       </>
     </ErrorBoundary>,
