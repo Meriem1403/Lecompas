@@ -1978,6 +1978,11 @@ export default function App() {
     }
   }, [activeView, user, accessProfiles, currentAdminUser, navigate]);
 
+  const normalizedPath = location.pathname.replace(/\/$/, "") || "/";
+  if (normalizedPath === "/") {
+    return <Navigate to={DEFAULT_AUTHENTICATED_PATH} replace />;
+  }
+
   // Si l'utilisateur n'est pas authentifié, afficher la page de login
   if (!isAuthenticated) {
     return (
@@ -2074,6 +2079,8 @@ export default function App() {
         </>
       );
     }
+
+    return <Navigate to={DEFAULT_AUTHENTICATED_PATH} replace />;
   }
 
   return (
