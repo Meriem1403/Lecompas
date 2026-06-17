@@ -155,16 +155,54 @@ export function DashboardView({
     }
   ];
 
-  // Donnees pour graphique par risque
-  const riskData = Object.entries(
-    risks.reduce((acc, risk) => {
-      if (risk.title && risk.title.trim()) {
-        const riskName = risk.title.trim();
-        acc[riskName] = (acc[riskName] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>)
-  ).map(([name, value], index) => ({ id: `cat-${name}-${value}-${index}`, name, value }));
+  const CATEGORY_LABELS: Record<string, string> = {
+    chimique: 'Chimique',
+    électrique: 'Électrique',
+    incendie: 'Incendie',
+    mécanique: 'Mécanique',
+    ergonomique: 'Ergonomique',
+    psychosocial: 'Psychosocial',
+    physique: 'Physique',
+    routier: 'Routier',
+    biologique: 'Biologique',
+    noyade: 'Noyade',
+    asphyxie: 'Asphyxie',
+    risque: 'Autres',
+  };
+
+  const formatCategoryLabel = (category: string) =>
+    CATEGORY_LABELS[category] ??
+    category.charAt(0).toUpperCase() + category.slice(1);
+
+  const aggregateByCategory = () =>
+    Object.entries(
+      risks.reduce((acc, risk) => {
+        const category = risk.category?.trim() || 'risque';
+        if (!acc[category]) {
+          acc[category] = { total: 0, critique: 0 };
+        }
+        acc[category].total += 1;
+        if (risk.riskLevel > 9) {
+          acc[category].critique += 1;
+        }
+        return acc;
+      }, {} as Record<string, { total: number; critique: number }>),
+    )
+      .map(([category, data], index) => ({
+        id: `cat-${category}-${index}`,
+        category,
+        name: formatCategoryLabel(category),
+        total: data.total,
+        critique: data.critique,
+        value: data.total,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+  const categoryChartData = aggregateByCategory();
+  const radarData = categoryChartData.slice(0, 8);
+
+  // Donnees pour graphique par catégorie de risque
+  const riskData = categoryChartData.slice(0, 10);
 
   const CATEGORY_COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
 
@@ -219,27 +257,7 @@ export function DashboardView({
     }
   ];
 
-  // Donnees radar par risque
-  const radarData = Object.entries(
-    risks.reduce((acc, risk) => {
-      if (risk.title && risk.title.trim()) {
-        const riskName = risk.title.trim();
-        if (!acc[riskName]) {
-          acc[riskName] = { total: 0, critique: 0 };
-        }
-        acc[riskName].total += 1;
-        if (risk.riskLevel > 9) {
-          acc[riskName].critique += 1;
-        }
-      }
-      return acc;
-    }, {} as Record<string, { total: number; critique: number }>)
-  ).map(([riskName, data], index) => ({
-    id: `radar-${riskName}-${data.total}-${data.critique}-${index}`,
-    riskName,
-    total: data.total,
-    critique: data.critique
-  }));
+  // Donnees radar par catégorie (top 8)
 
   return (
     <div className="space-y-6">
@@ -284,22 +302,28 @@ export function DashboardView({
           <CardHeader>
             <CardTitle className="flex items-center text-xl">
               <BarChart3 className="h-6 w-6 mr-2 text-purple-500" />
-              Repartition par risque
+              Répartition par catégorie
             </CardTitle>
-            <CardDescription>Nombre de risques par type</CardDescription>
+            <CardDescription>Nombre de risques par famille</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={riskData} id="category-chart">
+              <BarChart data={riskData} id="category-chart" layout="vertical" margin={{ left: 8, right: 16 }}>
                 <defs>
-                  <linearGradient id="categoryBarGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="categoryBarGradient" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.9}/>
                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0.7}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                <XAxis type="number" stroke="#6b7280" style={{ fontSize: '12px' }} allowDecimals={false} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="#6b7280"
+                  width={110}
+                  tick={{ fontSize: 11 }}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -430,20 +454,31 @@ export function DashboardView({
           <CardHeader>
             <CardTitle className="flex items-center text-xl">
               <Target className="h-6 w-6 mr-2 text-indigo-500" />
-              Vue d'ensemble par risque
+              Vue d'ensemble par catégorie
             </CardTitle>
-            <CardDescription>Total vs Critiques par catégorie</CardDescription>
+            <CardDescription>Total vs critiques (8 principales catégories)</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={radarData} id="radar-overview-chart">
+            <ResponsiveContainer width="100%" height={360}>
+              <RadarChart
+                data={radarData}
+                id="radar-overview-chart"
+                cx="50%"
+                cy="50%"
+                outerRadius="68%"
+              >
                 <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis dataKey="riskName" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <PolarRadiusAxis stroke="#6b7280" />
+                <PolarAngleAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: '#4b5563' }}
+                />
+                <PolarRadiusAxis stroke="#6b7280" allowDecimals={false} />
                 <Radar key="radar-total" name="Total" dataKey="total" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
                 <Radar key="radar-critique" name="Critiques" dataKey="critique" stroke="#ef4444" fill="#ef4444" fillOpacity={0.5} />
-                <Legend />
+                <Legend wrapperStyle={{ paddingTop: 12 }} />
                 <Tooltip
+                  formatter={(value: number, name: string) => [value, name]}
+                  labelFormatter={(label) => `Catégorie : ${label}`}
                   contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #e5e7eb',
@@ -453,6 +488,11 @@ export function DashboardView({
                 />
               </RadarChart>
             </ResponsiveContainer>
+            {categoryChartData.length > 8 && (
+              <p className="mt-2 text-xs text-center text-gray-500">
+                Radar limité aux 8 catégories les plus représentées ({categoryChartData.length} au total).
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
