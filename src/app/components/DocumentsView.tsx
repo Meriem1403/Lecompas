@@ -159,9 +159,15 @@ const FAKE_DOCUMENTS: Document[] = [
 
 interface DocumentsViewProps {
   documents?: Document[];
+  risks?: import('@/app/components/admin/RisksManagementView').Risk[];
+  actions?: import('@/app/components/ActionsView').Action[];
 }
 
-export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) {
+export function DocumentsView({
+  documents: propDocuments,
+  risks = [],
+  actions = [],
+}: DocumentsViewProps) {
   const [documents, setDocuments] = useState<Document[]>(propDocuments || FAKE_DOCUMENTS);
   const [isCreating, setIsCreating] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
@@ -539,7 +545,7 @@ export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) 
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h3 className="text-2xl font-bold text-gray-900">Documents DUERP</h3>
+          <h3 className="text-2xl font-bold text-gray-900">Documents SST</h3>
           <p className="text-gray-600">Gérez l'ensemble des documents réglementaires</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
@@ -821,7 +827,12 @@ export function DocumentsView({ documents: propDocuments }: DocumentsViewProps) 
       </AlertDialog>
 
       {/* Generate DUERP Dialog */}
-      <GenerateDUERPDialog open={generateDUERPOpen} onOpenChange={setGenerateDUERPOpen} documents={documents} />
+      <GenerateDUERPDialog
+        open={generateDUERPOpen}
+        onOpenChange={setGenerateDUERPOpen}
+        risks={risks}
+        actions={actions}
+      />
     </div>
   );
 }

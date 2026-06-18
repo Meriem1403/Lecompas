@@ -30,6 +30,10 @@ const kvSet = async (key, value) => {
   );
 };
 
+const kvDelete = async (key) => {
+  await pool.query("DELETE FROM kv_store_cfb78916 WHERE key = $1", [key]);
+};
+
 const kvMget = async (keys) => {
   if (!Array.isArray(keys) || keys.length === 0) {
     return [];
@@ -253,6 +257,31 @@ app.put(`${apiPrefix}/risks/:id`, async (req, res) => {
     return res.json({ risk: updatedRisk });
   } catch (_error) {
     return res.status(500).json({ error: "Server error updating risk" });
+  }
+});
+
+app.delete(`${apiPrefix}/risks/:id`, async (req, res) => {
+  try {
+    const token = getBearerToken(req.header("Authorization"));
+    const user = await getUserFromToken(token);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const riskId = req.params.id;
+    const existingRisk = await kvGet(`risk:${riskId}`);
+    if (!existingRisk) {
+      return res.status(404).json({ error: "Risk not found" });
+    }
+
+    await kvDelete(`risk:${riskId}`);
+    const list = (await kvGet("risks:list")) || [];
+    const nextList = list.filter((id) => id !== riskId);
+    await kvSet("risks:list", nextList);
+
+    return res.json({ success: true, id: riskId });
+  } catch (_error) {
+    return res.status(500).json({ error: "Server error deleting risk" });
   }
 });
 

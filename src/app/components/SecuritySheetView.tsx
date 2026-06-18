@@ -204,7 +204,7 @@ function countFilledControlRows(r: SecuritySheetRecord): number {
   return n;
 }
 
-async function downloadFicheSecuritePdf(record: SecuritySheetRecord) {
+export async function downloadFicheSecuritePdf(record: SecuritySheetRecord) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const margin = 14;
@@ -529,10 +529,16 @@ export function SecuritySheetView({
         onEdit={() => startEdit(selected)}
         onDownload={async () => {
           try {
+            const { downloadSecuritySheetVisualPdf } = await import("./securitySheetVisualPdf");
+            const visualOk = await downloadSecuritySheetVisualPdf(selected);
+            if (visualOk) {
+              toast.success("Fiche téléchargée en PDF (aperçu visuel).");
+              return;
+            }
             await downloadFicheSecuritePdf(selected);
-            toast.success("Fiche telechargee en PDF.");
+            toast.success("Fiche téléchargée en PDF.");
           } catch {
-            toast.error("Impossible de generer le PDF.");
+            toast.error("Impossible de générer le PDF.");
           }
         }}
         readSection={readSection}
@@ -692,6 +698,14 @@ export function SecuritySheetView({
                 <Button variant="outline" className="w-full sm:flex-1" onClick={() => openDetail(r)}>
                   <FileText className="h-4 w-4 mr-2" />
                   Consulter
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full sm:flex-1"
+                  onClick={() => void downloadFicheSecuritePdf(r)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
                 </Button>
                 {canEdit ? (
                   <>

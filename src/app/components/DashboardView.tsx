@@ -1,4 +1,4 @@
-import React from 'react';
+import { getPriorityBandFromGfm } from '@/app/services/riskPriority';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -174,31 +174,24 @@ export function DashboardView({
     CATEGORY_LABELS[category] ??
     category.charAt(0).toUpperCase() + category.slice(1);
 
-  const aggregateByCategory = () =>
-    Object.entries(
-      risks.reduce((acc, risk) => {
-        const category = risk.category?.trim() || 'risque';
-        if (!acc[category]) {
-          acc[category] = { total: 0, critique: 0 };
-        }
-        acc[category].total += 1;
-        if (risk.riskLevel > 9) {
-          acc[category].critique += 1;
-        }
-        return acc;
-      }, {} as Record<string, { total: number; critique: number }>),
-    )
-      .map(([category, data], index) => ({
-        id: `cat-${category}-${index}`,
-        category,
-        name: formatCategoryLabel(category),
-        total: data.total,
-        critique: data.critique,
-        value: data.total,
-      }))
-      .sort((a, b) => b.total - a.total);
+  const aggregateByPriority = () => {
+    const bands: Record<'P1' | 'P2' | 'P3', number> = { P1: 0, P2: 0, P3: 0 };
+    risks.forEach((risk) => {
+      const band = getPriorityBandFromGfm(risk.riskLevel);
+      bands[band] += 1;
+    });
+    return (['P1', 'P2', 'P3'] as const).map((band, index) => ({
+      id: `prio-${band}`,
+      category: band,
+      name: band,
+      total: bands[band],
+      critique: band === 'P1' ? bands[band] : 0,
+      value: bands[band],
+      color: index === 0 ? '#ef4444' : index === 1 ? '#f97316' : '#22c55e',
+    }));
+  };
 
-  const categoryChartData = aggregateByCategory();
+  const categoryChartData = aggregateByPriority();
   const radarData = categoryChartData.slice(0, 8);
 
   // Donnees pour graphique par catégorie de risque
@@ -598,16 +591,21 @@ export function DashboardView({
                 .filter(r => r.riskLevel >= 12)
                 .slice(0, 5)
                 .map((risk) => {
-                  const Icon = getCategoryIcon(risk.category);
-                  const gradient = getCategoryColor(risk.category);
+                  const band = getPriorityBandFromGfm(risk.riskLevel);
+                  const gradient =
+                    band === 'P1'
+                      ? 'from-red-500 to-rose-600'
+                      : band === 'P2'
+                        ? 'from-orange-500 to-amber-600'
+                        : 'from-green-500 to-emerald-600';
                   return (
                     <div 
                       key={risk.id}
                       className="flex items-start space-x-3 p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white hover:shadow-xl cursor-pointer transition-all hover:scale-[1.02] border border-gray-100"
                       onClick={() => onNavigateToRisk(risk)}
                     >
-                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                        <Icon className="h-6 w-6 text-white" />
+                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradient} flex flex-col items-center justify-center flex-shrink-0 shadow-lg`}>
+                        <span className="text-sm font-extrabold text-white">{band}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-gray-800">{risk.title}</p>

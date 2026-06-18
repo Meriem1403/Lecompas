@@ -96,7 +96,7 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
     },
     {
       id: "documents",
-      title: "Documents DUERP",
+      title: "Documents SST",
       description: "Gestion des documents du Document Unique",
       icon: FileText,
       color: "text-orange-500",

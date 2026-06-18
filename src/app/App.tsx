@@ -36,9 +36,15 @@ import {
   mapRisksToDuerpRefs,
   normalizeAccidentRecord,
 } from "./utils/accidentRecord";
-import { ActionsView } from "./components/ActionsView";
+import { ActionsView, type Action } from "./components/ActionsView";
 import { RiskFormDialog } from "./components/RiskFormDialog";
 import { ListPaginationBar } from "./components/ui/list-pagination-bar";
+import { RiskEvaluationFiltersPanel } from "./components/RiskEvaluationFiltersPanel";
+import {
+  emptyRiskEvaluationFilters,
+  matchesRiskEvaluationFilters,
+  type RiskEvaluationFilters,
+} from "./utils/riskFilterLogic";
 import { RiskEditView } from "./components/RiskEditView";
 import {
   AdminTabsView,
@@ -67,6 +73,31 @@ import {
 } from "./components/admin/RiskReferencesManagementView";
 import { RISK_REFERENCE_FIXTURES } from "./fixtures/riskReferenceFixtures";
 import { CSN_PACA_CORSE_RISK_FIXTURES } from "./fixtures/csnPacaCorseRiskFixtures";
+import { PAPRIPACT_2026_ACTION_FIXTURES } from "./fixtures/papripactFixtures";
+import {
+  buildRiskAwarenessKey,
+  loadAwarenessRecords,
+  loadManualActions,
+  loadNotifications,
+  loadPersistedRisks,
+  loadSecuritySheets,
+  loadSuppressedAwarenessKeys,
+  saveAwarenessRecords,
+  saveManualActions,
+  saveNotifications,
+  savePersistedRisks,
+  saveSecuritySheets,
+  saveSuppressedAwarenessKeys,
+  loadPapripactSignaturesStorage,
+  savePapripactSignaturesStorage,
+  type AppNotification,
+} from "./utils/lecompasStorage";
+import {
+  loadPapripactSignatures,
+  savePapripactSignatures,
+  mergeInitialManualActions,
+  type PapripactSignatureRecord,
+} from "./utils/papripactStorage";
 import {
   DEFAULT_AUTHENTICATED_PATH,
   getPathForView,
@@ -470,7 +501,23 @@ export default function App() {
     },
     [navigate],
   );
-  const [risks, setRisks] = useState<Risk[]>(FAKE_RISKS);
+  const [risks, setRisks] = useState<Risk[]>(
+    () => loadPersistedRisks() ?? FAKE_RISKS,
+  );
+  const [manualActions, setManualActions] = useState<Action[]>(() =>
+    mergeInitialManualActions(
+      loadManualActions(),
+      PAPRIPACT_2026_ACTION_FIXTURES,
+    ),
+  );
+  const [papripactSignatures, setPapripactSignatures] = useState<
+    PapripactSignatureRecord[]
+  >(() => loadPapripactSignaturesStorage().length > 0
+    ? loadPapripactSignaturesStorage()
+    : loadPapripactSignatures());
+  const [suppressedAwarenessKeys, setSuppressedAwarenessKeys] = useState<
+    string[]
+  >(() => loadSuppressedAwarenessKeys());
   const [adminUsers, setAdminUsers] = useState<AppUser[]>(() => loadAdminUsers(FAKE_USERS));
   const [accessProfiles, setAccessProfiles] = useState<
     Record<string, EmployeeAccessProfile>
@@ -507,8 +554,10 @@ export default function App() {
   );
   const [riskAwarenessRecords, setRiskAwarenessRecords] = useState<
     RiskAwarenessRecord[]
-  >([]);
-  const [securitySheets, setSecuritySheets] = useState(defaultSecuritySheetsState);
+  >(() => loadAwarenessRecords() ?? []);
+  const [securitySheets, setSecuritySheets] = useState(() =>
+    loadSecuritySheets() ?? defaultSecuritySheetsState,
+  );
   const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
   const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
@@ -569,65 +618,17 @@ export default function App() {
   };
 
   const visibleRisks = risks.filter(canAccessRisk);
-  const [riskServiceFilter, setRiskServiceFilter] =
-    useState("all");
-  const [riskStatusFilter, setRiskStatusFilter] =
-    useState("all");
-  const [riskLevelFilter, setRiskLevelFilter] =
-    useState("all");
-  const [riskNumberFilter, setRiskNumberFilter] =
-    useState("all");
+  const [riskEvaluationFilters, setRiskEvaluationFilters] =
+    useState<RiskEvaluationFilters>(emptyRiskEvaluationFilters());
   const [riskSearchQuery, setRiskSearchQuery] = useState("");
   const [riskCurrentPage, setRiskCurrentPage] = useState(1);
   const riskPageSize = 6;
 
   const filteredVisibleRisks = React.useMemo(() => {
-    const query = riskSearchQuery.trim().toLowerCase();
-    return visibleRisks.filter((risk) => {
-      const matchesService =
-        riskServiceFilter === "all" ||
-        risk.service === riskServiceFilter;
-      const matchesStatus =
-        riskStatusFilter === "all" ||
-        risk.status === riskStatusFilter;
-      const matchesRiskLevel =
-        riskLevelFilter === "all" ||
-        String(risk.riskLevel) === riskLevelFilter;
-      const matchesRiskNumber =
-        riskNumberFilter === "all" ||
-        risk.numeroRisque === riskNumberFilter;
-
-      const matchesSearch =
-        query.length === 0 ||
-        [
-          risk.title,
-          risk.situation,
-          risk.associatedRisk,
-          risk.responsable,
-          risk.service,
-          risk.domain || risk.unite,
-          risk.site,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-
-      return (
-        matchesService &&
-        matchesStatus &&
-        matchesRiskLevel &&
-        matchesRiskNumber &&
-        matchesSearch
-      );
-    });
-  }, [
-    visibleRisks,
-    riskServiceFilter,
-    riskStatusFilter,
-    riskLevelFilter,
-    riskNumberFilter,
-    riskSearchQuery,
-  ]);
+    return visibleRisks.filter((risk) =>
+      matchesRiskEvaluationFilters(risk, riskEvaluationFilters, riskSearchQuery),
+    );
+  }, [visibleRisks, riskEvaluationFilters, riskSearchQuery]);
 
   const totalRiskPages = Math.max(
     1,
@@ -640,13 +641,7 @@ export default function App() {
 
   React.useEffect(() => {
     setRiskCurrentPage(1);
-  }, [
-    riskServiceFilter,
-    riskStatusFilter,
-    riskLevelFilter,
-    riskNumberFilter,
-    riskSearchQuery,
-  ]);
+  }, [riskEvaluationFilters, riskSearchQuery]);
 
   React.useEffect(() => {
     if (riskCurrentPage > totalRiskPages) {
@@ -794,6 +789,35 @@ export default function App() {
   }, [riskReferences]);
 
   React.useEffect(() => {
+    savePersistedRisks(risks);
+  }, [risks]);
+
+  React.useEffect(() => {
+    saveSecuritySheets(securitySheets);
+  }, [securitySheets]);
+
+  React.useEffect(() => {
+    savePapripactSignaturesStorage(papripactSignatures);
+    savePapripactSignatures(papripactSignatures);
+  }, [papripactSignatures]);
+
+  React.useEffect(() => {
+    saveManualActions(manualActions);
+  }, [manualActions]);
+
+  React.useEffect(() => {
+    saveNotifications(notifications);
+  }, [notifications]);
+
+  React.useEffect(() => {
+    saveAwarenessRecords(riskAwarenessRecords);
+  }, [riskAwarenessRecords]);
+
+  React.useEffect(() => {
+    saveSuppressedAwarenessKeys(suppressedAwarenessKeys);
+  }, [suppressedAwarenessKeys]);
+
+  React.useEffect(() => {
     const sourceByKey = new Map<
       string,
       { riskNumber: string; riskTitle: string }
@@ -823,53 +847,73 @@ export default function App() {
         previousByRiskKey.set(record.riskKey, bucket);
       });
 
-      return Array.from(sourceByKey.entries()).flatMap(([riskKey, source]) => {
+      const nextRecords: RiskAwarenessRecord[] = [];
+
+      sourceByKey.forEach((source, riskKey) => {
         const existingRecords = previousByRiskKey.get(riskKey) || [];
         if (existingRecords.length > 0) {
-          return existingRecords.map((existing) => ({
-            ...existing,
-            riskNumber: source.riskNumber,
-            riskTitle: source.riskTitle,
-          }));
+          nextRecords.push(
+            ...existingRecords.map((existing) => ({
+              ...existing,
+              riskNumber: source.riskNumber,
+              riskTitle: source.riskTitle,
+            })),
+          );
+          return;
         }
-        return [
-          {
-            id: crypto.randomUUID(),
-            riskKey,
-            riskNumber: source.riskNumber,
-            riskTitle: source.riskTitle,
-            summary: "",
-            content: "",
-            links: [],
-            documents: [],
-            status: "a_completer",
-          },
-        ];
+
+        if (suppressedAwarenessKeys.includes(riskKey)) {
+          return;
+        }
+
+        nextRecords.push({
+          id: crypto.randomUUID(),
+          riskKey,
+          riskNumber: source.riskNumber,
+          riskTitle: source.riskTitle,
+          summary: "",
+          content: "",
+          links: [],
+          documents: [],
+          status: "a_completer",
+        });
       });
+
+      previous.forEach((record) => {
+        if (!sourceByKey.has(record.riskKey)) {
+          nextRecords.push(record);
+        }
+      });
+
+      return nextRecords;
     });
-  }, [riskReferences, risks]);
+  }, [riskReferences, risks, suppressedAwarenessKeys]);
 
   // Notifications state (actualités non lues)
-  const [notifications, setNotifications] = useState<any[]>([
-    {
-      id: "a1",
-      titre: "Mise à jour du système DUERP",
-      contenu:
-        "Une nouvelle version du système DUERP sera déployée le 10 février 2026.",
-      type: "info",
-      dateCreation: "2026-02-01",
-      isRead: false,
-    },
-    {
-      id: "a4",
-      titre: "URGENT - Nouveau protocole COVID-19",
-      contenu:
-        "Suite aux nouvelles directives gouvernementales, un protocole sanitaire renforcé est mis en place immédiatement.",
-      type: "urgent",
-      dateCreation: "2026-02-02",
-      isRead: false,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const stored = loadNotifications();
+    if (stored && stored.length > 0) return stored;
+    return [
+      {
+        id: "a1",
+        titre: "Mise à jour du système DUERP",
+        contenu:
+          "Une nouvelle version du système DUERP sera déployée le 10 février 2026.",
+        type: "info",
+        dateCreation: "2026-02-01",
+        isRead: false,
+      },
+      {
+        id: "a4",
+        titre: "URGENT - Nouveau protocole COVID-19",
+        contenu:
+          "Suite aux nouvelles directives gouvernementales, un protocole sanitaire renforcé est mis en place immédiatement.",
+        type: "urgent",
+        dateCreation: "2026-02-02",
+        isRead: false,
+      },
+    ];
+  });
 
   const resolveDemoUser = (
     email: string,
@@ -1372,9 +1416,19 @@ export default function App() {
   const handleDeleteRiskConfirm = () => {
     if (riskToDelete) {
       const targetId = String(riskToDelete);
+      const deletedRisk = risks.find((r) => String(r.id) === targetId);
       setRisks((prev) =>
         prev.filter((r) => String(r.id) !== targetId),
       );
+      if (deletedRisk) {
+        const riskKey = buildRiskAwarenessKey(deletedRisk);
+        setRiskAwarenessRecords((prev) =>
+          prev.filter((record) => record.riskKey !== riskKey),
+        );
+        setSuppressedAwarenessKeys((prev) =>
+          prev.filter((key) => key !== riskKey),
+        );
+      }
       toast.success("Risque supprimé avec succès");
       setRiskDeleteDialogOpen(false);
       setRiskToDelete(null);
@@ -1383,6 +1437,43 @@ export default function App() {
       }
     }
   };
+
+  const handleUpdateRisk = useCallback(
+    (riskId: string, updater: (risk: Risk) => Risk) => {
+      setRisks((prev) =>
+        prev.map((risk) =>
+          String(risk.id) === String(riskId) ? updater(risk) : risk,
+        ),
+      );
+    },
+    [],
+  );
+
+  const handleAwarenessRecordDeleted = useCallback(
+    (record: RiskAwarenessRecord) => {
+      setRiskAwarenessRecords((prev) => {
+        const remainingForKey = prev.filter(
+          (item) =>
+            item.id !== record.id && item.riskKey === record.riskKey,
+        );
+        if (remainingForKey.length === 0) {
+          setSuppressedAwarenessKeys((keys) =>
+            keys.includes(record.riskKey)
+              ? keys
+              : [...keys, record.riskKey],
+          );
+        }
+        return prev.filter((item) => item.id !== record.id);
+      });
+    },
+    [],
+  );
+
+  const handleAwarenessRecordSaved = useCallback((riskKey: string) => {
+    setSuppressedAwarenessKeys((prev) =>
+      prev.filter((key) => key !== riskKey),
+    );
+  }, []);
 
   const handleSaveRisk = (riskData: any) => {
     if (riskData.id) {
@@ -1406,6 +1497,9 @@ export default function App() {
         updatedAt: new Date().toISOString(),
       };
       setRisks((prev) => [newRisk, ...prev]);
+      setSuppressedAwarenessKeys((prev) =>
+        prev.filter((key) => key !== buildRiskAwarenessKey(newRisk)),
+      );
     }
   };
 
@@ -1843,7 +1937,7 @@ export default function App() {
         },
         {
           id: "documents",
-          label: "Documents DUERP",
+          label: "Documents SST",
           icon: FileText,
           color: "text-orange-500",
         },
@@ -2280,8 +2374,14 @@ export default function App() {
         </div>
       </aside>
 
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:shadow-lg focus:text-purple-800"
+      >
+        Aller au contenu principal
+      </a>
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main id="main-content" className="flex-1 overflow-auto" tabIndex={-1}>
         {/* Header */}
         <header className="bg-white/80 backdrop-blur-xl border-b border-purple-100 sticky top-0 z-10 shadow-sm">
           <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -2545,146 +2645,14 @@ export default function App() {
                     )}
                   </div>
 
-                  <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
-                    <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-7 gap-3">
-                        <div className="xl:col-span-2">
-                          <Input
-                            placeholder="Rechercher (risque, service, domaine, lieux, responsable...)"
-                            value={riskSearchQuery}
-                            onChange={(e) =>
-                              setRiskSearchQuery(e.target.value)
-                            }
-                          />
-                        </div>
-                        <Select
-                          value={riskServiceFilter}
-                          onValueChange={setRiskServiceFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Service" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              Tous les services
-                            </SelectItem>
-                            {[...new Set(visibleRisks.map((r) => r.service))]
-                              .sort()
-                              .map((service) => (
-                                <SelectItem
-                                  key={service}
-                                  value={service}
-                                >
-                                  {service}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={riskStatusFilter}
-                          onValueChange={setRiskStatusFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Statut" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              Tous les statuts
-                            </SelectItem>
-                            <SelectItem value="a_traiter">
-                              A traiter
-                            </SelectItem>
-                            <SelectItem value="en_traitement">
-                              En traitement
-                            </SelectItem>
-                            <SelectItem value="maitrise">
-                              Maitrise
-                            </SelectItem>
-                            <SelectItem value="supprime">
-                              Supprime
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={riskLevelFilter}
-                          onValueChange={setRiskLevelFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Niveau" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              Tous niveaux
-                            </SelectItem>
-                            {[...new Set(
-                              visibleRisks.map((r) =>
-                                String(r.riskLevel),
-                              ),
-                            )]
-                              .sort(
-                                (a, b) =>
-                                  Number(a) - Number(b),
-                              )
-                              .map((riskLevel) => (
-                                <SelectItem
-                                  key={riskLevel}
-                                  value={riskLevel}
-                                >
-                                  Niveau {riskLevel}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <Select
-                          value={riskNumberFilter}
-                          onValueChange={setRiskNumberFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="N° risque" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              Tous les numéros
-                            </SelectItem>
-                            {[...new Set(
-                              visibleRisks.map(
-                                (r) => r.numeroRisque,
-                              ),
-                            )]
-                              .sort()
-                              .map((riskNumber) => (
-                                <SelectItem
-                                  key={riskNumber}
-                                  value={riskNumber}
-                                >
-                                  {riskNumber}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-gray-600">
-                          {filteredVisibleRisks.length} risque(s)
-                          affiché(s)
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setRiskServiceFilter("all");
-                            setRiskStatusFilter("all");
-                            setRiskLevelFilter("all");
-                            setRiskNumberFilter("all");
-                            setRiskSearchQuery("");
-                            setRiskCurrentPage(1);
-                          }}
-                        >
-                          Réinitialiser les filtres
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <RiskEvaluationFiltersPanel
+                    filters={riskEvaluationFilters}
+                    onChange={setRiskEvaluationFilters}
+                    searchQuery={riskSearchQuery}
+                    onSearchChange={setRiskSearchQuery}
+                    visibleRisks={visibleRisks}
+                    resultCount={filteredVisibleRisks.length}
+                  />
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     {filteredVisibleRisks.length === 0 ? (
@@ -2769,23 +2737,17 @@ export default function App() {
 
                             <CardHeader>
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div className="text-center p-3 rounded-xl bg-white border-2 border-slate-200 shadow-sm min-w-[130px]">
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                <div className={`text-center p-4 rounded-xl bg-gradient-to-r ${priorityGradient} text-white shadow-lg min-w-[140px]`}>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">
                                     Priorité finale
                                   </p>
-                                  <p className={`text-3xl font-extrabold mt-1 bg-gradient-to-r ${priorityGradient} bg-clip-text text-transparent`}>
-                                    {risk.prioriteFinale}
+                                  <p className="text-4xl font-extrabold mt-1">
+                                    {getRiskLevelLabel(risk.riskLevel)}
+                                  </p>
+                                  <p className="text-xs opacity-90 mt-1">
+                                    GFM {risk.riskLevel}
                                   </p>
                                 </div>
-                                <Badge
-                                  className={`bg-gradient-to-r ${getRiskLevelColor(risk.riskLevel)} text-white border-0 shadow-lg flex items-center`}
-                                >
-                                  <AlertTriangle className="h-3 w-3 mr-1" />
-                                  {getRiskLevelLabel(
-                                    risk.riskLevel,
-                                  )}{" "}
-                                  - {risk.riskLevel}
-                                </Badge>
                               </div>
                               <CardTitle className="text-lg mt-4 group-hover:text-purple-600 transition-colors font-bold">
                                 <div className="space-y-2">
@@ -2879,7 +2841,7 @@ export default function App() {
                                     </div>
                                   </div>
                                   <div className="space-y-2">
-                                    <Label className="text-xs text-gray-600 font-semibold">Probabilité</Label>
+                                    <Label className="text-xs text-gray-600 font-semibold">Fréquence</Label>
                                     <div className={`w-full text-center py-3 rounded-lg font-bold text-base border-2 ${
                                       risk.probability === 4 ? 'bg-indigo-50 border-indigo-500 text-indigo-700' :
                                       risk.probability === 3 ? 'bg-blue-50 border-blue-400 text-blue-700' :
@@ -2891,12 +2853,12 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                <div className={`rounded-xl border-2 p-4 text-center bg-gradient-to-r ${priorityGradient} text-white shadow-md`}>
+                                <div className={`rounded-xl border-2 p-3 text-center bg-gradient-to-r ${priorityGradient} text-white shadow-md`}>
                                   <p className="text-xs font-semibold uppercase tracking-wide opacity-90">
-                                    Priorisation
+                                    Risque résiduel (GFM)
                                   </p>
-                                  <p className="text-2xl font-extrabold">
-                                    {getRiskLevelLabel(risk.riskLevel)}
+                                  <p className="text-xl font-extrabold">
+                                    {risk.riskLevel}
                                   </p>
                                 </div>
 
@@ -3469,6 +3431,8 @@ export default function App() {
               exposedRiskKeys={visibleRisks.map(
                 (risk) => `${risk.numeroRisque}::${risk.title}`,
               )}
+              onRecordDeleted={handleAwarenessRecordDeleted}
+              onRecordSaved={handleAwarenessRecordSaved}
             />
           )}
           {activeView === "prevention-plan" && (
@@ -3502,9 +3466,21 @@ export default function App() {
           {/* Actions View */}
           {activeView === "actions" && (
             <ActionsView
+              actions={manualActions}
+              onActionsChange={setManualActions}
               risks={risks}
+              onUpdateRisk={handleUpdateRisk}
               currentUserRole={user?.role || "agent"}
               currentUserName={user?.name || ""}
+              serviceOptions={serviceOptions}
+              locationOptions={locationOptions}
+              papripactSignatures={papripactSignatures}
+              onSavePapripactSignature={(record) =>
+                setPapripactSignatures((prev) => {
+                  const others = prev.filter((item) => item.year !== record.year);
+                  return [...others, record];
+                })
+              }
             />
           )}
 
@@ -3763,7 +3739,9 @@ export default function App() {
           )}
 
           {/* Documents view */}
-          {activeView === "documents" && <DocumentsView />}
+          {activeView === "documents" && (
+            <DocumentsView risks={risks} actions={manualActions} />
+          )}
 
           {/* Archives view */}
           {activeView === "archives" && <ArchivesView />}
