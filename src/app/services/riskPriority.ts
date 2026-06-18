@@ -5,7 +5,40 @@ export type RiskWorkflowStatus =
   | "supprime";
 
 interface PlannedMeasure {
+  description?: string;
   status: "pending" | "in_progress" | "completed";
+}
+
+/** Coefficients réglementaires : aucun = 1, en cours = 0,75, finalisé = 0,5 */
+export const MAITRISE_COEFFICIENTS = {
+  aucun: "1",
+  en_cours: "0.75",
+  finalise: "0.5",
+} as const;
+
+export function inferMaitriseCoefficientFromMeasures(
+  measures: PlannedMeasure[],
+): string {
+  const active = measures.filter((measure) => measure.description?.trim());
+  if (active.length === 0) return MAITRISE_COEFFICIENTS.aucun;
+  if (active.every((measure) => measure.status === "completed")) {
+    return MAITRISE_COEFFICIENTS.finalise;
+  }
+  if (
+    active.some(
+      (measure) =>
+        measure.status === "in_progress" || measure.status === "completed",
+    )
+  ) {
+    return MAITRISE_COEFFICIENTS.en_cours;
+  }
+  return MAITRISE_COEFFICIENTS.aucun;
+}
+
+export function getPriorityBandFromGfm(gfm: number): "P1" | "P2" | "P3" {
+  if (gfm > 9) return "P1";
+  if (gfm >= 4) return "P2";
+  return "P3";
 }
 
 export function parseMaitriseCoefficient(value: string): number {

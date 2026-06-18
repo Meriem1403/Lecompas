@@ -38,15 +38,36 @@ interface ActionEditViewProps {
   onSave: (action: Action) => void;
   onCancel: () => void;
   risks?: Risk[];
+  serviceOptions?: string[];
+  locationOptions?: string[];
 }
 
 export function ActionEditView({ 
   action, 
   onSave, 
   onCancel,
-  risks = []
+  risks = [],
+  serviceOptions = [],
+  locationOptions = [],
 }: ActionEditViewProps) {
-  const [formData, setFormData] = useState<Action>(action);
+  const [formData, setFormData] = useState<Action>({
+    ...action,
+    services: action.services ?? [],
+    papripactYear: action.papripactYear ?? null,
+  });
+
+  const toggleService = (service: string) => {
+    setFormData((prev) => {
+      const current = prev.services ?? [];
+      const exists = current.includes(service);
+      return {
+        ...prev,
+        services: exists
+          ? current.filter((item) => item !== service)
+          : [...current, service],
+      };
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,11 +190,11 @@ export function ActionEditView({
                       riskTitle: 'Aucun'
                     });
                   } else {
-                    const selectedRisk = risks.find(r => r.id === value);
+                    const selectedRisk = risks.find((r) => String(r.id) === value);
                     if (selectedRisk) {
                       setFormData({ 
                         ...formData, 
-                        riskId: value,
+                        riskId: String(value),
                         riskTitle: `${selectedRisk.numeroRisque} - ${selectedRisk.title}`
                       });
                     }
@@ -186,7 +207,7 @@ export function ActionEditView({
                 <SelectContent>
                   <SelectItem value="none">Aucun</SelectItem>
                   {risks.map((risk) => (
-                    <SelectItem key={risk.id} value={risk.id}>
+                    <SelectItem key={risk.id} value={String(risk.id)}>
                       {risk.numeroRisque} - {risk.title}
                     </SelectItem>
                   ))}
@@ -206,13 +227,13 @@ export function ActionEditView({
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl">
                 <Label htmlFor="responsable" className="text-sm font-bold text-green-900 mb-2 flex items-center">
                   <User className="h-4 w-4 mr-2" />
-                  Responsable
+                  Responsable(s)
                 </Label>
                 <Input
                   id="responsable"
                   value={formData.responsable}
                   onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
-                  placeholder="Nom du responsable"
+                  placeholder="Un ou plusieurs noms, séparés par des virgules"
                   className="bg-white border-green-200"
                   required
                 />
@@ -249,6 +270,76 @@ export function ActionEditView({
                 placeholder="Montant en euros"
                 className="bg-white border-amber-200"
               />
+            </div>
+
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-indigo-50 to-violet-50 p-4 rounded-xl">
+                <Label className="text-sm font-bold text-indigo-900 mb-2 block">
+                  Services concernés
+                </Label>
+                <div className="max-h-36 overflow-y-auto space-y-2 rounded-md border border-indigo-100 bg-white p-3">
+                  {serviceOptions.map((service) => (
+                    <label key={service} className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={(formData.services ?? []).includes(service)}
+                        onChange={() => toggleService(service)}
+                      />
+                      {service}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-slate-50 to-gray-50 p-4 rounded-xl">
+                  <Label className="text-sm font-bold text-slate-900 mb-2 block">Site</Label>
+                  <Select
+                    value={formData.site || 'none'}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        site: value === 'none' ? '' : value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Site (optionnel)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Non précisé</SelectItem>
+                      {locationOptions.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {location}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="bg-gradient-to-br from-violet-50 to-purple-50 p-4 rounded-xl">
+                  <Label className="text-sm font-bold text-violet-900 mb-2 block">PAPRIPACT</Label>
+                  <Select
+                    value={formData.papripactYear ? String(formData.papripactYear) : 'none'}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        papripactYear: value === 'none' ? null : Number(value),
+                      })
+                    }
+                  >
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Hors PAPRIPACT" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Hors PAPRIPACT</SelectItem>
+                      <SelectItem value="2026">PAPRIPACT 2026</SelectItem>
+                      <SelectItem value="2027">PAPRIPACT 2027</SelectItem>
+                      <SelectItem value="2028">PAPRIPACT 2028</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             {/* Date de réalisation (si terminée) */}

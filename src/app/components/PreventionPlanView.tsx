@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
+import { loadPreventionPlans, savePreventionPlans } from "@/app/utils/lecompasStorage";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -887,7 +888,27 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
     });
   }, [currentUserName, risks]);
 
-  const [plans, setPlans] = useState<PlanRecord[]>(initialPlans);
+  const [plans, setPlans] = useState<PlanRecord[]>(() => {
+    const stored = loadPreventionPlans<PlanRecord>();
+    return stored && stored.length > 0 ? stored : [];
+  });
+
+  React.useEffect(() => {
+    if (plans.length === 0 && initialPlans.length > 0) {
+      setPlans(initialPlans);
+    }
+  }, [initialPlans, plans.length]);
+
+  React.useEffect(() => {
+    if (plans.length > 0) {
+      const saved = savePreventionPlans(plans);
+      if (!saved) {
+        toast.error(
+          "Impossible d'enregistrer le plan (stockage saturé). Réduisez la taille des pièces jointes.",
+        );
+      }
+    }
+  }, [plans]);
 
   const serviceOptions = useMemo(
     () => Array.from(new Set(plans.map((plan) => plan.service))).sort((a, b) => a.localeCompare(b)),
@@ -2141,7 +2162,7 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
                   Annexes et documents joints
                 </CardTitle>
                 <CardDescription>
-                  Joignez des fichiers (PDF, images, bureautique). Limite {formatByteSize(PLAN_ANNEX_MAX_BYTES)} par fichier, {PLAN_ANNEX_MAX_COUNT} fichiers maximum — stockage local à cette session.
+                  Joignez des fichiers (PDF, images, bureautique). Limite {formatByteSize(PLAN_ANNEX_MAX_BYTES)} par fichier, {PLAN_ANNEX_MAX_COUNT} fichiers maximum — enregistrés avec le plan.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

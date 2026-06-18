@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -7,9 +7,16 @@ import { Label } from "@/app/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
-import { Activity, AlertTriangle, ArrowLeft, Building2, CalendarDays, CheckCircle2, Download, Edit3, FileText, Layers, MapPin, PlusCircle, Search, Shield, Siren, Trash2, User } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, Building2, CalendarDays, CheckCircle2, Download, Edit3, FileText, Layers, MapPin, PlusCircle, Search, Shield, Siren, Trash2, Upload, User } from "lucide-react";
 import { toast } from "sonner";
 import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
+import {
+  loadDeletedProtocols,
+  loadSafetyProtocols,
+  saveDeletedProtocols,
+  saveSafetyProtocols,
+  type ProtocolAttachment,
+} from "@/app/utils/lecompasStorage";
 
 type ProtocolStatus = "brouillon" | "valide" | "signe";
 
@@ -31,6 +38,8 @@ interface ProtocolRecord {
   signatures: string;
   circulation: string;
   documents: string[];
+  attachments?: ProtocolAttachment[];
+  signatureDematerialiseeUrl?: string;
 }
 
 interface DeletedProtocolRecord {
@@ -82,25 +91,7 @@ const defaultProtocols: ProtocolRecord[] = [
     signatures: "DIRM Med / SPBM / COB Ajaccio, APB, SIP",
     circulation: "Zone de manutention quai du commerce (cf plan de circulation).",
     documents: [],
-  },
-  {
-    id: "proto-2023-09-19",
-    title: "Plan de prévention - Héliportage Sanguinaires",
-    operationType: "Héliportage",
-    service: "Maintenance",
-    domain: "Exploitation maritime",
-    location: "Sanguinaires",
-    entreprise1: "DIRM Med / APB",
-    entreprise2: "Prestataire héliportage",
-    responsable: "Responsable opérationnel",
-    date: "2023-09-19",
-    status: "valide",
-    risques: "Risque levage et coactivité en zone héliportée.",
-    mesures: "Balisage, zone interdite au personnel non autorisé, briefing sécurité, EPI obligatoires.",
-    urgence: "Chaîne d'alerte locale et services d'urgence.",
-    signatures: "DIRM Med, APB, prestataire.",
-    circulation: "Plan de circulation spécifique héliportage.",
-    documents: [],
+    attachments: [],
   },
 ];
 
@@ -114,8 +105,12 @@ export function SafetyProtocolView({
   domainOptions,
   locationOptions,
 }: SafetyProtocolViewProps) {
-  const [protocols, setProtocols] = useState<ProtocolRecord[]>(defaultProtocols);
-  const [deletedProtocols, setDeletedProtocols] = useState<DeletedProtocolRecord[]>([]);
+  const [protocols, setProtocols] = useState<ProtocolRecord[]>(
+    () => loadSafetyProtocols() ?? defaultProtocols,
+  );
+  const [deletedProtocols, setDeletedProtocols] = useState<DeletedProtocolRecord[]>(
+    () => loadDeletedProtocols() ?? [],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [query, setQuery] = useState("");
@@ -144,6 +139,10 @@ export function SafetyProtocolView({
     docsText: "",
   });
   const [docDraft, setDocDraft] = useState("");
+  const [formAttachments, setFormAttachments] = useState<ProtocolAttachment[]>([]);
+  const [signatureDematerialiseeUrl, setSignatureDematerialiseeUrl] = useState("");
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const canEdit = currentUserRole !== "agent";
 
@@ -196,6 +195,8 @@ export function SafetyProtocolView({
       docsText: "",
     });
     setDocDraft("");
+    setFormAttachments([]);
+    setSignatureDematerialiseeUrl("");
   };
 
   const openCreate = () => {
@@ -229,6 +230,8 @@ export function SafetyProtocolView({
       circulation: protocol.circulation,
       docsText: (protocol.documents || []).join("\n"),
     });
+    setFormAttachments(protocol.attachments || []);
+    setSignatureDematerialiseeUrl(protocol.signatureDematerialiseeUrl || "");
     setDocDraft("");
     setViewMode("edit");
   };
@@ -248,6 +251,8 @@ export function SafetyProtocolView({
                 ...protocol,
                 ...form,
                 documents,
+                attachments: formAttachments,
+                signatureDematerialiseeUrl,
                 responsable: currentUserName,
               }
             : protocol,
@@ -260,6 +265,8 @@ export function SafetyProtocolView({
           id: `proto-custom-${Date.now()}`,
           ...form,
           documents,
+          attachments: formAttachments,
+          signatureDematerialiseeUrl,
           responsable: currentUserName,
         },
         ...prev,
@@ -300,6 +307,16 @@ export function SafetyProtocolView({
   };
 
   const handleDownloadProtocol = async (protocol: ProtocolRecord) => {
+    try {
+      const { downloadSafetyProtocolVisualPdf } = await import("./safetyProtocolVisualPdf");
+      const visualOk = await downloadSafetyProtocolVisualPdf(protocol);
+      if (visualOk) {
+        toast.success("PDF téléchargé (mise en page proche de la fiche à l'écran).");
+        return;
+      }
+    } catch {
+      // fallback texte ci-dessous
+    }
     try {
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -360,6 +377,12 @@ export function SafetyProtocolView({
       addBlock("8) Signatures", protocol.signatures);
       addBlock("10) Plan de circulation / dechargement", protocol.circulation);
       addBlock("Documents associes", protocol.documents?.length ? protocol.documents.join("\n") : "-");
+      if (protocol.attachments?.length) {
+        addBlock(
+          "Pieces jointes",
+          protocol.attachments.map((att) => `${att.fileName} (${Math.round(att.sizeBytes / 1024)} Ko)`).join("\n"),
+        );
+      }
 
       doc.save(`protocole-securite-${protocol.id}.pdf`);
       toast.success("Protocole telecharge en PDF.");
@@ -379,14 +402,23 @@ export function SafetyProtocolView({
   }, [currentPage, totalPages]);
 
   React.useEffect(() => {
-    const now = Date.now();
-    const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-    setDeletedProtocols((prev) =>
-      prev.filter(
-        (item) => now - new Date(item.deletedAt).getTime() < ONE_WEEK_MS,
-      ),
-    );
-  }, [deletedProtocols.length]);
+    saveSafetyProtocols(protocols);
+  }, [protocols]);
+
+  React.useEffect(() => {
+    saveDeletedProtocols(deletedProtocols);
+  }, [deletedProtocols]);
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+      setDeletedProtocols((prev) =>
+        prev.filter((item) => now - new Date(item.deletedAt).getTime() < ONE_WEEK_MS),
+      );
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   if ((viewMode === "create" || viewMode === "edit") && canEdit) {
     return (
@@ -556,6 +588,37 @@ export function SafetyProtocolView({
                     Signatures (Section 8)
                   </h4>
                   <Textarea className="border-2 border-slate-300 min-h-[88px]" value={form.signatures} onChange={(e) => setForm((prev) => ({ ...prev, signatures: e.target.value }))} />
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      ref={signatureInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 800 * 1024) {
+                          toast.error("Image de signature trop volumineuse (max. 800 Ko).");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => setSignatureDematerialiseeUrl(String(reader.result || ""));
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    <Button type="button" variant="outline" onClick={() => signatureInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Joindre une signature (image)
+                    </Button>
+                    {signatureDematerialiseeUrl ? (
+                      <Button type="button" variant="ghost" className="text-red-600" onClick={() => setSignatureDematerialiseeUrl("")}>
+                        Retirer la signature
+                      </Button>
+                    ) : null}
+                  </div>
+                  {signatureDematerialiseeUrl ? (
+                    <img src={signatureDematerialiseeUrl} alt="Aperçu signature" className="mt-2 max-h-24 rounded border border-slate-200" />
+                  ) : null}
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
@@ -627,6 +690,60 @@ export function SafetyProtocolView({
                         </div>
                       ))}
                   </div>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <input
+                      ref={attachmentInputRef}
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (!files?.length) return;
+                        Array.from(files).forEach((file) => {
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            setFormAttachments((prev) => [
+                              ...prev,
+                              {
+                                id: crypto.randomUUID(),
+                                fileName: file.name,
+                                mimeType: file.type || "application/octet-stream",
+                                dataUrl: String(reader.result || ""),
+                                sizeBytes: file.size,
+                              },
+                            ]);
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button type="button" variant="outline" onClick={() => attachmentInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Joindre un fichier
+                    </Button>
+                  </div>
+                  {formAttachments.length > 0 ? (
+                    <div className="mt-2 space-y-2">
+                      {formAttachments.map((att) => (
+                        <div key={att.id} className="flex items-center justify-between gap-2 rounded-lg border border-violet-200 bg-violet-50 p-2 text-sm">
+                          <span className="truncate">{att.fileName}</span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600"
+                            onClick={() =>
+                              setFormAttachments((prev) => prev.filter((item) => item.id !== att.id))
+                            }
+                          >
+                            Retirer
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </CardContent>
@@ -905,6 +1022,12 @@ export function SafetyProtocolView({
             <p className="text-sm text-slate-700 whitespace-pre-wrap rounded-xl border border-rose-200 bg-rose-50/60 p-4">
               {selectedProtocol.signatures || "—"}
             </p>
+            {selectedProtocol.signatureDematerialiseeUrl ? (
+              <div className="mt-3 rounded-lg border border-rose-200 bg-white p-2">
+                <p className="text-[10px] font-semibold uppercase text-rose-800 mb-1">Signature dématérialisée</p>
+                <img src={selectedProtocol.signatureDematerialiseeUrl} alt="" className="max-h-28 object-contain" />
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

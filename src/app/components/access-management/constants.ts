@@ -70,7 +70,7 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "documents",
-    label: "Documents DUERP",
+    label: "Documents SST",
     section: "Prevention",
     description: "Generation, edition et exports documentaires.",
   },

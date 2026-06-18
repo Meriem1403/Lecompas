@@ -13,7 +13,6 @@ import {
   Clock,
   PlusCircle,
   Shield,
-  Search
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -28,8 +27,16 @@ import {
 import { ActionCreateView } from './ActionCreateView';
 import { ActionDetailView } from './ActionDetailView';
 import { ActionEditView } from './ActionEditView';
-import { toast } from 'sonner';
+import { PapripactSignaturePanel } from './PapripactSignaturePanel';
+import { mergePapripactActions, parsePapripactWorkbook } from '@/app/utils/papripactImport';
+import type { PapripactSignatureRecord } from '@/app/utils/papripactStorage';
 import { ListPaginationBar } from './ui/list-pagination-bar';
+import { ActionFiltersPanel } from './ActionFiltersPanel';
+import {
+  emptyActionFilters,
+  matchesActionFilters,
+  type ActionFilters,
+} from '@/app/utils/actionFilterLogic';
 
 export interface Action {
   id: string;
@@ -46,6 +53,11 @@ export interface Action {
   completedAt?: string;
   budget?: number;
   source?: 'DUERP' | 'MANUEL';
+  /** Services concernés (plusieurs possibles). Vide = DIRM MED (transversal). */
+  services?: string[];
+  site?: string;
+  /** Année PAPRIPACT si l'action est retenue dans le plan (ex. 2026). */
+  papripactYear?: number | null;
 }
 
 export interface Risk {
@@ -151,24 +163,53 @@ const FAKE_ACTIONS: Action[] = [
 
 interface ActionsViewProps {
   actions?: Action[];
+  onActionsChange?: (actions: Action[]) => void;
   risks?: Risk[];
+  onUpdateRisk?: (riskId: string, updater: (risk: Risk) => Risk) => void;
   currentUserRole?: 'admin' | 'chef_service' | 'agent';
   currentUserName?: string;
+  serviceOptions?: string[];
+  locationOptions?: string[];
+  papripactSignatures?: PapripactSignatureRecord[];
+  onSavePapripactSignature?: (record: PapripactSignatureRecord) => void;
+}
+
+function parseDuerpActionId(actionId: string): { riskId: string; measureIndex: number } | null {
+  if (!actionId.startsWith('duerp::')) return null;
+  const parts = actionId.split('::');
+  if (parts.length !== 3) return null;
+  const measureIndex = Number(parts[2]);
+  if (!Number.isFinite(measureIndex)) return null;
+  return { riskId: parts[1], measureIndex };
+}
+
+function buildDuerpActionId(riskId: string, measureIndex: number) {
+  return `duerp::${riskId}::${measureIndex}`;
+}
+
+function matchesResponsible(action: Action, currentUserName: string) {
+  const normalizedUser = currentUserName.trim().toLowerCase();
+  if (!normalizedUser) return false;
+  return action.responsable
+    .split(',')
+    .map((name) => name.trim().toLowerCase())
+    .includes(normalizedUser);
 }
 
 export function ActionsView({
   actions: propActions,
+  onActionsChange,
   risks = [],
+  onUpdateRisk,
   currentUserRole = 'agent',
   currentUserName = '',
+  serviceOptions = [],
+  locationOptions = [],
+  papripactSignatures = [],
+  onSavePapripactSignature,
 }: ActionsViewProps) {
-  const getFilterButtonClass = (active: boolean, activeClass: string) =>
-    active
-      ? `${activeClass} text-white border-0 shadow-md`
-      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50";
-
   const [actions, setActions] = useState<Action[]>(
-    (propActions || FAKE_ACTIONS).map((action) => ({
+    (propActions ?? FAKE_ACTIONS).map((action) => ({
       ...action,
       source: action.source ?? 'MANUEL',
     })),
@@ -178,12 +219,44 @@ export function ActionsView({
   const [editingAction, setEditingAction] = useState<Action | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionToDelete, setActionToDelete] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'DUERP' | 'MANUEL'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | Action['status']>('all');
-  const [priorityFilter, setPriorityFilter] = useState<'all' | Action['priority']>('all');
+  const [actionFilters, setActionFilters] = useState<ActionFilters>(
+    emptyActionFilters(),
+  );
+  const [groupByRisk, setGroupByRisk] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const papripactInputRef = React.useRef<HTMLInputElement>(null);
   const pageSize = 6;
+
+  React.useEffect(() => {
+    if (propActions) {
+      setActions(
+        propActions.map((action) => ({
+          ...action,
+          source: action.source ?? 'MANUEL',
+        })),
+      );
+    }
+  }, [propActions]);
+
+  const commitActions = (nextActions: Action[]) => {
+    setActions(nextActions);
+    onActionsChange?.(nextActions);
+  };
+
+  const handleImportPapripact = async (file: File) => {
+    try {
+      const buffer = await file.arrayBuffer();
+      const imported = parsePapripactWorkbook(buffer, 2026);
+      const merged = mergePapripactActions(actions, imported);
+      const added = merged.length - actions.length;
+      commitActions(merged);
+      toast.success(`${added} action(s) PAPRIPACT importée(s).`);
+    } catch {
+      toast.error("Impossible de lire le fichier PAPRIPACT.");
+    }
+  };
+
 
   const handleAdd = () => {
     if (currentUserRole !== 'admin') {
@@ -201,7 +274,7 @@ export function ActionsView({
       createdBy: currentUserName,
       source: 'MANUEL',
     };
-    setActions([...actions, newAction]);
+    commitActions([...actions, newAction]);
     toast.success('Action créée avec succès ✅');
     setIsCreating(false);
   };
@@ -236,7 +309,55 @@ export function ActionsView({
   };
 
   const handleSaveEdit = (updatedAction: Action) => {
-    setActions(actions.map(a => a.id === updatedAction.id ? updatedAction : a));
+    if (updatedAction.source === 'DUERP' && onUpdateRisk) {
+      const parsed = parseDuerpActionId(updatedAction.id);
+      if (parsed) {
+        const oldRiskId = String(parsed.riskId);
+        const newRiskId = String(updatedAction.riskId || oldRiskId);
+        const mappedStatus =
+          updatedAction.status === 'Terminée'
+            ? 'completed'
+            : updatedAction.status === 'En cours'
+              ? 'in_progress'
+              : 'pending';
+        const measurePayload = {
+          description: updatedAction.description || updatedAction.title,
+          responsible: updatedAction.responsable,
+          deadline: updatedAction.deadline,
+          status: mappedStatus as 'pending' | 'in_progress' | 'completed',
+        };
+
+        if (newRiskId && newRiskId !== oldRiskId) {
+          onUpdateRisk(oldRiskId, (risk) => {
+            const plannedMeasures = [...(risk.plannedMeasures || [])];
+            if (!plannedMeasures[parsed.measureIndex]) return risk;
+            plannedMeasures.splice(parsed.measureIndex, 1);
+            return { ...risk, plannedMeasures };
+          });
+          onUpdateRisk(newRiskId, (risk) => ({
+            ...risk,
+            plannedMeasures: [...(risk.plannedMeasures || []), measurePayload],
+          }));
+        } else {
+          onUpdateRisk(oldRiskId, (risk) => {
+            const plannedMeasures = [...(risk.plannedMeasures || [])];
+            const current = plannedMeasures[parsed.measureIndex];
+            if (!current) return risk;
+            plannedMeasures[parsed.measureIndex] = {
+              ...current,
+              ...measurePayload,
+            };
+            return { ...risk, plannedMeasures };
+          });
+        }
+
+        toast.success('Action DUERP modifiée avec succès ✅');
+        setEditingAction(null);
+        return;
+      }
+    }
+
+    commitActions(actions.map((a) => (a.id === updatedAction.id ? updatedAction : a)));
     toast.success('Action modifiée avec succès ✅');
     setEditingAction(null);
   };
@@ -256,12 +377,31 @@ export function ActionsView({
   };
 
   const handleDeleteConfirm = () => {
-    if (actionToDelete) {
-      setActions(actions.filter(a => a.id !== actionToDelete));
-      toast.success('Action supprimée avec succès ✅');
-      setDeleteDialogOpen(false);
-      setActionToDelete(null);
+    if (!actionToDelete) return;
+
+    const action = allActions.find((item) => item.id === actionToDelete);
+    if (!action) return;
+
+    if (action.source === 'DUERP' && onUpdateRisk) {
+      const parsed = parseDuerpActionId(action.id);
+      if (parsed) {
+        onUpdateRisk(parsed.riskId, (risk) => ({
+          ...risk,
+          plannedMeasures: (risk.plannedMeasures || []).filter(
+            (_, index) => index !== parsed.measureIndex,
+          ),
+        }));
+        toast.success('Action DUERP supprimée avec succès ✅');
+        setDeleteDialogOpen(false);
+        setActionToDelete(null);
+        return;
+      }
     }
+
+    commitActions(actions.filter((item) => item.id !== actionToDelete));
+    toast.success('Action supprimée avec succès ✅');
+    setDeleteDialogOpen(false);
+    setActionToDelete(null);
   };
 
   const getPriorityGradient = (priority: Action['priority']) => {
@@ -317,8 +457,8 @@ export function ActionsView({
     if (currentUserRole === 'admin') return true;
     if (currentUserRole === 'chef_service') {
       return (
-        action.responsable === currentUserName ||
-        (action.createdBy || '') === currentUserName
+        matchesResponsible(action, currentUserName) ||
+        (action.createdBy || '').toLowerCase() === currentUserName.toLowerCase()
       );
     }
     return false;
@@ -340,10 +480,10 @@ export function ActionsView({
                 : 'À faire';
 
           return {
-            id: `duerp-${risk.id}-${index}`,
+            id: buildDuerpActionId(String(risk.id), index),
             title: measure.description,
             description: measure.description,
-            riskId: risk.id,
+            riskId: String(risk.id),
             riskTitle: `${risk.numeroRisque} - ${risk.title}`,
             priority: 'Moyenne',
             status: mappedStatus,
@@ -352,6 +492,8 @@ export function ActionsView({
             createdAt: new Date().toISOString().split('T')[0],
             createdBy: risk.responsable || '',
             source: 'DUERP',
+            services: risk.service ? [risk.service] : [],
+            site: risk.site,
           };
         });
     });
@@ -362,30 +504,24 @@ export function ActionsView({
   }, [duerpActions, actions]);
 
   const filteredActions = useMemo<Action[]>(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
+    return allActions.filter((action) =>
+      matchesActionFilters(action, actionFilters, searchQuery),
+    );
+  }, [allActions, actionFilters, searchQuery]);
 
-    return allActions.filter((action) => {
-      const sourceMatch =
-        sourceFilter === 'all' || action.source === sourceFilter;
-      const statusMatch =
-        statusFilter === 'all' || action.status === statusFilter;
-      const priorityMatch =
-        priorityFilter === 'all' || action.priority === priorityFilter;
-
-      const searchMatch =
-        normalizedSearch.length === 0 ||
-        action.title.toLowerCase().includes(normalizedSearch) ||
-        action.description.toLowerCase().includes(normalizedSearch) ||
-        action.riskTitle.toLowerCase().includes(normalizedSearch) ||
-        action.responsable.toLowerCase().includes(normalizedSearch);
-
-      return sourceMatch && statusMatch && priorityMatch && searchMatch;
+  const groupedActions = useMemo(() => {
+    const map = new Map<string, Action[]>();
+    filteredActions.forEach((action) => {
+      const key = action.riskTitle?.trim() || "Sans risque associé";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(action);
     });
-  }, [allActions, sourceFilter, statusFilter, priorityFilter, searchQuery]);
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr"));
+  }, [filteredActions]);
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [sourceFilter, statusFilter, priorityFilter, searchQuery]);
+  }, [actionFilters, searchQuery, groupByRisk]);
 
   const totalResults = filteredActions.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
@@ -394,6 +530,113 @@ export function ActionsView({
     return filteredActions.slice(start, start + pageSize);
   }, [filteredActions, currentPage]);
 
+  const renderActionCard = (action: Action) => {
+    const statusConfig = getStatusConfig(action.status);
+    const StatusIcon = statusConfig.icon;
+    const overdue = isOverdue(action.deadline, action.status);
+
+    return (
+      <Card key={action.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex-1">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4">
+                <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${statusConfig.gradient} flex items-center justify-center flex-shrink-0 shadow-lg`}>
+                  <StatusIcon className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h4 className="font-bold text-xl text-gray-900 mb-1">{action.title}</h4>
+                      <p className="text-sm text-gray-600 mb-3">{action.description}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Shield className="h-4 w-4 text-purple-500 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Risque associé</p>
+                        <p className="text-sm font-semibold text-gray-800">{action.riskTitle}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <User className="h-4 w-4 text-blue-500 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Responsable</p>
+                        <p className="text-sm font-semibold text-gray-800">{action.responsable}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4 text-orange-500 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Échéance</p>
+                        <p className={`text-sm font-semibold ${overdue ? 'text-red-600' : 'text-gray-800'}`}>
+                          {new Date(action.deadline).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    </div>
+                    {action.budget ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="h-4 w-4 text-green-500 font-bold shrink-0">€</div>
+                        <div>
+                          <p className="text-xs text-gray-500">Budget</p>
+                          <p className="text-sm font-semibold text-gray-800">{action.budget.toLocaleString('fr-FR')} €</p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className={`bg-gradient-to-r ${getPriorityGradient(action.priority)} text-white border-0 shadow-md`}>
+                      Priorité {action.priority}
+                    </Badge>
+                    <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0`}>
+                      {action.status}
+                    </Badge>
+                    {action.source === 'DUERP' ? (
+                      <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 shadow-md">DUERP</Badge>
+                    ) : null}
+                    {action.papripactYear ? (
+                      <Badge className="bg-gradient-to-r from-indigo-600 to-violet-700 text-white border-0 shadow-md">
+                        PAPRIPACT {action.papripactYear}
+                      </Badge>
+                    ) : null}
+                    {(action.services?.length || 0) > 0 ? (
+                      <Badge variant="outline" className="border-slate-300 text-slate-700">
+                        {(action.services || []).join(', ')}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="border-slate-300 text-slate-700">DIRM MED</Badge>
+                    )}
+                    {overdue && action.status !== 'Terminée' ? (
+                      <Badge className="bg-gradient-to-r from-red-500 to-rose-500 text-white border-0 shadow-md animate-pulse">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Retard
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 xl:ml-4">
+              <Button size="sm" onClick={() => handleView(action)} className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md">
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                Consulter
+              </Button>
+              <Button size="sm" onClick={() => handleEdit(action)} disabled={!canEditAction(action)} className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md">
+                <Edit className="h-3.5 w-3.5 mr-1" />
+                Modifier
+              </Button>
+              <Button size="sm" onClick={() => handleDeleteClick(action.id)} disabled={!canDeleteAction(action)} className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md">
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Supprimer
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Si on est en mode création, afficher uniquement la page de création
   if (isCreating) {
     return (
@@ -401,6 +644,8 @@ export function ActionsView({
         onSave={handleSaveCreate}
         onCancel={handleCancelCreate}
         risks={risks}
+        serviceOptions={serviceOptions}
+        locationOptions={locationOptions}
       />
     );
   }
@@ -424,6 +669,8 @@ export function ActionsView({
         onSave={handleSaveEdit}
         onCancel={handleCancelEdit}
         risks={risks}
+        serviceOptions={serviceOptions}
+        locationOptions={locationOptions}
       />
     );
   }
@@ -443,11 +690,41 @@ export function ActionsView({
             </p>
           </div>
         </div>
-        <Button className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg" onClick={handleAdd}>
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Nouvelle action
-        </Button>
+        <div className="flex flex-col gap-2 w-full lg:w-auto">
+          <input
+            ref={papripactInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleImportPapripact(file);
+              e.target.value = "";
+            }}
+          />
+          {currentUserRole === 'admin' ? (
+            <Button
+              variant="outline"
+              className="w-full lg:w-auto"
+              onClick={() => papripactInputRef.current?.click()}
+            >
+              Importer PAPRIPACT (Excel)
+            </Button>
+          ) : null}
+          <Button className="w-full lg:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg" onClick={handleAdd}>
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Nouvelle action
+          </Button>
+        </div>
       </div>
+
+      <PapripactSignaturePanel
+        year={2026}
+        actions={allActions}
+        signature={papripactSignatures.find((item) => item.year === 2026)}
+        onSaveSignature={(record) => onSavePapripactSignature?.(record)}
+        canSign={currentUserRole === 'admin'}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -509,304 +786,33 @@ export function ActionsView({
       </div>
 
       {/* Actions List */}
-      <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
+      <Card className="border-0 shadow-lg bg-white/80 backdrop-blur" role="region" aria-label="Filtres plan d'action">
         <CardContent className="p-4">
-          <div className="space-y-3">
-            <div className="w-full">
-              <div className="relative max-w-xl">
-                <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher une action, un risque, un responsable..."
-                  className="w-full h-10 rounded-md border border-gray-200 bg-white pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                />
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="flex items-center gap-2 min-w-max pb-1">
-              <span className="text-sm font-semibold text-gray-700">Source :</span>
-              <Button
-                size="sm"
-                variant={sourceFilter === 'all' ? 'default' : 'outline'}
-                onClick={() => setSourceFilter('all')}
-                className={getFilterButtonClass(
-                  sourceFilter === 'all',
-                  'bg-gradient-to-r from-slate-600 to-gray-700',
-                )}
-              >
-                Toutes
-              </Button>
-              <Button
-                size="sm"
-                variant={sourceFilter === 'DUERP' ? 'default' : 'outline'}
-                onClick={() => setSourceFilter('DUERP')}
-                className={getFilterButtonClass(
-                  sourceFilter === 'DUERP',
-                  'bg-gradient-to-r from-violet-600 to-purple-600',
-                )}
-              >
-                DUERP
-              </Button>
-              <Button
-                size="sm"
-                variant={sourceFilter === 'MANUEL' ? 'default' : 'outline'}
-                onClick={() => setSourceFilter('MANUEL')}
-                className={getFilterButtonClass(
-                  sourceFilter === 'MANUEL',
-                  'bg-gradient-to-r from-cyan-600 to-blue-600',
-                )}
-              >
-                Manuelles
-              </Button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="flex items-center gap-2 min-w-max pb-1">
-              <span className="text-sm font-semibold text-gray-700">Statut :</span>
-              <Button
-                size="sm"
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('all')}
-                className={getFilterButtonClass(
-                  statusFilter === 'all',
-                  'bg-gradient-to-r from-slate-600 to-gray-700',
-                )}
-              >
-                Tous
-              </Button>
-              <Button
-                size="sm"
-                variant={statusFilter === 'À faire' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('À faire')}
-                className={getFilterButtonClass(
-                  statusFilter === 'À faire',
-                  'bg-gradient-to-r from-gray-500 to-slate-500',
-                )}
-              >
-                À faire
-              </Button>
-              <Button
-                size="sm"
-                variant={statusFilter === 'En cours' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('En cours')}
-                className={getFilterButtonClass(
-                  statusFilter === 'En cours',
-                  'bg-gradient-to-r from-blue-500 to-cyan-500',
-                )}
-              >
-                En cours
-              </Button>
-              <Button
-                size="sm"
-                variant={statusFilter === 'Terminée' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('Terminée')}
-                className={getFilterButtonClass(
-                  statusFilter === 'Terminée',
-                  'bg-gradient-to-r from-green-500 to-emerald-500',
-                )}
-              >
-                Terminée
-              </Button>
-              <Button
-                size="sm"
-                variant={statusFilter === 'En retard' ? 'default' : 'outline'}
-                onClick={() => setStatusFilter('En retard')}
-                className={getFilterButtonClass(
-                  statusFilter === 'En retard',
-                  'bg-gradient-to-r from-red-500 to-rose-500',
-                )}
-              >
-                En retard
-              </Button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <div className="flex items-center gap-2 min-w-max pb-1">
-              <span className="text-sm font-semibold text-gray-700">Priorité :</span>
-              <Button
-                size="sm"
-                variant={priorityFilter === 'all' ? 'default' : 'outline'}
-                onClick={() => setPriorityFilter('all')}
-                className={getFilterButtonClass(
-                  priorityFilter === 'all',
-                  'bg-gradient-to-r from-slate-600 to-gray-700',
-                )}
-              >
-                Toutes
-              </Button>
-              <Button
-                size="sm"
-                variant={priorityFilter === 'Haute' ? 'default' : 'outline'}
-                onClick={() => setPriorityFilter('Haute')}
-                className={getFilterButtonClass(
-                  priorityFilter === 'Haute',
-                  'bg-gradient-to-r from-red-500 to-rose-500',
-                )}
-              >
-                Haute
-              </Button>
-              <Button
-                size="sm"
-                variant={priorityFilter === 'Moyenne' ? 'default' : 'outline'}
-                onClick={() => setPriorityFilter('Moyenne')}
-                className={getFilterButtonClass(
-                  priorityFilter === 'Moyenne',
-                  'bg-gradient-to-r from-orange-500 to-amber-500',
-                )}
-              >
-                Moyenne
-              </Button>
-              <Button
-                size="sm"
-                variant={priorityFilter === 'Faible' ? 'default' : 'outline'}
-                onClick={() => setPriorityFilter('Faible')}
-                className={getFilterButtonClass(
-                  priorityFilter === 'Faible',
-                  'bg-gradient-to-r from-green-500 to-emerald-500',
-                )}
-              >
-                Faible
-              </Button>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 text-sm text-gray-600">
-            {totalResults} résultat{totalResults > 1 ? 's' : ''} trouvé{totalResults > 1 ? 's' : ''}
-          </div>
+          <ActionFiltersPanel
+            filters={actionFilters}
+            onChange={setActionFilters}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            actions={allActions}
+            resultCount={totalResults}
+            groupByRisk={groupByRisk}
+            onGroupByRiskChange={setGroupByRisk}
+          />
         </CardContent>
       </Card>
 
       <div className="space-y-4">
-        {paginatedActions.map((action) => {
-          const statusConfig = getStatusConfig(action.status);
-          const StatusIcon = statusConfig.icon;
-          const overdue = isOverdue(action.deadline, action.status);
-
-          return (
-            <Card key={action.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group">
-              <CardContent className="p-6">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="flex-1">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4">
-                      <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${statusConfig.gradient} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                        <StatusIcon className="h-7 w-7 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="font-bold text-xl text-gray-900 mb-1">{action.title}</h4>
-                            <p className="text-sm text-gray-600 mb-3">{action.description}</p>
-                          </div>
-                        </div>
-
-                        {/* Meta Info */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-shrink-0">
-                              <Shield className="h-4 w-4 text-purple-500" />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Risque associé</p>
-                              <p className="text-sm font-semibold text-gray-800">{action.riskTitle}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-shrink-0">
-                              <User className="h-4 w-4 text-blue-500" />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Responsable</p>
-                              <p className="text-sm font-semibold text-gray-800">{action.responsable}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-shrink-0">
-                              <Calendar className="h-4 w-4 text-orange-500" />
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Échéance</p>
-                              <p className={`text-sm font-semibold ${overdue ? 'text-red-600' : 'text-gray-800'}`}>
-                                {new Date(action.deadline).toLocaleDateString('fr-FR')}
-                              </p>
-                            </div>
-                          </div>
-
-                          {action.budget && (
-                            <div className="flex items-center space-x-2">
-                              <div className="h-4 w-4 text-green-500 font-bold flex-shrink-0">€</div>
-                              <div>
-                                <p className="text-xs text-gray-500">Budget</p>
-                                <p className="text-sm font-semibold text-gray-800">{action.budget.toLocaleString('fr-FR')} €</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Badges */}
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className={`bg-gradient-to-r ${getPriorityGradient(action.priority)} text-white border-0 shadow-md`}>
-                            Priorité {action.priority}
-                          </Badge>
-                          <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0`}>
-                            {action.status}
-                          </Badge>
-                          {action.source === 'DUERP' && (
-                            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 shadow-md">
-                              DUERP
-                            </Badge>
-                          )}
-                          {overdue && action.status !== 'Terminée' && (
-                            <Badge className="bg-gradient-to-r from-red-500 to-rose-500 text-white border-0 shadow-md animate-pulse">
-                              <AlertCircle className="h-3 w-3 mr-1" />
-                              Retard
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 xl:ml-4">
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleView(action)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Eye className="h-3.5 w-3.5 mr-1" />
-                      Consulter
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleEdit(action)}
-                      disabled={!canEditAction(action)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Modifier
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleDeleteClick(action.id)}
-                      disabled={!canDeleteAction(action)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Supprimer
-                    </Button>
-                  </div>
+        {groupByRisk
+          ? groupedActions.map(([riskTitle, items]) => (
+              <div key={riskTitle} className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-lg font-bold text-slate-800">{riskTitle}</h3>
+                  <Badge variant="outline">{items.length} action(s)</Badge>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                {items.map((action) => renderActionCard(action))}
+              </div>
+            ))
+          : paginatedActions.map((action) => renderActionCard(action))}
         {filteredActions.length === 0 && (
           <Card className="border-0 shadow-md bg-white/80">
             <CardContent className="p-6 text-center text-gray-600">
@@ -822,7 +828,7 @@ export function ActionsView({
         totalItems={totalResults}
         onPageChange={setCurrentPage}
         itemLabel="action(s)"
-        className="border-0 shadow-md bg-white/80"
+        className={`border-0 shadow-md bg-white/80 ${groupByRisk ? 'hidden' : ''}`}
       />
 
       {/* Delete Confirmation Dialog */}

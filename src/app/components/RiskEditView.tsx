@@ -22,7 +22,7 @@ import {
   Building2,
   Calculator
 } from 'lucide-react';
-import { computeRiskValues, computeRiskWorkflowStatus, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
+import { computeRiskValues, computeRiskWorkflowStatus, getPriorityBandFromGfm, getRiskWorkflowStatusLabel, inferMaitriseCoefficientFromMeasures, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 interface Risk {
   id: string;
@@ -263,16 +263,33 @@ export function RiskEditView({
     }
   }, [risk]);
 
+  const inferredMaitrise = inferMaitriseCoefficientFromMeasures(formData.plannedMeasures || []);
+  const previewGfm = computeRiskValues(
+    formData.severity || 1,
+    formData.probability || 1,
+    formData.moyenMaitrise || inferredMaitrise,
+  ).riskLevel;
+  const previewBand = getPriorityBandFromGfm(previewGfm);
+  const bandGradient = {
+    P1: 'from-red-500 to-rose-600',
+    P2: 'from-orange-500 to-amber-600',
+    P3: 'from-green-500 to-emerald-600',
+  }[previewBand];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const inferredMaitrise = inferMaitriseCoefficientFromMeasures(
+      formData.plannedMeasures || [],
+    );
     const computed = computeRiskValues(
       formData.severity,
       formData.probability,
-      formData.moyenMaitrise || '',
+      inferredMaitrise,
     );
     onSave({
       ...formData,
-      category: 'risque',
+      moyenMaitrise: inferredMaitrise,
+      category: formData.category || risk.category,
       riskLevel: computed.riskLevel,
       calculPriorite: computed.calculPriorite,
       prioriteFinale: computed.prioriteFinale,
@@ -333,13 +350,17 @@ export function RiskEditView({
 
   // Calcul automatique: priorite initiale puis priorite finale residuelle.
   React.useEffect(() => {
+    const inferredMaitrise = inferMaitriseCoefficientFromMeasures(
+      formData.plannedMeasures || [],
+    );
     const computed = computeRiskValues(
       formData.severity,
       formData.probability,
-      formData.moyenMaitrise || '',
+      inferredMaitrise,
     );
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
+      moyenMaitrise: inferredMaitrise,
       riskLevel: computed.riskLevel,
       calculPriorite: computed.calculPriorite,
       prioriteFinale: computed.prioriteFinale,
@@ -348,7 +369,7 @@ export function RiskEditView({
         prev.plannedMeasures || [],
       ),
     }));
-  }, [formData.severity, formData.probability, formData.moyenMaitrise, formData.plannedMeasures]);
+  }, [formData.severity, formData.probability, formData.plannedMeasures]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -387,8 +408,9 @@ export function RiskEditView({
           <CardHeader>
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
-                <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${getCategoryColor(formData.category)} flex items-center justify-center shadow-lg`}>
-                  {React.createElement(getCategoryIcon(formData.category), { className: 'h-8 w-8 text-white' })}
+                <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${bandGradient} flex flex-col items-center justify-center shadow-lg`}>
+                  <span className="text-2xl font-extrabold text-white">{previewBand}</span>
+                  <span className="text-[10px] font-semibold text-white/90">GFM {previewGfm}</span>
                 </div>
                 <div className="flex-1 space-y-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -623,7 +645,7 @@ export function RiskEditView({
                 value={formData.associatedRisk}
                 onChange={(e) => setFormData({ ...formData, associatedRisk: e.target.value })}
                 className="bg-red-50 border-l-4 border-red-500 min-h-[80px]"
-                placeholder="Décrivez les risques associés..."
+                placeholder="Décrivez les dommages associés..."
                 required
               />
             </div>
@@ -815,7 +837,7 @@ export function RiskEditView({
               </div>
 
               <div>
-                <Label htmlFor="probability" className="text-sm">Probabilité</Label>
+                <Label htmlFor="probability" className="text-sm">Fréquence</Label>
                 <Select
                   value={formData.probability.toString()}
                   onValueChange={(value) => setFormData({ ...formData, probability: parseInt(value) })}
@@ -871,6 +893,7 @@ export function RiskEditView({
                 <Select
                   value={formData.moyenMaitrise || "1"}
                   onValueChange={(value) => setFormData({ ...formData, moyenMaitrise: value })}
+                  disabled
                 >
                   <SelectTrigger id="moyenMaitrise">
                     <SelectValue />

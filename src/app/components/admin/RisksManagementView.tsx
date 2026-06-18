@@ -20,7 +20,7 @@ import { AlertTriangle, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Target, Trendi
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
-import { computeRiskValues, computeRiskWorkflowStatus, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
+import { computeRiskValues, computeRiskWorkflowStatus, getPriorityBandFromGfm, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 export interface Risk {
   id: string;
@@ -295,7 +295,7 @@ export function RisksManagementView({
   const handleSave = () => {
     if (viewMode === 'create') {
       const newRisk: Risk = {
-        id: (Math.max(...risks.map(r => parseInt(r.id)), 0) + 1).toString(),
+        id: `risk-${Date.now()}`,
         numeroRisque: formData.numeroRisque || `R-${String(risks.length + 1).padStart(3, '0')}`,
         title: formData.title || '',
         unite: formData.unite || '',
@@ -304,7 +304,7 @@ export function RisksManagementView({
         domain: formData.domain || formData.unite || '',
         situation: formData.situation || '',
         associatedRisk: formData.associatedRisk || '',
-        category: 'risque',
+        category: formData.category || 'risque',
         responsable: formData.responsable || '',
         severity: formData.severity || 1,
         probability: formData.probability || 1,
@@ -338,15 +338,7 @@ export function RisksManagementView({
         retourAction: formData.retourAction || '',
         observation: formData.observation || '',
         createdAt: new Date().toISOString(),
-        status: computeRiskWorkflowStatus(
-          computeRiskValues(
-            formData.severity || selectedRisk.severity,
-            formData.probability || selectedRisk.probability,
-            formData.moyenMaitrise || selectedRisk.moyenMaitrise || '',
-          ).riskLevel,
-          (formData.plannedMeasures as any) || selectedRisk.plannedMeasures || [],
-        ),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
       setRisks([...risks, newRisk]);
       toast.success('Risque créé avec succès');
@@ -354,7 +346,7 @@ export function RisksManagementView({
       const updatedRisk = {
         ...selectedRisk,
         ...formData,
-        category: 'risque',
+        category: formData.category || selectedRisk.category,
         riskLevel: computeRiskValues(
           formData.severity || selectedRisk.severity,
           formData.probability || selectedRisk.probability,
@@ -390,14 +382,18 @@ export function RisksManagementView({
           'N° risque': risk.numeroRisque,
           'Risque': risk.title,
           'Unité': risk.unite || '-',
+          'Domaine': risk.domain || risk.unite || '-',
           'Service': risk.service,
           'Site': risk.site,
           'Responsable': risk.responsable,
           'Situation dangereuse': risk.situation,
           'Dommages associés': risk.associatedRisk,
           'Gravité': risk.severity,
-          'Probabilité': risk.probability,
-          'Niveau de risque': risk.riskLevel,
+          'Fréquence': risk.probability,
+          'Priorité initiale': risk.calculPriorite,
+          'Moyen de maîtrise': formatMoyenMaitrise(risk.moyenMaitrise),
+          'Niveau GFM': risk.riskLevel,
+          'Priorité P1/P2/P3': getPriorityBandFromGfm(risk.riskLevel),
           'Priorité finale': risk.prioriteFinale,
           'Mesures existantes': risk.existingMeasures?.join('; ') || 'Aucune',
           'Actions planifiées': risk.plannedMeasures?.map(m => `${m.description} (${m.responsible})`).join('; ') || 'Aucune',
@@ -453,6 +449,22 @@ export function RisksManagementView({
     if (level > 9) return 'bg-red-100 text-red-800 border-red-300';
     if (level >= 4) return 'bg-orange-100 text-orange-800 border-orange-300';
     return 'bg-green-100 text-green-800 border-green-300';
+  };
+
+  const formatMoyenMaitrise = (value?: string) => {
+    if (value === '0.75') return 'En cours (0,75)';
+    if (value === '0.5') return 'Finalisé (0,5)';
+    return 'Aucun (1)';
+  };
+
+  const getPriorityBandBadge = (level: number) => {
+    const band = getPriorityBandFromGfm(level);
+    const colors = {
+      P1: 'bg-red-100 text-red-800 border-red-300',
+      P2: 'bg-orange-100 text-orange-800 border-orange-300',
+      P3: 'bg-green-100 text-green-800 border-green-300',
+    };
+    return <Badge className={`${colors[band]} font-bold`}>{band}</Badge>;
   };
 
   const getStatusBadge = (status: string) => {
@@ -558,23 +570,30 @@ export function RisksManagementView({
           </Card>
 
           {/* Tableau des risques */}
-          <Card className="border-0 shadow-xl">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full" style={{ minWidth: '3500px' }}>
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardContent className="p-0 min-w-0">
+              <div
+                className="w-full overflow-x-scroll overflow-y-visible"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <table className="w-full" style={{ minWidth: '4400px' }}>
                   <thead className="bg-gradient-to-r from-gray-50 to-slate-50 sticky top-0 z-10">
                       <tr>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">N° risque</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Risque</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Unité</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[140px]">Domaine</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Service</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Site</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Responsable</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Situation dangereuse</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Dommages associés</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[80px]">Gravité</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Probabilité</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Niveau de risque</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Fréquence</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Priorité initiale</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Moyen de maîtrise</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Niveau GFM</th>
+                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[90px]">P1/P2/P3</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Priorité finale</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Mesures existantes</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Actions planifiées</th>
@@ -609,6 +628,9 @@ export function RisksManagementView({
                               <span className="text-sm text-gray-700">{risk.unite || '-'}</span>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="text-sm text-gray-700">{risk.domain || risk.unite || '-'}</span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
                               <Badge className="bg-blue-50 text-blue-700 border-blue-200">
                                 {risk.service}
                               </Badge>
@@ -640,9 +662,20 @@ export function RisksManagementView({
                               </Badge>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-center">
+                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-bold">
+                                {risk.calculPriorite}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <span className="text-xs text-gray-700">{formatMoyenMaitrise(risk.moyenMaitrise)}</span>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-center">
                               <Badge className={`${getRiskLevelColor(risk.riskLevel)} font-bold`}>
                                 {risk.riskLevel}
                               </Badge>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-center">
+                              {getPriorityBandBadge(risk.riskLevel)}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-center">
                               <Badge className="bg-orange-100 text-orange-800 border-orange-300 font-bold">
@@ -760,7 +793,10 @@ export function RisksManagementView({
                       <p>Aucun risque trouvé</p>
                     </div>
                   )}
-                </div>
+              </div>
+              <p className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100 bg-slate-50">
+                Faites défiler horizontalement pour afficher toutes les colonnes du tableau.
+              </p>
             </CardContent>
           </Card>
 

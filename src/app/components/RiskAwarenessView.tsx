@@ -58,6 +58,8 @@ interface RiskAwarenessViewProps {
   records: RiskAwarenessRecord[];
   setRecords: React.Dispatch<React.SetStateAction<RiskAwarenessRecord[]>>;
   exposedRiskKeys: string[];
+  onRecordDeleted?: (record: RiskAwarenessRecord) => void;
+  onRecordSaved?: (riskKey: string) => void;
 }
 
 type ViewMode = "list" | "detail" | "edit" | "create";
@@ -68,6 +70,8 @@ export function RiskAwarenessView({
   records,
   setRecords,
   exposedRiskKeys,
+  onRecordDeleted,
+  onRecordSaved,
 }: RiskAwarenessViewProps) {
   const canManageAwareness = userRole === "admin" || userRole === "chef_service";
 
@@ -217,6 +221,7 @@ export function RiskAwarenessView({
         ),
       );
       toast.success("Fiche mise à jour.");
+      onRecordSaved?.(form.riskKey);
     } else {
       const targetLocation = form.location.trim().toLowerCase();
       const existing = records.find(
@@ -247,6 +252,7 @@ export function RiskAwarenessView({
         ...prev,
       ]);
       toast.success("Fiche créée.");
+      onRecordSaved?.(form.riskKey);
     }
     setViewMode("list");
   };
@@ -419,8 +425,13 @@ export function RiskAwarenessView({
     }
   };
 
-  const deleteRecord = (id: string) => {
-    setRecords((prev) => prev.filter((record) => record.id !== id));
+  const deleteRecord = (record: RiskAwarenessRecord) => {
+    onRecordDeleted?.(record);
+    setRecords((prev) => prev.filter((item) => item.id !== record.id));
+    if (selectedId === record.id) {
+      setSelectedId(null);
+      setViewMode("list");
+    }
     toast.success("Fiche supprimée.");
   };
 
@@ -439,6 +450,14 @@ export function RiskAwarenessView({
               >
                 <Pencil className="h-4 w-4 mr-2" />
                 Modifier la fiche
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto text-red-600 hover:bg-red-50"
+                onClick={() => deleteRecord(selected)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Supprimer
               </Button>
             </div>
           ) : null}
@@ -981,7 +1000,7 @@ export function RiskAwarenessView({
                     <Button
                       variant="outline"
                       className="w-full sm:w-auto text-red-600 hover:bg-red-50"
-                      onClick={() => deleteRecord(record.id)}
+                      onClick={() => deleteRecord(record)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
