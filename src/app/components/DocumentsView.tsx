@@ -160,7 +160,7 @@ const FAKE_DOCUMENTS: Document[] = [
 interface DocumentsViewProps {
   documents?: Document[];
   risks?: import('@/app/components/admin/RisksManagementView').Risk[];
-  actions?: import('@/app/components/ActionsView').Action[];
+  actions?: import('@/app/types/action').Action[];
 }
 
 export function DocumentsView({

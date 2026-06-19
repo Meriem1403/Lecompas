@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { MultiSelectFilter } from "@/app/components/ui/multi-select-filter";
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 import {
   emptyActionFilters,
   type ActionFilters,

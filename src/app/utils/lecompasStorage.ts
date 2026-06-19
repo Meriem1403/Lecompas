@@ -1,4 +1,4 @@
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 import type { Risk } from "@/app/components/admin/RisksManagementView";
 import type { RiskAwarenessRecord } from "@/app/components/RiskAwarenessView";
 import type { SecuritySheetRecord } from "@/app/components/SecuritySheetView";

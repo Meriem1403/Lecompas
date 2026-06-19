@@ -5,7 +5,7 @@ import html2canvas from "html2canvas";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Separator } from "@/app/components/ui/separator";
 
-import type { PlanCoIntervenantRow, PlanProtocolFields, PlanRecord, PlanStatus, RiskInput } from "./PreventionPlanView";
+import type { PlanCoIntervenantRow, PlanProtocolFields, PlanRecord, PlanStatus, RiskInput } from "@/app/types/preventionPlan";
 
 function normalizeDocTitle(raw: string | undefined, fallback: string): string {
   if (!raw?.trim()) return fallback;

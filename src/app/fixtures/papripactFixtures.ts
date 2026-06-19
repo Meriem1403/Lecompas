@@ -1,4 +1,4 @@
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 
 /** Source: doc/Papripact/Papripact.xlsx (feuille PAPRIPACT, année 2026) */
 export const PAPRIPACT_2026_ACTION_FIXTURES: Action[] = [

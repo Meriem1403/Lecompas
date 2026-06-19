@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 
 const STATUS_MAP: Record<string, Action["status"]> = {
   "en cours": "En cours",
