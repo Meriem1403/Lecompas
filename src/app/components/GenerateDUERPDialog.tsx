@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Risk } from '@/app/components/admin/RisksManagementView';
-import type { Action } from '@/app/components/ActionsView';
+import type { Action } from '@/app/types/action';
 import { generateDuerpPdf, type DuerpExportMode } from '@/app/utils/duerpPdfExport';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 

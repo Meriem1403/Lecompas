@@ -6,7 +6,7 @@ import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
 import { FileSignature, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 import type { PapripactSignatureRecord } from "@/app/utils/papripactStorage";
 import { jsPDF } from "jspdf";
 

@@ -36,7 +36,8 @@ import {
   mapRisksToDuerpRefs,
   normalizeAccidentRecord,
 } from "./utils/accidentRecord";
-import { ActionsView, type Action } from "./components/ActionsView";
+import { ActionsView } from "./components/ActionsView";
+import type { Action } from "./types/action";
 import { RiskFormDialog } from "./components/RiskFormDialog";
 import { ListPaginationBar } from "./components/ui/list-pagination-bar";
 import { RiskEvaluationFiltersPanel } from "./components/RiskEvaluationFiltersPanel";
@@ -518,6 +519,30 @@ export default function App() {
   const [suppressedAwarenessKeys, setSuppressedAwarenessKeys] = useState<
     string[]
   >(() => loadSuppressedAwarenessKeys());
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    const stored = loadNotifications();
+    if (stored && stored.length > 0) return stored;
+    return [
+      {
+        id: "a1",
+        titre: "Mise à jour du système DUERP",
+        contenu:
+          "Une nouvelle version du système DUERP sera déployée le 10 février 2026.",
+        type: "info",
+        dateCreation: "2026-02-01",
+        isRead: false,
+      },
+      {
+        id: "a4",
+        titre: "URGENT - Nouveau protocole COVID-19",
+        contenu:
+          "Suite aux nouvelles directives gouvernementales, un protocole sanitaire renforcé est mis en place immédiatement.",
+        type: "urgent",
+        dateCreation: "2026-02-02",
+        isRead: false,
+      },
+    ];
+  });
   const [adminUsers, setAdminUsers] = useState<AppUser[]>(() => loadAdminUsers(FAKE_USERS));
   const [accessProfiles, setAccessProfiles] = useState<
     Record<string, EmployeeAccessProfile>
@@ -888,32 +913,6 @@ export default function App() {
       return nextRecords;
     });
   }, [riskReferences, risks, suppressedAwarenessKeys]);
-
-  // Notifications state (actualités non lues)
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const stored = loadNotifications();
-    if (stored && stored.length > 0) return stored;
-    return [
-      {
-        id: "a1",
-        titre: "Mise à jour du système DUERP",
-        contenu:
-          "Une nouvelle version du système DUERP sera déployée le 10 février 2026.",
-        type: "info",
-        dateCreation: "2026-02-01",
-        isRead: false,
-      },
-      {
-        id: "a4",
-        titre: "URGENT - Nouveau protocole COVID-19",
-        contenu:
-          "Suite aux nouvelles directives gouvernementales, un protocole sanitaire renforcé est mis en place immédiatement.",
-        type: "urgent",
-        dateCreation: "2026-02-02",
-        isRead: false,
-      },
-    ];
-  });
 
   const resolveDemoUser = (
     email: string,

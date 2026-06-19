@@ -14,7 +14,7 @@ import {
   Edit,
   DollarSign
 } from 'lucide-react';
-import { Action } from './ActionsView';
+import type { Action } from '@/app/types/action';
 
 interface ActionDetailViewProps {
   action: Action;

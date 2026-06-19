@@ -47,117 +47,22 @@ import {
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
 
-export interface RiskMeasure {
-  description: string;
-  responsible: string;
-  deadline: string;
-  status: "pending" | "in_progress" | "completed";
-}
+export type {
+  RiskMeasure,
+  PlanRiskEvaluationRow,
+  PlanCoIntervenantRow,
+  PlanAnnexAttachment,
+  RiskInput,
+  PlanProtocolFields,
+  PlanStatus,
+  PlanRecord,
+} from "@/app/types/preventionPlan";
 
-/** Ligne du tableau §4 : stockage colonne 1 = situation dangereuse, colonne 2 = dommages associés, colonne 3 = mesures (clés `domaine` / `natureRisques` conservées pour compatibilité données). */
-export interface PlanRiskEvaluationRow {
-  id: string;
-  /** Risque de l’onglet « Évaluation des risques » — liaison facultative ; saisie libre possible sans liaison. */
-  linkedEvaluationRiskId: string;
-  /** Mention / référence saisie à la main hors référentiel ; affichée dans le champ quand aucune liaison catalogue. */
-  evaluationRiskFreeText: string;
-  /** Contenu affiché sous « Situation dangereuse » */
-  domaine: string;
-  /** Contenu affiché sous « Dommages associés » */
-  natureRisques: string;
-  mesuresPrevention: string;
-}
-
-/** Entreprise, administration ou organisme partie au plan (aucun bloc imposé : pas d’APB obligatoire), liste illimitée. */
-export interface PlanCoIntervenantRow {
-  id: string;
-  /** Qualité / rôle facultatif — ex. « APB », « Société intervenante », « Administration »… */
-  qualite: string;
-  denomination: string;
-  adresse: string;
-  contactNom: string;
-  contactEmail: string;
-  /** Navire, capitaine, téléphone complémentaire, etc. */
-  complements: string;
-}
-
-export interface PlanAnnexAttachment {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  /** data:image/... ou data:application/pdf;base64,... */
-  dataUrl: string;
-  sizeBytes: number;
-}
-
-export interface RiskInput {
-  id: string;
-  numeroRisque: string;
-  title: string;
-  service: string;
-  domain?: string;
-  site: string;
-  responsable: string;
-  riskLevel: number;
-  plannedMeasures: RiskMeasure[];
-  situation?: string;
-  associatedRisk?: string;
-  existingMeasures?: string[];
-}
-
-export interface PlanProtocolFields {
-  protocoleTitle: string;
-  codeTravailReference: string;
-  operationType: string;
-  coIntervenantRows: PlanCoIntervenantRow[];
-  prestationNature: string;
-  lieuLivraison: string;
-  materielsSpecifiques: string;
-  consignesSite: string;
-  consignesOperation: string;
-  /** Complément libre sous le tableau d’évaluation des risques */
-  evaluationRisques: string;
-  riskEvaluationRows: PlanRiskEvaluationRow[];
-  personnesAPrevenir: string;
-  mesuresUrgence: string;
-  planTransmis: string;
-  transmissionCelluleSecurite: string;
-  transmissionCorrespondantSite: string;
-  transmissionCorrespondantAPB: string;
-  transmissionCelluleSecuriteStatus: "non_renseigne" | "oui" | "non";
-  transmissionCorrespondantSiteStatus: "non_renseigne" | "oui" | "non";
-  transmissionCorrespondantAPBStatus: "non_renseigne" | "oui" | "non";
-  transmissionCelluleSecuriteNom: string;
-  transmissionCorrespondantSiteNom: string;
-  transmissionCorrespondantAPBNom: string;
-  transmissionCelluleSecuriteObs: string;
-  transmissionCorrespondantSiteObs: string;
-  transmissionCorrespondantAPBObs: string;
-  observationsTransmission: string;
-  observationsRemarques: string;
-  signatureEntite1: string;
-  signatureNom1: string;
-  signaturePrenom1: string;
-  signatureDate1: string;
-  signatureEntite2: string;
-  signatureNom2: string;
-  signaturePrenom2: string;
-  signatureDate2: string;
-  signatureEntite3: string;
-  signatureNom3: string;
-  signaturePrenom3: string;
-  signatureDate3: string;
-  /** Signature dématérialisée (scan / photo / image) pour le PDF — data URL */
-  signatureDematerialiseeUrl1: string;
-  signatureDematerialiseeUrl2: string;
-  signatureDematerialiseeUrl3: string;
-  planCirculation: string;
-  materielRemplacer: string;
-  /** Fichiers joints (stockés en local : data URL) */
-  annexAttachments: PlanAnnexAttachment[];
-  /** Complément rédactionnel hors pièces jointes */
-  annexesDocuments: string;
-}
+import type {
+  PlanAnnexAttachment,
+  PlanProtocolFields,
+  PlanRecord,
+} from "@/app/types/preventionPlan";
 
 const PLAN_ANNEX_MAX_BYTES = 12 * 1024 * 1024;
 const PLAN_ANNEX_MAX_COUNT = 40;
@@ -207,26 +112,7 @@ function readFileAsDataUrlCapped(file: File, maxBytes: number): Promise<{ dataUr
   });
 }
 
-export type PlanStatus = "a_lancer" | "en_cours" | "termine";
 type ViewMode = "list" | "detail" | "create" | "edit";
-
-export interface PlanRecord {
-  id: string;
-  riskId: string;
-  riskNumber: string;
-  riskTitle: string;
-  service: string;
-  domain: string;
-  location: string;
-  owner: string;
-  dueDate: string;
-  priority: "haute" | "moyenne" | "basse";
-  status: PlanStatus;
-  objective: string;
-  actions: string[];
-  protocol: PlanProtocolFields;
-  updatedAt: string;
-}
 
 interface PreventionPlanViewProps {
   risks: RiskInput[];

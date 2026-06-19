@@ -19,7 +19,7 @@ import {
   Target,
   DollarSign
 } from 'lucide-react';
-import { Action } from './ActionsView';
+import type { Action } from '@/app/types/action';
 
 export interface Risk {
   id: string;

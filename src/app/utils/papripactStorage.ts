@@ -1,4 +1,4 @@
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 
 export interface PapripactSignatureRecord {
   year: number;

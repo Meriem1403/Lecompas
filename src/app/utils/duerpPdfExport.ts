@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { Risk } from "@/app/components/admin/RisksManagementView";
-import type { Action } from "@/app/components/ActionsView";
+import type { Action } from "@/app/types/action";
 import { getPriorityBandFromGfm } from "@/app/services/riskPriority";
 
 export interface DuerpPdfMeta {
