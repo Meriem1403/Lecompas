@@ -20,6 +20,18 @@ import { AlertTriangle, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Target, Trendi
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { ColumnFilterPopover } from '@/app/components/ui/column-filter-popover';
+import {
+  buildColumnFilterOptions,
+  emptyRiskManagementColumnFilters,
+  formatMoyenMaitriseLabel,
+  hasActiveRiskManagementColumnFilters,
+  matchesRiskManagementColumnFilters,
+  matchesRiskManagementSearch,
+  RISK_MANAGEMENT_FILTERABLE_COLUMNS,
+  type RiskManagementColumnKey,
+  type RiskManagementColumnFilters,
+} from '@/app/utils/riskManagementFilterLogic';
 import { computeRiskValues, computeRiskWorkflowStatus, getPriorityBandFromGfm, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 export interface Risk {
@@ -99,7 +111,9 @@ export function RisksManagementView({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [riskToDelete, setRiskToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [columnFilters, setColumnFilters] = useState<RiskManagementColumnFilters>(
+    emptyRiskManagementColumnFilters,
+  );
   const [listPage, setListPage] = useState(1);
 
   // Form state pour création/édition
@@ -451,11 +465,7 @@ export function RisksManagementView({
     return 'bg-green-100 text-green-800 border-green-300';
   };
 
-  const formatMoyenMaitrise = (value?: string) => {
-    if (value === '0.75') return 'En cours (0,75)';
-    if (value === '0.5') return 'Finalisé (0,5)';
-    return 'Aucun (1)';
-  };
+  const formatMoyenMaitrise = (value?: string) => formatMoyenMaitriseLabel(value);
 
   const getPriorityBandBadge = (level: number) => {
     const band = getPriorityBandFromGfm(level);
@@ -478,18 +488,47 @@ export function RisksManagementView({
     return <Badge className={c.color}>{c.label}</Badge>;
   };
 
+  const columnOptionsByKey = useMemo(() => {
+    return Object.fromEntries(
+      RISK_MANAGEMENT_FILTERABLE_COLUMNS.map((col) => [
+        col.key,
+        buildColumnFilterOptions(risks, col.key),
+      ]),
+    ) as Record<RiskManagementColumnKey, ReturnType<typeof buildColumnFilterOptions>>;
+  }, [risks]);
+
+  const patchColumnFilter = (key: RiskManagementColumnKey, values: string[]) => {
+    setColumnFilters((previous) => ({ ...previous, [key]: values }));
+  };
+
+  const renderFilterableTh = (
+    key: RiskManagementColumnKey,
+    label: string,
+    minWidth: string,
+    extraClassName = '',
+  ) => (
+    <th
+      key={key}
+      className={`px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider ${extraClassName}`}
+      style={{ minWidth }}
+    >
+      <div className="flex items-center gap-0.5 min-w-0">
+        <span className="truncate">{label}</span>
+        <ColumnFilterPopover
+          options={columnOptionsByKey[key]}
+          selected={columnFilters[key]}
+          onChange={(values) => patchColumnFilter(key, values)}
+          ariaLabel={`Filtrer la colonne ${label}`}
+        />
+      </div>
+    </th>
+  );
+
   // Filtrer les risques
-  const filteredRisks = risks.filter(risk => {
-    const matchesSearch = 
-      risk.numeroRisque.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      risk.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      risk.service.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      risk.situation.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = filterStatus === 'all' || risk.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredRisks = risks.filter((risk) =>
+    matchesRiskManagementSearch(risk, searchQuery) &&
+    matchesRiskManagementColumnFilters(risk, columnFilters),
+  );
 
   const listPageSize = TABLE_LIST_PAGE_SIZE;
   const listTotalPages = Math.max(1, Math.ceil(filteredRisks.length / listPageSize));
@@ -500,7 +539,7 @@ export function RisksManagementView({
 
   useEffect(() => {
     setListPage(1);
-  }, [searchQuery, filterStatus]);
+  }, [searchQuery, columnFilters]);
 
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
@@ -544,27 +583,33 @@ export function RisksManagementView({
           {/* Filtres */}
           <Card className="border-2 border-slate-200 shadow-lg bg-gradient-to-r from-slate-50 to-slate-100">
             <CardContent className="pt-6">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                <div className="w-full md:flex-1">
-                  <Input
-                    placeholder="Rechercher par numéro, titre, service..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white border-2 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-                  />
+              <div className="flex flex-col gap-3">
+                <Input
+                  placeholder="Recherche globale (numéro, titre, service, situation...)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white border-2 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-gray-600">
+                    {filteredRisks.length} risque(s) affiché(s) sur {risks.length}
+                    {hasActiveRiskManagementColumnFilters(columnFilters)
+                      ? " — filtres colonnes actifs (icône entonnoir dans le tableau)"
+                      : ""}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto bg-white"
+                    onClick={() => {
+                      setColumnFilters(emptyRiskManagementColumnFilters());
+                      setSearchQuery("");
+                    }}
+                  >
+                    Réinitialiser tous les filtres
+                  </Button>
                 </div>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-full md:w-[220px] bg-white border-2 border-slate-400 text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
-                    <SelectValue placeholder="Filtrer par statut" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les statuts</SelectItem>
-                    <SelectItem value="a_traiter">A traiter</SelectItem>
-                    <SelectItem value="en_traitement">En traitement</SelectItem>
-                    <SelectItem value="maitrise">Maitrise</SelectItem>
-                    <SelectItem value="supprime">Supprime</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>
@@ -579,29 +624,29 @@ export function RisksManagementView({
                 <table className="w-full" style={{ minWidth: '4400px' }}>
                   <thead className="bg-gradient-to-r from-gray-50 to-slate-50 sticky top-0 z-10">
                       <tr>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">N° risque</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Risque</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Unité</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[140px]">Domaine</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Service</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Site</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Responsable</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Situation dangereuse</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[250px]">Dommages associés</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[80px]">Gravité</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Fréquence</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Priorité initiale</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[150px]">Moyen de maîtrise</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Niveau GFM</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[90px]">P1/P2/P3</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[120px]">Priorité finale</th>
+                        {renderFilterableTh('numeroRisque', 'N° risque', '130px')}
+                        {renderFilterableTh('title', 'Risque', '200px')}
+                        {renderFilterableTh('unite', 'Unité', '120px')}
+                        {renderFilterableTh('domain', 'Domaine', '140px')}
+                        {renderFilterableTh('service', 'Service', '150px')}
+                        {renderFilterableTh('site', 'Site', '120px')}
+                        {renderFilterableTh('responsable', 'Responsable', '150px')}
+                        {renderFilterableTh('situation', 'Situation dangereuse', '250px')}
+                        {renderFilterableTh('associatedRisk', 'Dommages associés', '250px')}
+                        {renderFilterableTh('severity', 'Gravité', '80px')}
+                        {renderFilterableTh('probability', 'Fréquence', '100px')}
+                        {renderFilterableTh('calculPriorite', 'Priorité initiale', '120px')}
+                        {renderFilterableTh('moyenMaitrise', 'Moyen de maîtrise', '150px')}
+                        {renderFilterableTh('riskLevel', 'Niveau GFM', '120px')}
+                        {renderFilterableTh('priorityBand', 'P1/P2/P3', '90px')}
+                        {renderFilterableTh('prioriteFinale', 'Priorité finale', '120px')}
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Mesures existantes</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Actions planifiées</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">Avancement</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[110px]">Échéance</th>
+                        {renderFilterableTh('echeance', 'Échéance', '110px')}
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Retour d'action</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Observation</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[100px]">Statut</th>
+                        {renderFilterableTh('status', 'Statut', '100px')}
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-gray-50 to-slate-50 min-w-[150px] shadow-lg">Actions</th>
                       </tr>
                     </thead>
