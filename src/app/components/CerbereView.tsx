@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
+import { buildCerbereRequestSeed } from '@/app/utils/cerbereRequestSeed';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -142,6 +145,7 @@ interface CerbereViewProps {
   currentUserService?: string;
   currentUserDomain?: string;
   currentUserLocation?: string;
+  accessToken?: string;
 }
 
 export function CerbereView({
@@ -152,133 +156,30 @@ export function CerbereView({
   currentUserService,
   currentUserDomain,
   currentUserLocation,
+  accessToken = '',
 }: CerbereViewProps) {
   const [activeTab, setActiveTab] = useState<'applications' | 'requests'>('applications');
   const [currentView, setCurrentView] = useState<'list' | 'detail' | 'form'>('list');
-  const [applications, setApplications] = useState<CerbereApplication[]>(mockApplications);
-  const [requests, setRequests] = useState<CerbereRequest[]>(() => {
-    const normalize = (value?: string) => (value || '').trim().toLowerCase();
-    const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
-    const currentUserData =
-      usersData.find((u) => normalize(fullName(u)) === normalize(currentUserName)) || null;
-    const users = usersData.length > 0 ? usersData : [];
-    if (users.length === 0) {
-      return [
-        {
-          id: 'fx-fallback',
-          agentConcerne: currentUserName,
-          demandeur: currentUserName,
-          applications: ['CHORUS'],
-          profils: ['CHORUS_LECTEUR'],
-          reglePortee: currentUserService || 'Mon service',
-          restrictions: 'Aucune',
-          soumiseLe: new Date().toISOString().split('T')[0],
-          statut: currentUserRole === 'agent' ? 'en_attente_chef' : 'en_attente_admin',
-        },
-      ];
-    }
-
-    const serviceChefs = users.filter((u) => normalize(u.role) === 'role_chef');
-    const appSets = [
-      { apps: ['CHORUS'], profils: ['CHORUS_LECTEUR'] },
-      { apps: ['SAFIR'], profils: ['SAFIR_CONSULTANT'] },
-      { apps: ['SIRHIUS'], profils: ['SIRHIUS_GESTIONNAIRE'] },
-      { apps: ['REGLISSE'], profils: ['REGLISSE_LECTEUR'] },
-    ];
-
-    const generated = users.slice(0, 10).map((target, idx) => {
-      const sameServiceChef = serviceChefs.find(
-        (chef) => normalize(chef.service) === normalize(target.service),
-      );
-      const demandeurName = sameServiceChef ? fullName(sameServiceChef) : fullName(target);
-      const selectedSet = appSets[idx % appSets.length];
-      const statusCycle: CerbereRequest['statut'][] = [
-        'en_attente_chef',
-        'en_attente_admin',
-        'validee',
-        'refusee',
-      ];
-      const statut = statusCycle[idx % statusCycle.length];
-      const day = String((idx % 9) + 1).padStart(2, '0');
-
-      return {
-        id: `fx-${target.id}`,
-        agentConcerne: fullName(target),
-        demandeur: demandeurName,
-        applications: selectedSet.apps,
-        profils: selectedSet.profils,
-        reglePortee: target.service || 'Mon service',
-        restrictions: idx % 2 === 0 ? 'Aucune' : 'Accès en lecture seule',
-        soumiseLe: `2026-02-${day}`,
-        statut,
-        chefValidationPar:
-          statut === 'en_attente_admin' || statut === 'validee' || statut === 'refusee'
-            ? 'Sophie Bernard'
-            : undefined,
-        chefValidationLe:
-          statut === 'en_attente_admin' || statut === 'validee' || statut === 'refusee'
-            ? `2026-02-${String((idx % 9) + 8).padStart(2, '0')}`
-            : undefined,
-        valideePar: statut === 'validee' || statut === 'refusee' ? 'Admin Système' : undefined,
-        dateValidation:
-          statut === 'validee' || statut === 'refusee'
-            ? `2026-02-${String((idx % 9) + 10).padStart(2, '0')}`
-            : undefined,
-      } satisfies CerbereRequest;
-    });
-
-    const currentName = currentUserData ? fullName(currentUserData) : currentUserName;
-    const hasCurrentUserRequest = generated.some(
-      (r) => normalize(r.demandeur) === normalize(currentName),
-    );
-    if (!hasCurrentUserRequest) {
-      generated.unshift({
-        id: `fx-self-${Date.now()}`,
-        agentConcerne: currentName,
-        demandeur: currentName,
-        applications: ['CHORUS'],
-        profils: ['CHORUS_LECTEUR'],
-        reglePortee: currentUserData?.service || currentUserService || 'Mon service',
-        restrictions: 'Aucune',
-        soumiseLe: new Date().toISOString().split('T')[0],
-        statut: currentUserRole === 'agent' ? 'en_attente_chef' : 'en_attente_admin',
-      });
-    }
-
-    const sophie = users.find(
-      (u) => normalize(fullName(u)) === normalize('Sophie Bernard'),
-    );
-    if (sophie) {
-      const sophieTeam = users.filter(
-        (u) =>
-          normalize(u.service) === normalize(sophie.service) &&
-          normalize(fullName(u)) !== normalize('Sophie Bernard'),
-      );
-      sophieTeam.slice(0, 2).forEach((member, index) => {
-        const memberName = fullName(member);
-        const alreadyExists = generated.some(
-          (r) =>
-            normalize(r.demandeur) === normalize('Sophie Bernard') &&
-            normalize(r.agentConcerne) === normalize(memberName),
-        );
-        if (!alreadyExists) {
-          generated.unshift({
-            id: `fx-sophie-${member.id}`,
-            agentConcerne: memberName,
-            demandeur: 'Sophie Bernard',
-            applications: index % 2 === 0 ? ['CHORUS'] : ['SAFIR'],
-            profils: index % 2 === 0 ? ['CHORUS_GESTIONNAIRE'] : ['SAFIR_CONSULTANT'],
-            reglePortee: sophie.service || member.service || 'Mon service',
-            restrictions: 'Aucune',
-            soumiseLe: `2026-03-${String(index + 1).padStart(2, '0')}`,
-            statut: 'en_attente_admin',
-          });
-        }
-      });
-    }
-
-    return generated;
+  const cerbereRequestsSeed = useMemo(
+    () =>
+      buildCerbereRequestSeed(
+        usersData,
+        currentUserName,
+        currentUserRole,
+        currentUserService,
+      ) as CerbereRequest[],
+    [usersData, currentUserName, currentUserRole, currentUserService],
+  );
+  const [applications, setApplications] = useAppDataDocumentStore<
+    CerbereApplication[]
+  >(APP_DATA_KEYS.cerbereApplications, accessToken, {
+    seed: mockApplications,
   });
+  const [requests, setRequests] = useAppDataDocumentStore<CerbereRequest[]>(
+    APP_DATA_KEYS.cerbereRequests,
+    accessToken,
+    { seed: cerbereRequestsSeed },
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [chefScopeFilter, setChefScopeFilter] = useState<'all' | 'moi' | 'mes_agents'>('all');

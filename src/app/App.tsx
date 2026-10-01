@@ -53,6 +53,7 @@ import {
   FAKE_DOMAINS,
   FAKE_LOCATIONS,
   FAKE_SERVICES,
+  DEFAULT_ADMIN_CATEGORIES,
 } from "./components/AdminTabsView";
 import { AppUser } from "./components/admin/UserManagementView";
 import { DocumentsView } from "./components/DocumentsView";
@@ -633,6 +634,7 @@ export default function App() {
   const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
   const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
+  const [adminCategories, setAdminCategories] = useState(DEFAULT_ADMIN_CATEGORIES);
   const [accidents, setAccidents] = useState<Accident[]>(() =>
     isBackendApiEnabled() ? [] : FAKE_ACCIDENTS,
   );
@@ -1062,11 +1064,17 @@ export default function App() {
         setAdminServices(snapshot.services);
         setAdminDomains(snapshot.domains);
         setAdminLocations(snapshot.locations);
+        setAdminCategories(
+          snapshot.categories?.length
+            ? snapshot.categories
+            : DEFAULT_ADMIN_CATEGORIES,
+        );
       },
       getDefault: () => ({
         services: FAKE_SERVICES,
         domains: FAKE_DOMAINS,
         locations: FAKE_LOCATIONS,
+        categories: DEFAULT_ADMIN_CATEGORIES,
       }),
       getLocal: () => null,
     });
@@ -1774,8 +1782,9 @@ export default function App() {
       services: adminServices,
       domains: adminDomains,
       locations: adminLocations,
+      categories: adminCategories,
     }),
-    [adminServices, adminDomains, adminLocations],
+    [adminServices, adminDomains, adminLocations, adminCategories],
   );
 
   useAppDataBackendSync(
@@ -4339,6 +4348,8 @@ export default function App() {
               setDomainsData={setAdminDomains}
               locationsData={adminLocations}
               setLocationsData={setAdminLocations}
+              categoriesData={adminCategories}
+              setCategoriesData={setAdminCategories}
               adminDisplayName={user?.name}
               inmHistory={userInmHistory}
               onInmHistoryChange={setUserInmHistory}
@@ -4356,11 +4367,17 @@ export default function App() {
 
           {/* Documents view */}
           {activeView === "documents" && (
-            <DocumentsView risks={risks} actions={manualActions} />
+            <DocumentsView
+              risks={risks}
+              actions={manualActions}
+              accessToken={accessToken}
+            />
           )}
 
           {/* Archives view */}
-          {activeView === "archives" && <ArchivesView />}
+          {activeView === "archives" && (
+            <ArchivesView accessToken={accessToken} />
+          )}
 
           {/* Registre accidents view */}
           {activeView === "registre" && (
@@ -4370,6 +4387,7 @@ export default function App() {
               serviceOptions={serviceOptions}
               domainOptions={domainOptions}
               locationOptions={locationOptions}
+              accessToken={accessToken}
             />
           )}
 
@@ -4386,12 +4404,16 @@ export default function App() {
               currentUserService={user?.service}
               currentUserDomain={user?.domain}
               currentUserLocation={user?.location}
+              accessToken={accessToken}
             />
           )}
 
           {/* Actualités view */}
           {activeView === "actualites" && (
-            <ActualitesView userRole={user?.role || "agent"} />
+            <ActualitesView
+              userRole={user?.role || "agent"}
+              accessToken={accessToken}
+            />
           )}
 
           {/* Arrivées & Départs view */}

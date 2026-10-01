@@ -14,6 +14,12 @@ export const APP_DATA_KEYS = {
   mealSubsidyConfig: "mealSubsidyConfig",
   userInmHistory: "userInmHistory",
   papripactSignatures: "papripactSignatures",
+  registreBenignAccidents: "registreBenignAccidents",
+  documentsLibrary: "documentsLibrary",
+  archivesLibrary: "archivesLibrary",
+  actualites: "actualites",
+  cerbereApplications: "cerbereApplications",
+  cerbereRequests: "cerbereRequests",
 } as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[keyof typeof APP_DATA_KEYS];

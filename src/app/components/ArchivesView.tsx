@@ -30,6 +30,8 @@ import { DocumentDetailView } from './DocumentDetailView';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 
 export interface ArchivedDocument {
   id: string;
@@ -146,10 +148,18 @@ const FAKE_ARCHIVES: ArchivedDocument[] = [
 
 interface ArchivesViewProps {
   archives?: ArchivedDocument[];
+  accessToken?: string;
 }
 
-export function ArchivesView({ archives: propArchives }: ArchivesViewProps) {
-  const [archives, setArchives] = useState<ArchivedDocument[]>(propArchives || FAKE_ARCHIVES);
+export function ArchivesView({
+  archives: propArchives,
+  accessToken = '',
+}: ArchivesViewProps) {
+  const [archives, setArchives] = useAppDataDocumentStore<ArchivedDocument[]>(
+    APP_DATA_KEYS.archivesLibrary,
+    accessToken,
+    { seed: propArchives ?? FAKE_ARCHIVES },
+  );
   const [viewingArchive, setViewingArchive] = useState<ArchivedDocument | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);

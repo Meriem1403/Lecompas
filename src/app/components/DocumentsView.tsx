@@ -34,6 +34,8 @@ import { GenerateDUERPDialog } from './GenerateDUERPDialog';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 
 export interface Document {
   id: string;
@@ -161,14 +163,20 @@ interface DocumentsViewProps {
   documents?: Document[];
   risks?: import('@/app/components/admin/RisksManagementView').Risk[];
   actions?: import('@/app/types/action').Action[];
+  accessToken?: string;
 }
 
 export function DocumentsView({
   documents: propDocuments,
   risks = [],
   actions = [],
+  accessToken = '',
 }: DocumentsViewProps) {
-  const [documents, setDocuments] = useState<Document[]>(propDocuments || FAKE_DOCUMENTS);
+  const [documents, setDocuments] = useAppDataDocumentStore<Document[]>(
+    APP_DATA_KEYS.documentsLibrary,
+    accessToken,
+    { seed: propDocuments ?? FAKE_DOCUMENTS },
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
