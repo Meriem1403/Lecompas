@@ -601,6 +601,23 @@ export default function App() {
   const [accessProfiles, setAccessProfiles] = useState<
     Record<string, EmployeeAccessProfile>
   >(() => buildDefaultAccessProfiles(FAKE_USERS));
+
+  React.useEffect(() => {
+    setAccessProfiles((previous) => {
+      let changed = false;
+      const next = { ...previous };
+      for (const employee of adminUsers) {
+        if (next[employee.id]) continue;
+        const created = buildDefaultAccessProfiles([employee])[employee.id];
+        if (created) {
+          next[employee.id] = created;
+          changed = true;
+        }
+      }
+      return changed ? next : previous;
+    });
+  }, [adminUsers]);
+
   const [riskReferences, setRiskReferences] = useState<
     RiskReference[]
   >(RISK_REFERENCE_FIXTURES);
