@@ -83,4 +83,8 @@ Le build Netlify désactive l’API (`VITE_USE_BACKEND_API=false`) et garde la c
 - [x] Hash bcrypt des mots de passe (upgrade automatique à la connexion)
 - [x] CRUD `/users` (lecture : utilisateurs connectés ; écriture : admin)
 - [x] Actions, accidents, notifications (KV PostgreSQL + sync frontend)
+- [x] Retours d’action (`/action-returns`)
+- [x] Données applicatives (`/app-data/*`) : organisation, droits, références risques, fiches, sensibilisation, protocoles, plans de prévention, repas, PAPRIPACT
+- [x] Réconciliation des suppressions sur les collections synchronisées
+- [ ] Registre accidents bénins (vue séparée) — encore locale
 - [ ] Sauvegardes PostgreSQL planifiées
