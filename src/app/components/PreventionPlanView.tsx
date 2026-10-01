@@ -1,4 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { isBackendApiEnabled } from "@/app/config/dataBackend";
+import { isApiAccessToken } from "@/lib/apiClient";
+import {
+  APP_DATA_KEYS,
+  fetchAppData,
+  saveAppData,
+} from "@/app/services/appDataApi";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -118,6 +125,7 @@ interface PreventionPlanViewProps {
   risks: RiskInput[];
   currentUserRole: "admin" | "chef_service" | "agent";
   currentUserName: string;
+  accessToken?: string;
 }
 
 const statusLabel: Record<PlanStatus, string> = {
@@ -690,7 +698,13 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
   );
 }
 
-export function PreventionPlanView({ risks, currentUserRole, currentUserName }: PreventionPlanViewProps) {
+export function PreventionPlanView({
+  risks,
+  currentUserRole,
+  currentUserName,
+  accessToken = "",
+}: PreventionPlanViewProps) {
+  const plansSkipRef = useRef(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedPlanSnapshot, setSelectedPlanSnapshot] = useState<PlanRecord | null>(null);
@@ -779,22 +793,82 @@ export function PreventionPlanView({ risks, currentUserRole, currentUserName }: 
     return stored && stored.length > 0 ? stored : [];
   });
 
-  React.useEffect(() => {
-    if (plans.length === 0 && initialPlans.length > 0) {
-      setPlans(initialPlans);
+  useEffect(() => {
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      return;
     }
-  }, [initialPlans, plans.length]);
+    plansSkipRef.current = true;
+    void (async () => {
+      try {
+        const fromApi = await fetchAppData<PlanRecord[]>(
+          APP_DATA_KEYS.preventionPlans,
+          accessToken,
+        );
+        if (fromApi && fromApi.length > 0) {
+          setPlans(fromApi);
+          return;
+        }
+        const local = loadPreventionPlans<PlanRecord>();
+        const seed =
+          local && local.length > 0 ? local : initialPlans.length > 0 ? initialPlans : [];
+        if (seed.length > 0) {
+          setPlans(seed);
+          plansSkipRef.current = false;
+          await saveAppData(APP_DATA_KEYS.preventionPlans, seed, accessToken);
+          plansSkipRef.current = true;
+        }
+      } catch (error) {
+        console.warn("[Lecompas] chargement plans de prévention API", error);
+      }
+    })();
+  }, [accessToken, initialPlans]);
 
   React.useEffect(() => {
-    if (plans.length > 0) {
+    if (plans.length === 0 && initialPlans.length > 0) {
+      if (
+        isBackendApiEnabled() &&
+        accessToken &&
+        isApiAccessToken(accessToken)
+      ) {
+        return;
+      }
+      setPlans(initialPlans);
+    }
+  }, [initialPlans, plans.length, accessToken]);
+
+  React.useEffect(() => {
+    if (plans.length === 0) return;
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
       const saved = savePreventionPlans(plans);
       if (!saved) {
         toast.error(
           "Impossible d'enregistrer le plan (stockage saturé). Réduisez la taille des pièces jointes.",
         );
       }
+      return;
     }
-  }, [plans]);
+    if (plansSkipRef.current) {
+      plansSkipRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void saveAppData(APP_DATA_KEYS.preventionPlans, plans, accessToken).catch(
+        (error) => {
+          console.error("[Lecompas] sync plans de prévention API", error);
+          toast.error("Synchronisation des plans de prévention impossible");
+        },
+      );
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [plans, accessToken]);
 
   const serviceOptions = useMemo(
     () => Array.from(new Set(plans.map((plan) => plan.service))).sort((a, b) => a.localeCompare(b)),

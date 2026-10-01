@@ -12,5 +12,5 @@ export async function syncActionsToApi(
   actions: Action[],
   token?: string,
 ): Promise<void> {
-  await syncCollectionToApi("/actions", actions, token);
+  await syncCollectionToApi("/actions", actions, token, "actions");
 }

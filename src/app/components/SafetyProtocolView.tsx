@@ -1,4 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { isBackendApiEnabled } from "@/app/config/dataBackend";
+import { isApiAccessToken } from "@/lib/apiClient";
+import {
+  APP_DATA_KEYS,
+  fetchAppData,
+  saveAppData,
+} from "@/app/services/appDataApi";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -56,6 +63,7 @@ interface SafetyProtocolViewProps {
   serviceOptions: string[];
   domainOptions: string[];
   locationOptions: string[];
+  accessToken?: string;
 }
 
 type ViewMode = "list" | "detail" | "create" | "edit";
@@ -104,13 +112,56 @@ export function SafetyProtocolView({
   serviceOptions,
   domainOptions,
   locationOptions,
+  accessToken = "",
 }: SafetyProtocolViewProps) {
+  const protocolsSkipRef = useRef(false);
+  const deletedProtocolsSkipRef = useRef(false);
   const [protocols, setProtocols] = useState<ProtocolRecord[]>(
     () => loadSafetyProtocols() ?? defaultProtocols,
   );
   const [deletedProtocols, setDeletedProtocols] = useState<DeletedProtocolRecord[]>(
     () => loadDeletedProtocols() ?? [],
   );
+
+  useEffect(() => {
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      return;
+    }
+    protocolsSkipRef.current = true;
+    deletedProtocolsSkipRef.current = true;
+    void (async () => {
+      try {
+        const [fromApiProtocols, fromApiDeleted] = await Promise.all([
+          fetchAppData<ProtocolRecord[]>(
+            APP_DATA_KEYS.safetyProtocols,
+            accessToken,
+          ),
+          fetchAppData<DeletedProtocolRecord[]>(
+            APP_DATA_KEYS.deletedProtocols,
+            accessToken,
+          ),
+        ]);
+        if (fromApiProtocols && fromApiProtocols.length > 0) {
+          setProtocols(fromApiProtocols);
+        } else {
+          const local = loadSafetyProtocols() ?? defaultProtocols;
+          setProtocols(local);
+          protocolsSkipRef.current = false;
+          await saveAppData(APP_DATA_KEYS.safetyProtocols, local, accessToken);
+          protocolsSkipRef.current = true;
+        }
+        if (fromApiDeleted) {
+          setDeletedProtocols(fromApiDeleted);
+        }
+      } catch (error) {
+        console.warn("[Lecompas] chargement protocoles API", error);
+      }
+    })();
+  }, [accessToken]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [query, setQuery] = useState("");
@@ -402,12 +453,54 @@ export function SafetyProtocolView({
   }, [currentPage, totalPages]);
 
   React.useEffect(() => {
-    saveSafetyProtocols(protocols);
-  }, [protocols]);
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      saveSafetyProtocols(protocols);
+      return;
+    }
+    if (protocolsSkipRef.current) {
+      protocolsSkipRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void saveAppData(
+        APP_DATA_KEYS.safetyProtocols,
+        protocols,
+        accessToken,
+      ).catch((error) => {
+        console.error("[Lecompas] sync protocoles API", error);
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [protocols, accessToken]);
 
   React.useEffect(() => {
-    saveDeletedProtocols(deletedProtocols);
-  }, [deletedProtocols]);
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      saveDeletedProtocols(deletedProtocols);
+      return;
+    }
+    if (deletedProtocolsSkipRef.current) {
+      deletedProtocolsSkipRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void saveAppData(
+        APP_DATA_KEYS.deletedProtocols,
+        deletedProtocols,
+        accessToken,
+      ).catch((error) => {
+        console.error("[Lecompas] sync corbeille protocoles API", error);
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [deletedProtocols, accessToken]);
 
   React.useEffect(() => {
     const interval = window.setInterval(() => {

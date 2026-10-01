@@ -18,5 +18,10 @@ export async function syncNotificationsToApi(
   notifications: AppNotification[],
   token?: string,
 ): Promise<void> {
-  await syncCollectionToApi("/notifications", notifications, token);
+  await syncCollectionToApi(
+    "/notifications",
+    notifications,
+    token,
+    "notifications",
+  );
 }

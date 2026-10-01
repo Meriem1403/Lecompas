@@ -29,5 +29,5 @@ export async function syncAccidentsToApi(
   accidents: StoredAccident[],
   token?: string,
 ): Promise<void> {
-  await syncCollectionToApi("/accidents", accidents, token);
+  await syncCollectionToApi("/accidents", accidents, token, "accidents");
 }

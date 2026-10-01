@@ -260,6 +260,18 @@ import {
   fetchNotificationsFromApi,
   syncNotificationsToApi,
 } from "./services/notificationsApi";
+import {
+  fetchActionReturnsFromApi,
+  syncActionReturnsToApi,
+} from "./services/actionReturnsApi";
+import { ACTION_RETURN_FIXTURES } from "./fixtures/actionReturnFixtures";
+import { APP_DATA_KEYS, fetchAppData, saveAppData } from "./services/appDataApi";
+import {
+  hydrateAppDataValue,
+  useAppDataBackendSync,
+} from "./hooks/useAppDataBackendSync";
+import type { OrganizationSnapshot } from "./types/organization";
+import { buildDefaultAccessProfiles } from "./utils/accessProfileDefaults";
 
 interface User {
   id: string;
@@ -559,6 +571,8 @@ export default function App() {
   const actionsSkipSyncRef = React.useRef(false);
   const accidentsSkipSyncRef = React.useRef(false);
   const notificationsSkipSyncRef = React.useRef(false);
+  const actionReturnsSkipSyncRef = React.useRef(false);
+  const appDataSkipRef = React.useRef<Record<string, boolean>>({});
   const [risks, setRisks] = useState<Risk[]>(() =>
     isBackendApiEnabled()
       ? loadPersistedRisks() ?? []
@@ -586,31 +600,7 @@ export default function App() {
   const [adminUsers, setAdminUsers] = useState<AppUser[]>(() => loadAdminUsers(FAKE_USERS));
   const [accessProfiles, setAccessProfiles] = useState<
     Record<string, EmployeeAccessProfile>
-  >(() => {
-    const defaultCrud = {
-      create: true,
-      read: true,
-      update: true,
-      delete: true,
-    };
-    return Object.fromEntries(
-      FAKE_USERS.map((employee) => [
-        employee.id,
-        {
-          employeeId: employee.id,
-          modulePermissions: Object.fromEntries(
-            ACCESS_MODULES.map((moduleItem) => [
-              moduleItem.id,
-              {
-                canView: true,
-                crud: defaultCrud,
-              },
-            ]),
-          ),
-        },
-      ]),
-    );
-  });
+  >(() => buildDefaultAccessProfiles(FAKE_USERS));
   const [riskReferences, setRiskReferences] = useState<
     RiskReference[]
   >(RISK_REFERENCE_FIXTURES);
@@ -628,6 +618,9 @@ export default function App() {
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
   const [accidents, setAccidents] = useState<Accident[]>(() =>
     isBackendApiEnabled() ? [] : FAKE_ACCIDENTS,
+  );
+  const [actionReturns, setActionReturns] = useState<ActionReturn[]>(() =>
+    isBackendApiEnabled() ? [] : ACTION_RETURN_FIXTURES,
   );
   const [mealTickets, setMealTickets] = useState<MealTicket[]>([]);
   const [mealTicketsHydrated, setMealTicketsHydrated] = React.useState(false);
@@ -1013,6 +1006,187 @@ export default function App() {
     [getLocalNotifications],
   );
 
+  const hydrateActionReturnsFromApi = React.useCallback(
+    async (token: string) => {
+      actionReturnsSkipSyncRef.current = true;
+      try {
+        const fromApi = await fetchActionReturnsFromApi(token);
+        if (fromApi.length > 0) {
+          setActionReturns(fromApi);
+          return;
+        }
+      } catch (error) {
+        console.warn("[Lecompas] chargement retours d’action API", error);
+        return;
+      }
+      setActionReturns(ACTION_RETURN_FIXTURES);
+      actionReturnsSkipSyncRef.current = false;
+      try {
+        await syncActionReturnsToApi(ACTION_RETURN_FIXTURES, token);
+        actionReturnsSkipSyncRef.current = true;
+        const refreshed = await fetchActionReturnsFromApi(token);
+        if (refreshed.length > 0) setActionReturns(refreshed);
+      } catch (error) {
+        console.error("[Lecompas] sync retours d’action API", error);
+        toast.error(
+          "Synchronisation des retours d’action avec le serveur impossible",
+        );
+      }
+    },
+    [],
+  );
+
+  const hydrateOrganizationFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue<OrganizationSnapshot>({
+      key: APP_DATA_KEYS.organization,
+      token,
+      skipRef: appDataSkipRef,
+      setValue: (snapshot) => {
+        setAdminServices(snapshot.services);
+        setAdminDomains(snapshot.domains);
+        setAdminLocations(snapshot.locations);
+      },
+      getDefault: () => ({
+        services: FAKE_SERVICES,
+        domains: FAKE_DOMAINS,
+        locations: FAKE_LOCATIONS,
+      }),
+      getLocal: () => null,
+    });
+  }, []);
+
+  const hydrateAccessProfilesFromApi = React.useCallback(
+    async (token: string) => {
+      await hydrateAppDataValue<Record<string, EmployeeAccessProfile>>({
+        key: APP_DATA_KEYS.accessProfiles,
+        token,
+        skipRef: appDataSkipRef,
+        setValue: setAccessProfiles,
+        getDefault: () => buildDefaultAccessProfiles(FAKE_USERS),
+        getLocal: () => null,
+      });
+    },
+    [],
+  );
+
+  const hydrateRiskReferencesFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue<RiskReference[]>({
+      key: APP_DATA_KEYS.riskReferences,
+      token,
+      skipRef: appDataSkipRef,
+      setValue: setRiskReferences,
+      getDefault: () => RISK_REFERENCE_FIXTURES,
+      getLocal: () => null,
+    });
+  }, []);
+
+  const hydrateSecuritySheetsFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue({
+      key: APP_DATA_KEYS.securitySheets,
+      token,
+      skipRef: appDataSkipRef,
+      setValue: setSecuritySheets,
+      getDefault: () => defaultSecuritySheetsState,
+      getLocal: () => loadSecuritySheets(),
+    });
+  }, []);
+
+  const hydrateAwarenessFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue<RiskAwarenessRecord[]>({
+      key: APP_DATA_KEYS.awarenessRecords,
+      token,
+      skipRef: appDataSkipRef,
+      setValue: setRiskAwarenessRecords,
+      getDefault: () => [],
+      getLocal: () => loadAwarenessRecords(),
+    });
+  }, []);
+
+  const hydrateSuppressedAwarenessFromApi = React.useCallback(
+    async (token: string) => {
+      await hydrateAppDataValue<string[]>({
+        key: APP_DATA_KEYS.suppressedAwarenessKeys,
+        token,
+        skipRef: appDataSkipRef,
+        setValue: setSuppressedAwarenessKeys,
+        getDefault: () => [],
+        getLocal: () => loadSuppressedAwarenessKeys(),
+      });
+    },
+    [],
+  );
+
+  const hydrateMealSubsidyFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue<MealSubsidyConfig>({
+      key: APP_DATA_KEYS.mealSubsidyConfig,
+      token,
+      skipRef: appDataSkipRef,
+      setValue: setMealSubsidyConfig,
+      getDefault: () => loadMealSubsidyConfig(FAKE_LOCATIONS),
+      getLocal: () => loadMealSubsidyConfig(adminLocations),
+    });
+  }, [adminLocations]);
+
+  const hydrateUserInmHistoryFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue<UserInmHistoryEntry[]>({
+      key: APP_DATA_KEYS.userInmHistory,
+      token,
+      skipRef: appDataSkipRef,
+      setValue: setUserInmHistory,
+      getDefault: () => [],
+      getLocal: () => loadUserInmHistory(),
+    });
+  }, []);
+
+  const hydratePapripactSignaturesFromApi = React.useCallback(
+    async (token: string) => {
+      await hydrateAppDataValue<PapripactSignatureRecord[]>({
+        key: APP_DATA_KEYS.papripactSignatures,
+        token,
+        skipRef: appDataSkipRef,
+        setValue: setPapripactSignatures,
+        getDefault: () =>
+          loadPapripactSignaturesStorage().length > 0
+            ? loadPapripactSignaturesStorage()
+            : loadPapripactSignatures(),
+        getLocal: () =>
+          loadPapripactSignaturesStorage().length > 0
+            ? loadPapripactSignaturesStorage()
+            : loadPapripactSignatures(),
+      });
+    },
+    [],
+  );
+
+  const hydrateMealTicketsFromApi = React.useCallback(async (token: string) => {
+    appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = true;
+    try {
+      const fromApi = await fetchAppData<MealTicket[]>(
+        APP_DATA_KEYS.mealTickets,
+        token,
+      );
+      if (fromApi && Array.isArray(fromApi)) {
+        setMealTickets(fromApi);
+        setMealTicketsHydrated(true);
+        return;
+      }
+    } catch (error) {
+      console.warn("[Lecompas] chargement tickets repas API", error);
+      setMealTicketsHydrated(true);
+      return;
+    }
+    const local = await hydrateMealTickets();
+    setMealTickets(local);
+    setMealTicketsHydrated(true);
+    appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = false;
+    try {
+      await saveAppData(APP_DATA_KEYS.mealTickets, local, token);
+      appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = true;
+    } catch (error) {
+      console.error("[Lecompas] sync tickets repas API", error);
+    }
+  }, []);
+
   React.useEffect(() => {
     if (
       !isBackendApiEnabled() ||
@@ -1126,21 +1300,27 @@ export default function App() {
   }, [notifications, accessToken]);
 
   React.useEffect(() => {
-    saveSecuritySheets(securitySheets);
-  }, [securitySheets]);
-
-  React.useEffect(() => {
-    savePapripactSignaturesStorage(papripactSignatures);
-    savePapripactSignatures(papripactSignatures);
-  }, [papripactSignatures]);
-
-  React.useEffect(() => {
-    saveAwarenessRecords(riskAwarenessRecords);
-  }, [riskAwarenessRecords]);
-
-  React.useEffect(() => {
-    saveSuppressedAwarenessKeys(suppressedAwarenessKeys);
-  }, [suppressedAwarenessKeys]);
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      return;
+    }
+    if (actionReturnsSkipSyncRef.current) {
+      actionReturnsSkipSyncRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void syncActionReturnsToApi(actionReturns, accessToken).catch((error) => {
+        console.error("[Lecompas] sync retours d’action API", error);
+        toast.error(
+          "Synchronisation des retours d’action avec le serveur impossible",
+        );
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [actionReturns, accessToken]);
 
   React.useEffect(() => {
     const sourceByKey = new Map<
@@ -1361,6 +1541,17 @@ export default function App() {
           hydrateActionsFromApi(access_token),
           hydrateAccidentsFromApi(access_token),
           hydrateNotificationsFromApi(access_token),
+          hydrateActionReturnsFromApi(access_token),
+          hydrateOrganizationFromApi(access_token),
+          hydrateAccessProfilesFromApi(access_token),
+          hydrateRiskReferencesFromApi(access_token),
+          hydrateSecuritySheetsFromApi(access_token),
+          hydrateAwarenessFromApi(access_token),
+          hydrateSuppressedAwarenessFromApi(access_token),
+          hydrateMealSubsidyFromApi(access_token),
+          hydrateUserInmHistoryFromApi(access_token),
+          hydratePapripactSignaturesFromApi(access_token),
+          hydrateMealTicketsFromApi(access_token),
         ]);
         return true;
       } catch (error) {
@@ -1436,6 +1627,17 @@ export default function App() {
             hydrateActionsFromApi(savedToken),
             hydrateAccidentsFromApi(savedToken),
             hydrateNotificationsFromApi(savedToken),
+            hydrateActionReturnsFromApi(savedToken),
+            hydrateOrganizationFromApi(savedToken),
+            hydrateAccessProfilesFromApi(savedToken),
+            hydrateRiskReferencesFromApi(savedToken),
+            hydrateSecuritySheetsFromApi(savedToken),
+            hydrateAwarenessFromApi(savedToken),
+            hydrateSuppressedAwarenessFromApi(savedToken),
+            hydrateMealSubsidyFromApi(savedToken),
+            hydrateUserInmHistoryFromApi(savedToken),
+            hydratePapripactSignaturesFromApi(savedToken),
+            hydrateMealTicketsFromApi(savedToken),
           ]);
         })();
         return;
@@ -1465,6 +1667,17 @@ export default function App() {
     hydrateActionsFromApi,
     hydrateAccidentsFromApi,
     hydrateNotificationsFromApi,
+    hydrateActionReturnsFromApi,
+    hydrateOrganizationFromApi,
+    hydrateAccessProfilesFromApi,
+    hydrateRiskReferencesFromApi,
+    hydrateSecuritySheetsFromApi,
+    hydrateAwarenessFromApi,
+    hydrateSuppressedAwarenessFromApi,
+    hydrateMealSubsidyFromApi,
+    hydrateUserInmHistoryFromApi,
+    hydratePapripactSignaturesFromApi,
+    hydrateMealTicketsFromApi,
   ]);
 
   React.useEffect(() => {
@@ -1486,6 +1699,9 @@ export default function App() {
   }, []);
 
   React.useEffect(() => {
+    if (isBackendApiEnabled()) {
+      return;
+    }
     let cancelled = false;
     void hydrateMealTickets().then((loaded) => {
       if (!cancelled) {
@@ -1500,6 +1716,26 @@ export default function App() {
 
   React.useEffect(() => {
     if (!mealTicketsHydrated) return;
+    if (
+      isBackendApiEnabled() &&
+      accessToken &&
+      isApiAccessToken(accessToken)
+    ) {
+      if (appDataSkipRef.current[APP_DATA_KEYS.mealTickets]) {
+        appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = false;
+        return;
+      }
+      const timer = window.setTimeout(() => {
+        void saveAppData(
+          APP_DATA_KEYS.mealTickets,
+          mealTickets,
+          accessToken,
+        ).catch((error) => {
+          console.error("[Lecompas] sync tickets repas API", error);
+        });
+      }, 800);
+      return () => window.clearTimeout(timer);
+    }
     const nonceAtSchedule = mealTicketsResetNonceRef.current;
     const timer = window.setTimeout(() => {
       const nonceNow = getMealTicketsResetNonce();
@@ -1510,19 +1746,87 @@ export default function App() {
       saveMealTickets(mealTickets);
     }, 280);
     return () => window.clearTimeout(timer);
-  }, [mealTickets, mealTicketsHydrated]);
+  }, [mealTickets, mealTicketsHydrated, accessToken]);
 
   React.useEffect(() => {
     setMealSubsidyConfig((prev) => repairMealSubsidyConfig(prev, adminLocations));
   }, [adminLocations]);
 
-  React.useEffect(() => {
-    saveMealSubsidyConfig(mealSubsidyConfig);
-  }, [mealSubsidyConfig]);
+  const organizationSnapshot = useMemo<OrganizationSnapshot>(
+    () => ({
+      services: adminServices,
+      domains: adminDomains,
+      locations: adminLocations,
+    }),
+    [adminServices, adminDomains, adminLocations],
+  );
 
-  React.useEffect(() => {
-    saveUserInmHistory(userInmHistory);
-  }, [userInmHistory]);
+  useAppDataBackendSync(
+    APP_DATA_KEYS.organization,
+    organizationSnapshot,
+    accessToken,
+    appDataSkipRef,
+    () => {},
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.accessProfiles,
+    accessProfiles,
+    accessToken,
+    appDataSkipRef,
+    () => {},
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.riskReferences,
+    riskReferences,
+    accessToken,
+    appDataSkipRef,
+    () => {},
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.securitySheets,
+    securitySheets,
+    accessToken,
+    appDataSkipRef,
+    saveSecuritySheets,
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.awarenessRecords,
+    riskAwarenessRecords,
+    accessToken,
+    appDataSkipRef,
+    saveAwarenessRecords,
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.suppressedAwarenessKeys,
+    suppressedAwarenessKeys,
+    accessToken,
+    appDataSkipRef,
+    saveSuppressedAwarenessKeys,
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.mealSubsidyConfig,
+    mealSubsidyConfig,
+    accessToken,
+    appDataSkipRef,
+    saveMealSubsidyConfig,
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.userInmHistory,
+    userInmHistory,
+    accessToken,
+    appDataSkipRef,
+    saveUserInmHistory,
+  );
+  useAppDataBackendSync(
+    APP_DATA_KEYS.papripactSignatures,
+    papripactSignatures,
+    accessToken,
+    appDataSkipRef,
+    (records) => {
+      savePapripactSignaturesStorage(records);
+      savePapripactSignatures(records);
+    },
+  );
 
   const currentMealProvider = useMemo(() => {
     if (!user || user.role !== "prestataire") return null;
@@ -1550,96 +1854,6 @@ export default function App() {
     }
   }, [selectedRisk, risks, user]);
 
-  // Action Returns state
-  const [actionReturns, setActionReturns] = useState<
-    ActionReturn[]
-  >([
-    {
-      id: "ar1",
-      riskId: "1",
-      riskTitle: "Risque de chute sur sol glissant",
-      proposedBy: "Chef de Service Maritime",
-      proposedDate: "2026-02-01T10:30:00",
-      proposedMeasure:
-        "Installation de tapis antidérapants dans les zones à risque",
-      justification:
-        "Les panneaux de signalisation sont insuffisants. J'ai constaté que plusieurs agents ont failli glisser malgré les panneaux. L'ajout de tapis antidérapants réduirait significativement le risque.",
-      status: "pending",
-    },
-    {
-      id: "ar2",
-      riskId: "2",
-      riskTitle: "Exposition aux produits chimiques",
-      proposedBy: "Chef de Service Technique",
-      proposedDate: "2026-01-28T14:20:00",
-      proposedMeasure:
-        "Système de ventilation automatique avec détecteurs de gaz",
-      justification:
-        "La ventilation naturelle n'est pas suffisante pendant les périodes de forte chaleur. Un système automatique garantirait une extraction continue des vapeurs.",
-      status: "validated_replace",
-      targetMeasureIndex: 0,
-      targetMeasureText: "Ventilation naturelle des locaux",
-      reviewedBy: "Administrateur Démo",
-      reviewedDate: "2026-01-29T09:15:00",
-      reviewComment:
-        "Excellente proposition. La ventilation automatique offre une meilleure protection.",
-    },
-    {
-      id: "ar3",
-      riskId: "5",
-      riskTitle: "Risque lié au poste en télétravail",
-      proposedBy: "Bernard Lemoine",
-      proposedDate: "2025-12-11T11:30:00",
-      proposedMeasure:
-        "Mise en place d'un système de validation hebdomadaire des postures de travail par visioconférence avec un ergonome",
-      justification:
-        "La formation seule ne suffit pas. Un suivi régulier permettrait de corriger les mauvaises postures avant qu'elles ne deviennent problématiques.",
-      status: "pending",
-    },
-    {
-      id: "ar4",
-      riskId: "3",
-      riskTitle: "Risque électrique sur équipements",
-      proposedBy: "Chef de Service Maintenance",
-      proposedDate: "2026-01-25T16:45:00",
-      proposedMeasure:
-        "Formation spécialisée aux habilitations électriques pour tous les agents",
-      justification:
-        "Suite à un audit, il apparaît que certains agents manipulent des équipements électriques sans formation adéquate.",
-      status: "rejected",
-      reviewedBy: "Administrateur Démo",
-      reviewedDate: "2026-01-26T11:00:00",
-      reviewComment:
-        "Budget 2026 déjà alloué. Proposition à revoir pour 2027.",
-    },
-    {
-      id: "ar5",
-      riskId: "5",
-      riskTitle: "Risque lié au poste en télétravail",
-      proposedBy: "Bernard Lemoine",
-      proposedDate: "2025-12-11T10:44:00",
-      proposedMeasure:
-        "Installation de filtres anti-lumière bleue sur tous les écrans",
-      justification:
-        "Plusieurs agents se plaignent de fatigue oculaire. Les filtres anti-lumière bleue pourraient améliorer le confort visuel.",
-      status: "validated_add",
-      reviewedBy: "Administrateur Démo",
-      reviewedDate: "2025-12-11T11:18:00",
-      reviewComment: "",
-    },
-    {
-      id: "ar6",
-      riskId: "5",
-      riskTitle: "Risque lié au poste en télétravail",
-      proposedBy: "Bernard Lemoine",
-      proposedDate: "2025-12-11T11:30:00",
-      proposedMeasure:
-        "Organisation de pauses actives collectives obligatoires toutes les 2 heures",
-      justification:
-        "L'isolement et le manque d'activité physique sont des problèmes récurrents. Des pauses collectives permettraient de maintenir le lien social et encourager le mouvement.",
-      status: "pending",
-    },
-  ]);
   const [actionReturnsCurrentPage, setActionReturnsCurrentPage] =
     useState(1);
   const [actionReturnsSearch, setActionReturnsSearch] = useState("");
@@ -3823,6 +4037,7 @@ export default function App() {
               risks={visibleRisks}
               currentUserRole={user?.role || "agent"}
               currentUserName={user?.name || "Utilisateur"}
+              accessToken={accessToken}
             />
           )}
           {activeView === "safety-protocols" && (
@@ -3835,6 +4050,7 @@ export default function App() {
               serviceOptions={serviceOptions}
               domainOptions={domainOptions}
               locationOptions={locationOptions}
+              accessToken={accessToken}
             />
           )}
           {activeView === "safety-sheets" && (

@@ -20,7 +20,7 @@ app.use(
     ? cors({ origin: corsOrigins, credentials: true })
     : cors(),
 );
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
 
 const kvGet = async (key) => {
   const { rows } = await pool.query(
@@ -538,6 +538,72 @@ mountKvEntityRoutes({
   itemKeyPrefix: "notification:",
   collectionKey: "notifications",
   singularKey: "notification",
+});
+
+mountKvEntityRoutes({
+  pathSegment: "action-returns",
+  listKey: "actionReturns:list",
+  itemKeyPrefix: "actionReturn:",
+  collectionKey: "actionReturns",
+  singularKey: "actionReturn",
+});
+
+const APP_DATA_REGISTRY = {
+  organization: { adminOnlyWrite: true },
+  accessProfiles: { adminOnlyWrite: true },
+  riskReferences: { adminOnlyWrite: false },
+  securitySheets: { adminOnlyWrite: false },
+  awarenessRecords: { adminOnlyWrite: false },
+  suppressedAwarenessKeys: { adminOnlyWrite: false },
+  safetyProtocols: { adminOnlyWrite: false },
+  deletedProtocols: { adminOnlyWrite: false },
+  preventionPlans: { adminOnlyWrite: false },
+  mealTickets: { adminOnlyWrite: false },
+  mealSubsidyConfig: { adminOnlyWrite: true },
+  userInmHistory: { adminOnlyWrite: false },
+  papripactSignatures: { adminOnlyWrite: false },
+};
+
+app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const key = req.params.key;
+    if (!APP_DATA_REGISTRY[key]) {
+      return res.status(400).json({ error: "Unknown app data key" });
+    }
+
+    const value = await kvGet(`appdata:${key}`);
+    return res.json({ value: value ?? null });
+  } catch (_error) {
+    return res.status(500).json({ error: "Server error reading app data" });
+  }
+});
+
+app.put(`${apiPrefix}/app-data/:key`, async (req, res) => {
+  try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const key = req.params.key;
+    const registry = APP_DATA_REGISTRY[key];
+    if (!registry) {
+      return res.status(400).json({ error: "Unknown app data key" });
+    }
+    if (registry.adminOnlyWrite && user.role !== "admin") {
+      return res.status(403).json({ error: "Admin only" });
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, "value")) {
+      return res.status(400).json({ error: "Missing value" });
+    }
+
+    await kvSet(`appdata:${key}`, req.body.value);
+    return res.json({ ok: true });
+  } catch (_error) {
+    return res.status(500).json({ error: "Server error saving app data" });
+  }
 });
 
 const userBodyToColumns = (body) => ({
