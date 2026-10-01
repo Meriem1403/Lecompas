@@ -244,6 +244,10 @@ import {
   mapApiRoleToSessionRole,
 } from "./services/authApi";
 import { fetchRisksFromApi, syncRisksToApi } from "./services/risksApi";
+import {
+  fetchAdminUsers,
+  syncAdminUsersToApi,
+} from "./services/usersApi";
 
 interface User {
   id: string;
@@ -518,6 +522,7 @@ export default function App() {
     [navigate],
   );
   const risksSkipSyncRef = React.useRef(false);
+  const adminUsersSkipSyncRef = React.useRef(false);
   const [risks, setRisks] = useState<Risk[]>(() =>
     isBackendApiEnabled()
       ? loadPersistedRisks() ?? []
@@ -854,6 +859,42 @@ export default function App() {
     [],
   );
 
+  const hydrateAdminUsersFromApi = React.useCallback(
+    async (token: string, isAdmin: boolean) => {
+      adminUsersSkipSyncRef.current = true;
+      try {
+        const fromApi = await fetchAdminUsers(token);
+        if (fromApi.length > 0) {
+          setAdminUsers(fromApi);
+          return;
+        }
+      } catch (error) {
+        console.warn("[Lecompas] chargement annuaire API", error);
+        return;
+      }
+
+      const local = loadAdminUsers(FAKE_USERS);
+      setAdminUsers(local);
+      if (!isAdmin) {
+        return;
+      }
+
+      adminUsersSkipSyncRef.current = false;
+      try {
+        await syncAdminUsersToApi(local, token);
+        adminUsersSkipSyncRef.current = true;
+        const refreshed = await fetchAdminUsers(token);
+        if (refreshed.length > 0) {
+          setAdminUsers(refreshed);
+        }
+      } catch (error) {
+        console.error("[Lecompas] sync annuaire API", error);
+        toast.error("Synchronisation des comptes avec le serveur impossible");
+      }
+    },
+    [],
+  );
+
   React.useEffect(() => {
     if (
       !isBackendApiEnabled() ||
@@ -875,6 +916,31 @@ export default function App() {
     }, 800);
     return () => window.clearTimeout(timer);
   }, [risks, accessToken]);
+
+  React.useEffect(() => {
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      saveAdminUsers(adminUsers);
+      return;
+    }
+    if (adminUsersSkipSyncRef.current) {
+      adminUsersSkipSyncRef.current = false;
+      return;
+    }
+    if (user?.role !== "admin") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void syncAdminUsersToApi(adminUsers, accessToken).catch((error) => {
+        console.error("[Lecompas] sync comptes API", error);
+        toast.error("Synchronisation des comptes avec le serveur impossible");
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [adminUsers, accessToken, user?.role]);
 
   React.useEffect(() => {
     saveSecuritySheets(securitySheets);
@@ -1111,7 +1177,13 @@ export default function App() {
         };
 
         persistSessionUser(resolvedUser, access_token, rememberMe);
-        await hydrateRisksFromApi(access_token);
+        await Promise.all([
+          hydrateRisksFromApi(access_token),
+          hydrateAdminUsersFromApi(
+            access_token,
+            resolvedUser.role === "admin",
+          ),
+        ]);
         return true;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
@@ -1179,7 +1251,11 @@ export default function App() {
             domain: profile.domain ?? userData.domain,
             location: profile.location ?? userData.location,
           });
-          await hydrateRisksFromApi(savedToken);
+          const restoredRole = mapApiRoleToSessionRole(profile.role);
+          await Promise.all([
+            hydrateRisksFromApi(savedToken),
+            hydrateAdminUsersFromApi(savedToken, restoredRole === "admin"),
+          ]);
         })();
         return;
       }
@@ -1202,7 +1278,7 @@ export default function App() {
       localStorage.removeItem("duerp_token");
       setStoredAccessToken(null);
     }
-  }, [hydrateRisksFromApi]);
+  }, [hydrateRisksFromApi, hydrateAdminUsersFromApi]);
 
   React.useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -1214,10 +1290,6 @@ export default function App() {
       }
     }
   }, [adminUsers, isAuthenticated]);
-
-  React.useEffect(() => {
-    saveAdminUsers(adminUsers);
-  }, [adminUsers]);
 
   React.useEffect(() => {
     return subscribeMealTicketsReset(() => {

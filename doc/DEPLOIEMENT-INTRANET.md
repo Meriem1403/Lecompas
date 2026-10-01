@@ -80,7 +80,8 @@ Le build Netlify désactive l’API (`VITE_USE_BACKEND_API=false`) et garde la c
 
 ## Prochaines étapes produit
 
-- [ ] Hash bcrypt des mots de passe
+- [x] Hash bcrypt des mots de passe (upgrade automatique à la connexion)
+- [x] CRUD `/users` (lecture : utilisateurs connectés ; écriture : admin)
 - [ ] CRUD utilisateurs côté API
 - [ ] Actions, accidents, notifications en base
 - [ ] Sauvegardes PostgreSQL planifiées
