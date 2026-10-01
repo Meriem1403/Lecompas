@@ -248,6 +248,18 @@ import {
   fetchAdminUsers,
   syncAdminUsersToApi,
 } from "./services/usersApi";
+import {
+  fetchActionsFromApi,
+  syncActionsToApi,
+} from "./services/actionsApi";
+import {
+  fetchAccidentsFromApi,
+  syncAccidentsToApi,
+} from "./services/accidentsApi";
+import {
+  fetchNotificationsFromApi,
+  syncNotificationsToApi,
+} from "./services/notificationsApi";
 
 interface User {
   id: string;
@@ -355,6 +367,27 @@ interface Accident {
 
 // Données risques CSN PACA-CORSE (évaluation + gestion)
 const FAKE_RISKS: Risk[] = CSN_PACA_CORSE_RISK_FIXTURES;
+
+const DEFAULT_APP_NOTIFICATIONS: AppNotification[] = [
+  {
+    id: "a1",
+    titre: "Mise à jour du système DUERP",
+    contenu:
+      "Une nouvelle version du système DUERP sera déployée le 10 février 2026.",
+    type: "info",
+    dateCreation: "2026-02-01",
+    isRead: false,
+  },
+  {
+    id: "a4",
+    titre: "URGENT - Nouveau protocole COVID-19",
+    contenu:
+      "Suite aux nouvelles directives gouvernementales, un protocole sanitaire renforcé est mis en place immédiatement.",
+    type: "urgent",
+    dateCreation: "2026-02-02",
+    isRead: false,
+  },
+];
 
 const FAKE_ACCIDENTS: Accident[] = [
   {
@@ -523,6 +556,9 @@ export default function App() {
   );
   const risksSkipSyncRef = React.useRef(false);
   const adminUsersSkipSyncRef = React.useRef(false);
+  const actionsSkipSyncRef = React.useRef(false);
+  const accidentsSkipSyncRef = React.useRef(false);
+  const notificationsSkipSyncRef = React.useRef(false);
   const [risks, setRisks] = useState<Risk[]>(() =>
     isBackendApiEnabled()
       ? loadPersistedRisks() ?? []
@@ -545,26 +581,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
     const stored = loadNotifications();
     if (stored && stored.length > 0) return stored;
-    return [
-      {
-        id: "a1",
-        titre: "Mise à jour du système DUERP",
-        contenu:
-          "Une nouvelle version du système DUERP sera déployée le 10 février 2026.",
-        type: "info",
-        dateCreation: "2026-02-01",
-        isRead: false,
-      },
-      {
-        id: "a4",
-        titre: "URGENT - Nouveau protocole COVID-19",
-        contenu:
-          "Suite aux nouvelles directives gouvernementales, un protocole sanitaire renforcé est mis en place immédiatement.",
-        type: "urgent",
-        dateCreation: "2026-02-02",
-        isRead: false,
-      },
-    ];
+    return DEFAULT_APP_NOTIFICATIONS;
   });
   const [adminUsers, setAdminUsers] = useState<AppUser[]>(() => loadAdminUsers(FAKE_USERS));
   const [accessProfiles, setAccessProfiles] = useState<
@@ -609,8 +626,9 @@ export default function App() {
   const [adminServices, setAdminServices] = useState(FAKE_SERVICES);
   const [adminDomains, setAdminDomains] = useState(FAKE_DOMAINS);
   const [adminLocations, setAdminLocations] = useState(FAKE_LOCATIONS);
-  const [accidents, setAccidents] =
-    useState<Accident[]>(FAKE_ACCIDENTS);
+  const [accidents, setAccidents] = useState<Accident[]>(() =>
+    isBackendApiEnabled() ? [] : FAKE_ACCIDENTS,
+  );
   const [mealTickets, setMealTickets] = useState<MealTicket[]>([]);
   const [mealTicketsHydrated, setMealTicketsHydrated] = React.useState(false);
   const mealTicketsResetNonceRef = React.useRef(getMealTicketsResetNonce());
@@ -895,6 +913,106 @@ export default function App() {
     [],
   );
 
+  const getLocalManualActions = React.useCallback(
+    () =>
+      mergeInitialManualActions(
+        loadManualActions(),
+        PAPRIPACT_2026_ACTION_FIXTURES,
+      ),
+    [],
+  );
+
+  const getLocalNotifications = React.useCallback(() => {
+    const stored = loadNotifications();
+    if (stored && stored.length > 0) return stored;
+    return DEFAULT_APP_NOTIFICATIONS;
+  }, []);
+
+  const hydrateActionsFromApi = React.useCallback(
+    async (token: string) => {
+      actionsSkipSyncRef.current = true;
+      try {
+        const fromApi = await fetchActionsFromApi(token);
+        if (fromApi.length > 0) {
+          setManualActions(fromApi);
+          return;
+        }
+      } catch (error) {
+        console.warn("[Lecompas] chargement actions API", error);
+        return;
+      }
+      const local = getLocalManualActions();
+      setManualActions(local);
+      if (local.length === 0) return;
+      actionsSkipSyncRef.current = false;
+      try {
+        await syncActionsToApi(local, token);
+        actionsSkipSyncRef.current = true;
+        const refreshed = await fetchActionsFromApi(token);
+        if (refreshed.length > 0) setManualActions(refreshed);
+      } catch (error) {
+        console.error("[Lecompas] sync actions API", error);
+        toast.error("Synchronisation du plan d’action avec le serveur impossible");
+      }
+    },
+    [getLocalManualActions],
+  );
+
+  const hydrateAccidentsFromApi = React.useCallback(async (token: string) => {
+    accidentsSkipSyncRef.current = true;
+    try {
+      const fromApi = await fetchAccidentsFromApi(token);
+      if (fromApi.length > 0) {
+        setAccidents(fromApi as Accident[]);
+        return;
+      }
+    } catch (error) {
+      console.warn("[Lecompas] chargement accidents API", error);
+      return;
+    }
+    setAccidents(FAKE_ACCIDENTS);
+    accidentsSkipSyncRef.current = false;
+    try {
+      await syncAccidentsToApi(FAKE_ACCIDENTS, token);
+      accidentsSkipSyncRef.current = true;
+      const refreshed = await fetchAccidentsFromApi(token);
+      if (refreshed.length > 0) setAccidents(refreshed as Accident[]);
+    } catch (error) {
+      console.error("[Lecompas] sync accidents API", error);
+      toast.error("Synchronisation des accidents avec le serveur impossible");
+    }
+  }, []);
+
+  const hydrateNotificationsFromApi = React.useCallback(
+    async (token: string) => {
+      notificationsSkipSyncRef.current = true;
+      try {
+        const fromApi = await fetchNotificationsFromApi(token);
+        if (fromApi.length > 0) {
+          setNotifications(fromApi);
+          return;
+        }
+      } catch (error) {
+        console.warn("[Lecompas] chargement notifications API", error);
+        return;
+      }
+      const local = getLocalNotifications();
+      setNotifications(local);
+      if (local.length === 0) return;
+      notificationsSkipSyncRef.current = false;
+      try {
+        await syncNotificationsToApi(local, token);
+        notificationsSkipSyncRef.current = true;
+        const refreshed = await fetchNotificationsFromApi(token);
+        if (refreshed.length > 0) setNotifications(refreshed);
+      } catch (error) {
+        console.error("[Lecompas] sync notifications API", error);
+        toast.error("Synchronisation des notifications avec le serveur impossible");
+      }
+    },
+    [getLocalNotifications],
+  );
+
   React.useEffect(() => {
     if (
       !isBackendApiEnabled() ||
@@ -943,6 +1061,71 @@ export default function App() {
   }, [adminUsers, accessToken, user?.role]);
 
   React.useEffect(() => {
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      saveManualActions(manualActions);
+      return;
+    }
+    if (actionsSkipSyncRef.current) {
+      actionsSkipSyncRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void syncActionsToApi(manualActions, accessToken).catch((error) => {
+        console.error("[Lecompas] sync actions API", error);
+        toast.error("Synchronisation du plan d’action avec le serveur impossible");
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [manualActions, accessToken]);
+
+  React.useEffect(() => {
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      return;
+    }
+    if (accidentsSkipSyncRef.current) {
+      accidentsSkipSyncRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void syncAccidentsToApi(accidents, accessToken).catch((error) => {
+        console.error("[Lecompas] sync accidents API", error);
+        toast.error("Synchronisation des accidents avec le serveur impossible");
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [accidents, accessToken]);
+
+  React.useEffect(() => {
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      saveNotifications(notifications);
+      return;
+    }
+    if (notificationsSkipSyncRef.current) {
+      notificationsSkipSyncRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void syncNotificationsToApi(notifications, accessToken).catch((error) => {
+        console.error("[Lecompas] sync notifications API", error);
+        toast.error("Synchronisation des notifications avec le serveur impossible");
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [notifications, accessToken]);
+
+  React.useEffect(() => {
     saveSecuritySheets(securitySheets);
   }, [securitySheets]);
 
@@ -950,14 +1133,6 @@ export default function App() {
     savePapripactSignaturesStorage(papripactSignatures);
     savePapripactSignatures(papripactSignatures);
   }, [papripactSignatures]);
-
-  React.useEffect(() => {
-    saveManualActions(manualActions);
-  }, [manualActions]);
-
-  React.useEffect(() => {
-    saveNotifications(notifications);
-  }, [notifications]);
 
   React.useEffect(() => {
     saveAwarenessRecords(riskAwarenessRecords);
@@ -1183,6 +1358,9 @@ export default function App() {
             access_token,
             resolvedUser.role === "admin",
           ),
+          hydrateActionsFromApi(access_token),
+          hydrateAccidentsFromApi(access_token),
+          hydrateNotificationsFromApi(access_token),
         ]);
         return true;
       } catch (error) {
@@ -1255,6 +1433,9 @@ export default function App() {
           await Promise.all([
             hydrateRisksFromApi(savedToken),
             hydrateAdminUsersFromApi(savedToken, restoredRole === "admin"),
+            hydrateActionsFromApi(savedToken),
+            hydrateAccidentsFromApi(savedToken),
+            hydrateNotificationsFromApi(savedToken),
           ]);
         })();
         return;
@@ -1278,7 +1459,13 @@ export default function App() {
       localStorage.removeItem("duerp_token");
       setStoredAccessToken(null);
     }
-  }, [hydrateRisksFromApi, hydrateAdminUsersFromApi]);
+  }, [
+    hydrateRisksFromApi,
+    hydrateAdminUsersFromApi,
+    hydrateActionsFromApi,
+    hydrateAccidentsFromApi,
+    hydrateNotificationsFromApi,
+  ]);
 
   React.useEffect(() => {
     if (!isAuthenticated || !user) return;

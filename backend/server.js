@@ -174,6 +174,129 @@ const canUserAccessRisk = (userProfile, risk) => {
   return serviceMatch && domainMatch && locationMatch;
 };
 
+const mountKvEntityRoutes = ({
+  pathSegment,
+  listKey,
+  itemKeyPrefix,
+  collectionKey,
+  singularKey,
+}) => {
+  app.post(`${apiPrefix}/${pathSegment}`, async (req, res) => {
+    try {
+      const token = getBearerToken(req.header("Authorization"));
+      const user = await getUserFromToken(token);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const bodyId =
+        typeof req.body?.id === "string" && req.body.id.trim()
+          ? req.body.id.trim()
+          : null;
+      const entityId = bodyId || crypto.randomUUID();
+      const now = new Date().toISOString();
+      const entity = {
+        ...req.body,
+        id: entityId,
+        createdBy: user.id,
+        createdAt: req.body?.createdAt || now,
+        updatedAt: now,
+      };
+
+      await kvSet(`${itemKeyPrefix}${entityId}`, entity);
+      const entityList = (await kvGet(listKey)) || [];
+      const nextList = entityList.includes(entityId)
+        ? entityList
+        : [...entityList, entityId];
+      await kvSet(listKey, nextList);
+
+      return res.json({ [singularKey]: entity });
+    } catch (_error) {
+      return res.status(500).json({
+        error: `Server error creating ${pathSegment}`,
+      });
+    }
+  });
+
+  app.get(`${apiPrefix}/${pathSegment}`, async (req, res) => {
+    try {
+      const token = getBearerToken(req.header("Authorization"));
+      const user = await getUserFromToken(token);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const entityList = (await kvGet(listKey)) || [];
+      const items = await kvMget(
+        entityList.map((id) => `${itemKeyPrefix}${id}`),
+      );
+      return res.json({ [collectionKey]: items });
+    } catch (_error) {
+      return res.status(500).json({
+        error: `Server error getting ${pathSegment}`,
+      });
+    }
+  });
+
+  app.put(`${apiPrefix}/${pathSegment}/:id`, async (req, res) => {
+    try {
+      const token = getBearerToken(req.header("Authorization"));
+      const user = await getUserFromToken(token);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const entityId = req.params.id;
+      const existing = await kvGet(`${itemKeyPrefix}${entityId}`);
+      if (!existing) {
+        return res.status(404).json({ error: `${singularKey} not found` });
+      }
+
+      const updated = {
+        ...existing,
+        ...req.body,
+        id: entityId,
+        updatedAt: new Date().toISOString(),
+      };
+      await kvSet(`${itemKeyPrefix}${entityId}`, updated);
+      return res.json({ [singularKey]: updated });
+    } catch (_error) {
+      return res.status(500).json({
+        error: `Server error updating ${pathSegment}`,
+      });
+    }
+  });
+
+  app.delete(`${apiPrefix}/${pathSegment}/:id`, async (req, res) => {
+    try {
+      const token = getBearerToken(req.header("Authorization"));
+      const user = await getUserFromToken(token);
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const entityId = req.params.id;
+      const existing = await kvGet(`${itemKeyPrefix}${entityId}`);
+      if (!existing) {
+        return res.status(404).json({ error: `${singularKey} not found` });
+      }
+
+      await kvDelete(`${itemKeyPrefix}${entityId}`);
+      const entityList = (await kvGet(listKey)) || [];
+      await kvSet(
+        listKey,
+        entityList.filter((id) => id !== entityId),
+      );
+
+      return res.json({ success: true, id: entityId });
+    } catch (_error) {
+      return res.status(500).json({
+        error: `Server error deleting ${pathSegment}`,
+      });
+    }
+  });
+};
+
 app.get(`${apiPrefix}/health`, (_req, res) => {
   res.json({ status: "ok", mode: "local" });
 });
@@ -393,47 +516,28 @@ app.delete(`${apiPrefix}/risks/:id`, async (req, res) => {
   }
 });
 
-app.post(`${apiPrefix}/accidents`, async (req, res) => {
-  try {
-    const token = getBearerToken(req.header("Authorization"));
-    const user = await getUserFromToken(token);
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const accidentId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const accident = {
-      id: accidentId,
-      ...req.body,
-      createdBy: user.id,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await kvSet(`accident:${accidentId}`, accident);
-    const accidentsList = (await kvGet("accidents:list")) || [];
-    await kvSet("accidents:list", [...accidentsList, accidentId]);
-    return res.json({ accident });
-  } catch (_error) {
-    return res.status(500).json({ error: "Server error creating accident" });
-  }
+mountKvEntityRoutes({
+  pathSegment: "accidents",
+  listKey: "accidents:list",
+  itemKeyPrefix: "accident:",
+  collectionKey: "accidents",
+  singularKey: "accident",
 });
 
-app.get(`${apiPrefix}/accidents`, async (req, res) => {
-  try {
-    const token = getBearerToken(req.header("Authorization"));
-    const user = await getUserFromToken(token);
-    if (!user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+mountKvEntityRoutes({
+  pathSegment: "actions",
+  listKey: "actions:list",
+  itemKeyPrefix: "action:",
+  collectionKey: "actions",
+  singularKey: "action",
+});
 
-    const accidentsList = (await kvGet("accidents:list")) || [];
-    const accidents = await kvMget(accidentsList.map((id) => `accident:${id}`));
-    return res.json({ accidents });
-  } catch (_error) {
-    return res.status(500).json({ error: "Server error getting accidents" });
-  }
+mountKvEntityRoutes({
+  pathSegment: "notifications",
+  listKey: "notifications:list",
+  itemKeyPrefix: "notification:",
+  collectionKey: "notifications",
+  singularKey: "notification",
 });
 
 const userBodyToColumns = (body) => ({
