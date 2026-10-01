@@ -1,0 +1,55 @@
+# Production intranet — build : docker compose -f docker-compose.prod.yml up -d --build
+# Définir PUBLIC_HOST (IP ou nom DNS interne) dans .env
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: lecompas-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lecompas}
+      POSTGRES_USER: ${POSTGRES_USER:-lecompas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lecompas}
+    volumes:
+      - lecompas_pg_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lecompas -d lecompas"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lecompas-backend
+    environment:
+      PORT: 8000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lecompas}:${POSTGRES_PASSWORD:-lecompas}@db:5432/${POSTGRES_DB:-lecompas}
+      API_PREFIX: /make-server-cfb78916
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000/make-server-cfb78916}
+        VITE_USE_BACKEND_API: "true"
+        VITE_ALLOW_DEMO_LOGIN: ${VITE_ALLOW_DEMO_LOGIN:-false}
+    container_name: lecompas-frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  lecompas_pg_data:
