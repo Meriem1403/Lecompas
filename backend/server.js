@@ -8,7 +8,16 @@ const port = Number(process.env.PORT || 8000);
 const apiPrefix = process.env.API_PREFIX || "/make-server-cfb78916";
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-app.use(cors());
+const corsOrigins = String(process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+app.use(
+  corsOrigins.length > 0
+    ? cors({ origin: corsOrigins, credentials: true })
+    : cors(),
+);
 app.use(express.json());
 
 const kvGet = async (key) => {
@@ -194,19 +203,26 @@ app.post(`${apiPrefix}/risks`, async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const riskId = crypto.randomUUID();
+    const bodyId =
+      typeof req.body?.id === "string" && req.body.id.trim()
+        ? req.body.id.trim()
+        : null;
+    const riskId = bodyId || crypto.randomUUID();
     const now = new Date().toISOString();
     const risk = {
-      id: riskId,
       ...req.body,
+      id: riskId,
       createdBy: user.id,
-      createdAt: now,
+      createdAt: req.body?.createdAt || now,
       updatedAt: now,
     };
 
     await kvSet(`risk:${riskId}`, risk);
     const risksList = (await kvGet("risks:list")) || [];
-    await kvSet("risks:list", [...risksList, riskId]);
+    const nextList = risksList.includes(riskId)
+      ? risksList
+      : [...risksList, riskId];
+    await kvSet("risks:list", nextList);
 
     return res.json({ risk });
   } catch (_error) {

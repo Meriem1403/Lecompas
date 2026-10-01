@@ -229,6 +229,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
+import {
+  isBackendApiEnabled,
+  isDemoLoginAllowed,
+} from "./config/dataBackend";
+import {
+  ApiError,
+  isApiAccessToken,
+  setStoredAccessToken,
+} from "@/lib/apiClient";
+import {
+  fetchProfile,
+  loginWithApi,
+  mapApiRoleToSessionRole,
+} from "./services/authApi";
+import { fetchRisksFromApi, syncRisksToApi } from "./services/risksApi";
 
 interface User {
   id: string;
@@ -502,8 +517,11 @@ export default function App() {
     },
     [navigate],
   );
-  const [risks, setRisks] = useState<Risk[]>(
-    () => loadPersistedRisks() ?? FAKE_RISKS,
+  const risksSkipSyncRef = React.useRef(false);
+  const [risks, setRisks] = useState<Risk[]>(() =>
+    isBackendApiEnabled()
+      ? loadPersistedRisks() ?? []
+      : loadPersistedRisks() ?? FAKE_RISKS,
   );
   const [manualActions, setManualActions] = useState<Action[]>(() =>
     mergeInitialManualActions(
@@ -813,9 +831,50 @@ export default function App() {
     previousRiskReferencesRef.current = riskReferences;
   }, [riskReferences]);
 
+  const hydrateRisksFromApi = React.useCallback(
+    async (token: string) => {
+      risksSkipSyncRef.current = true;
+      const fromApi = await fetchRisksFromApi(token);
+      if (fromApi.length > 0) {
+        setRisks(fromApi);
+        return;
+      }
+      const local = loadPersistedRisks();
+      if (local && local.length > 0) {
+        setRisks(local);
+        risksSkipSyncRef.current = false;
+        await syncRisksToApi(local, token);
+        risksSkipSyncRef.current = true;
+        return;
+      }
+      if (!isBackendApiEnabled()) {
+        setRisks(FAKE_RISKS);
+      }
+    },
+    [],
+  );
+
   React.useEffect(() => {
-    savePersistedRisks(risks);
-  }, [risks]);
+    if (
+      !isBackendApiEnabled() ||
+      !accessToken ||
+      !isApiAccessToken(accessToken)
+    ) {
+      savePersistedRisks(risks);
+      return;
+    }
+    if (risksSkipSyncRef.current) {
+      risksSkipSyncRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void syncRisksToApi(risks, accessToken).catch((error) => {
+        console.error("[Lecompas] sync risques API", error);
+        toast.error("Synchronisation des risques avec le serveur impossible");
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [risks, accessToken]);
 
   React.useEffect(() => {
     saveSecuritySheets(securitySheets);
@@ -938,8 +997,24 @@ export default function App() {
     };
   };
 
-  // Handle Login
-  const handleLogin = async (
+  const persistSessionUser = (
+    resolvedUser: User,
+    token: string,
+    rememberMe: boolean,
+  ) => {
+    startTransition(() => {
+      setUser(resolvedUser);
+      setAccessToken(token);
+      setIsAuthenticated(true);
+
+      if (rememberMe) {
+        localStorage.setItem("duerp_user", JSON.stringify(resolvedUser));
+        localStorage.setItem("duerp_token", token);
+      }
+    });
+  };
+
+  const completeDemoLogin = async (
     email: string,
     password: string,
     rememberMe: boolean,
@@ -1004,34 +1079,55 @@ export default function App() {
       location: fallback.location,
     });
 
-    /**
-     * startTransition évite un conflit DOM (insertBefore) sur Chrome Android :
-     * le démontage brutal de la page de login + mise à jour Sonner en même temps
-     * faisait planter le moteur de rendu.
-     */
-    startTransition(() => {
-      setUser(resolvedUser);
-      setAccessToken(token);
-      setIsAuthenticated(true);
-
-      if (rememberMe) {
-        localStorage.setItem(
-          "duerp_user",
-          JSON.stringify({
-            id: resolvedUser.id,
-            email: resolvedUser.email,
-            name: resolvedUser.name,
-            role: resolvedUser.role,
-            service: resolvedUser.service,
-            domain: resolvedUser.domain,
-            location: resolvedUser.location,
-          }),
-        );
-        localStorage.setItem("duerp_token", token);
-      }
-    });
-
+    persistSessionUser(resolvedUser, token, rememberMe);
     return true;
+  };
+
+  // Handle Login
+  const handleLogin = async (
+    email: string,
+    password: string,
+    rememberMe: boolean,
+  ): Promise<boolean> => {
+    if (isBackendApiEnabled()) {
+      try {
+        const { access_token, user: apiUser } = await loginWithApi(
+          email,
+          password,
+        );
+        setStoredAccessToken(access_token);
+
+        const directoryUser = adminUsers.find(
+          (u) => u.email.toLowerCase() === apiUser.email.toLowerCase(),
+        );
+        const resolvedUser: User = {
+          id: apiUser.id,
+          email: apiUser.email,
+          name: apiUser.name,
+          role: mapApiRoleToSessionRole(apiUser.role),
+          service: apiUser.service || directoryUser?.service || "",
+          domain: apiUser.domain || directoryUser?.domain,
+          location: apiUser.location || directoryUser?.location,
+        };
+
+        persistSessionUser(resolvedUser, access_token, rememberMe);
+        await hydrateRisksFromApi(access_token);
+        return true;
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          return false;
+        }
+        console.warn("[Lecompas] login API indisponible", error);
+        if (!isDemoLoginAllowed()) {
+          toast.error(
+            "Serveur indisponible. Vérifiez l’API ou le réseau intranet.",
+          );
+          return false;
+        }
+      }
+    }
+
+    return completeDemoLogin(email, password, rememberMe);
   };
 
   // Handle Logout
@@ -1042,6 +1138,7 @@ export default function App() {
     navigate(DEFAULT_AUTHENTICATED_PATH);
     localStorage.removeItem("duerp_user");
     localStorage.removeItem("duerp_token");
+    setStoredAccessToken(null);
     queueMicrotask(() => toast.info("Déconnexion réussie"));
   };
 
@@ -1050,34 +1147,62 @@ export default function App() {
     const savedUser = localStorage.getItem("duerp_user");
     const savedToken = localStorage.getItem("duerp_token");
 
-    if (savedUser && savedToken) {
-      try {
-        const userData = JSON.parse(savedUser);
-        const synced = syncSessionWithDirectory(
-          {
-            id: userData.id ?? `user-${Date.now()}`,
-            email: userData.email,
-            name: userData.name,
-            role: userData.role,
-            service: userData.service ?? "",
-            domain: userData.domain,
-            location: userData.location,
-          },
-          FAKE_USERS,
-        );
-        setUser(synced);
-        setAccessToken(savedToken);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error(
-          "Erreur lors de la récupération des données utilisateur",
-          error,
-        );
-        localStorage.removeItem("duerp_user");
-        localStorage.removeItem("duerp_token");
-      }
+    if (!savedUser || !savedToken) {
+      return;
     }
-  }, []);
+
+    const restoreDemoSession = (userData: User) => {
+      const synced = syncSessionWithDirectory(userData, FAKE_USERS);
+      setUser(synced);
+      setAccessToken(savedToken);
+      setIsAuthenticated(true);
+    };
+
+    try {
+      const userData = JSON.parse(savedUser) as User;
+
+      if (isBackendApiEnabled() && isApiAccessToken(savedToken)) {
+        void (async () => {
+          const profile = await fetchProfile(savedToken);
+          if (!profile) {
+            localStorage.removeItem("duerp_user");
+            localStorage.removeItem("duerp_token");
+            setStoredAccessToken(null);
+            return;
+          }
+          restoreDemoSession({
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: mapApiRoleToSessionRole(profile.role),
+            service: profile.service ?? userData.service ?? "",
+            domain: profile.domain ?? userData.domain,
+            location: profile.location ?? userData.location,
+          });
+          await hydrateRisksFromApi(savedToken);
+        })();
+        return;
+      }
+
+      restoreDemoSession({
+        id: userData.id ?? `user-${Date.now()}`,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        service: userData.service ?? "",
+        domain: userData.domain,
+        location: userData.location,
+      });
+    } catch (error) {
+      console.error(
+        "Erreur lors de la récupération des données utilisateur",
+        error,
+      );
+      localStorage.removeItem("duerp_user");
+      localStorage.removeItem("duerp_token");
+      setStoredAccessToken(null);
+    }
+  }, [hydrateRisksFromApi]);
 
   React.useEffect(() => {
     if (!isAuthenticated || !user) return;

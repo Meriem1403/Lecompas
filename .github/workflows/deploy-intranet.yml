@@ -1,0 +1,36 @@
+name: Deploy intranet
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_USE_BACKEND_API: "false"
+          VITE_ALLOW_DEMO_LOGIN: "true"
+      - run: npm run test:unit
+
+  deploy:
+    needs: test
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy with Docker Compose
+        run: |
+          if [ ! -f .env ]; then
+            echo "Créez .env sur le serveur (voir .env.example) avant le premier deploy."
+            exit 1
+          fi
+          docker compose -f docker-compose.prod.yml up -d --build

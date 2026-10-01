@@ -6,6 +6,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  VITE_USE_BACKEND_API = "false"
+  VITE_ALLOW_DEMO_LOGIN = "true"
 
 # Application monopage (Vite) : les chemins profonds renvoient vers index.html
 [[redirects]]

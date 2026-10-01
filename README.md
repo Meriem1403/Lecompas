@@ -20,6 +20,12 @@ Then open `http://localhost:5174`.
 
 To stop the containers, run `docker compose down`.
 
+## Production intranet (NAS / serveur local)
+
+See [doc/DEPLOIEMENT-INTRANET.md](doc/DEPLOIEMENT-INTRANET.md) for `docker-compose.prod.yml`, `.env`, and GitHub self-hosted runner setup.
+
+With backend API enabled, login uses server accounts (`admin@dirm-med.gouv.fr` / `admin123` from `init.sql`) and risks are stored in PostgreSQL.
+
 ### Local fixtures and no remote Supabase
 
 - The local database is initialized from `backend/db/init.sql`.
