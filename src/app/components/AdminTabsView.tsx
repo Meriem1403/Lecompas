@@ -163,7 +163,7 @@ export const FAKE_LOCATIONS = [
   },
 ];
 
-const FAKE_CATEGORIES = [
+export const DEFAULT_ADMIN_CATEGORIES = [
   { id: '1', name: 'Cadre' },
   { id: '2', name: 'Agent de maîtrise' },
   { id: '3', name: 'Employé' },
@@ -180,6 +180,10 @@ interface AdminTabsViewProps {
   setDomainsData?: React.Dispatch<React.SetStateAction<typeof FAKE_DOMAINS>>;
   locationsData?: typeof FAKE_LOCATIONS;
   setLocationsData?: React.Dispatch<React.SetStateAction<typeof FAKE_LOCATIONS>>;
+  categoriesData?: typeof DEFAULT_ADMIN_CATEGORIES;
+  setCategoriesData?: React.Dispatch<
+    React.SetStateAction<typeof DEFAULT_ADMIN_CATEGORIES>
+  >;
   adminDisplayName?: string;
   inmHistory?: UserInmHistoryEntry[];
   onInmHistoryChange?: React.Dispatch<React.SetStateAction<UserInmHistoryEntry[]>>;
@@ -195,6 +199,8 @@ export function AdminTabsView({
   setDomainsData,
   locationsData,
   setLocationsData,
+  categoriesData,
+  setCategoriesData,
   adminDisplayName,
   inmHistory,
   onInmHistoryChange,
@@ -204,7 +210,9 @@ export function AdminTabsView({
   const [internalServices, setInternalServices] = useState<Service[]>(FAKE_SERVICES);
   const [internalDomains, setInternalDomains] = useState(FAKE_DOMAINS);
   const [internalLocations, setInternalLocations] = useState(FAKE_LOCATIONS);
-  const [categories, setCategories] = useState(FAKE_CATEGORIES);
+  const [internalCategories, setInternalCategories] = useState(
+    DEFAULT_ADMIN_CATEGORIES,
+  );
 
   const users = usersData ?? internalUsers;
   const setUsers = setUsersData ?? setInternalUsers;
@@ -214,6 +222,8 @@ export function AdminTabsView({
   const setDomains = setDomainsData ?? setInternalDomains;
   const locations = locationsData ?? internalLocations;
   const setLocations = setLocationsData ?? setInternalLocations;
+  const categories = categoriesData ?? internalCategories;
+  const setCategories = setCategoriesData ?? setInternalCategories;
 
   if (activeTab === 'users') {
     return (

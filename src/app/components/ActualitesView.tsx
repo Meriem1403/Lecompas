@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -89,7 +91,7 @@ interface Actualite {
 }
 
 // Données fictives avec images, documents et liens
-const mockActualites: Actualite[] = [
+export const ACTUALITES_FIXTURES: Actualite[] = [
   {
     id: 'a1',
     titre: 'Mise à jour du système DUERP',
@@ -255,9 +257,19 @@ const mockActualites: Actualite[] = [
 type ViewMode = 'list' | 'new' | 'edit' | 'detail';
 const ACTUALITES_PAGE_SIZE = 3;
 
-export function ActualitesView({ userRole = 'agent' }: { userRole?: 'admin' | 'chef_service' | 'agent' }) {
-  const [actualites, setActualites] = useState<Actualite[]>(mockActualites);
-  const [filteredActualites, setFilteredActualites] = useState<Actualite[]>(mockActualites);
+export function ActualitesView({
+  userRole = 'agent',
+  accessToken = '',
+}: {
+  userRole?: 'admin' | 'chef_service' | 'agent';
+  accessToken?: string;
+}) {
+  const [actualites, setActualites] = useAppDataDocumentStore<Actualite[]>(
+    APP_DATA_KEYS.actualites,
+    accessToken,
+    { seed: ACTUALITES_FIXTURES },
+  );
+  const [filteredActualites, setFilteredActualites] = useState<Actualite[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedActualite, setSelectedActualite] = useState<Actualite | null>(null);

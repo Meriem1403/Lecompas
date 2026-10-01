@@ -13,8 +13,14 @@ export interface AdminLocationRecord {
   regionCode?: string;
 }
 
+export interface AdminCategoryRecord {
+  id: string;
+  name: string;
+}
+
 export interface OrganizationSnapshot {
   services: Service[];
   domains: AdminDomainRecord[];
   locations: AdminLocationRecord[];
+  categories: AdminCategoryRecord[];
 }

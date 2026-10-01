@@ -18,6 +18,8 @@ cp .env.example .env
 - `POSTGRES_PASSWORD` = mot de passe fort
 - `VITE_API_BASE=http://VOTRE_IP:8000/make-server-cfb78916`
 - `CORS_ORIGINS=http://VOTRE_IP:8080`
+- `VITE_USE_BACKEND_API=true`
+- `VITE_ALLOW_DEMO_LOGIN=false`
 
 ## Étape 3 — Lancer la stack production
 
@@ -40,13 +42,35 @@ Comptes initiaux (base `backend/db/init.sql`) :
 
 Changez ces mots de passe avant la mise en service.
 
-## Étape 4 — Vérification
+## Étape 4 — Vérification fonctionnelle (checklist)
 
-1. Connexion avec `admin@dirm-med.gouv.fr` / `admin123`
-2. Ouvrir **Gestion des risques** — les risques viennent de la **base serveur**
-3. Modifier un risque depuis un second PC : la modification doit être visible après rechargement
+1. Connexion admin — token API (pas `token-*` démo).
+2. **Risques** — création / modification visible depuis un second poste.
+3. **Plan d’action** — idem.
+4. **Accidentologie** + **registre bénin** — persistance serveur.
+5. **Retours d’action** — validation admin conservée.
+6. **Administration** — services, domaines, sites, catégories, comptes.
+7. **Protocoles / plans de prévention / fiches sécurité** — rechargement après déconnexion.
+8. **Documents / archives / actualités / Cerbère** — données partagées.
+9. **Repas** — tickets et barème (admin).
 
-## Étape 5 — Reverse proxy Synology (optionnel)
+## Étape 5 — Sauvegardes PostgreSQL
+
+```bash
+./scripts/backup-postgres.sh
+```
+
+Planifier via cron (ex. quotidien) sur le serveur. Les fichiers `.sql.gz` sont créés dans `backups/postgres/` (configurable via `BACKUP_DIR` dans `.env`).
+
+Restauration (exemple) :
+
+```bash
+gunzip -c backups/postgres/lecompas-YYYYMMDD-HHMMSS.sql.gz | \
+  docker compose -f docker-compose.prod.yml exec -T db \
+  psql -U lecompas -d lecompas
+```
+
+## Étape 6 — Reverse proxy Synology (optionnel)
 
 Panneau de configuration → Portail de connexion → Proxy inverse :
 
@@ -55,7 +79,9 @@ Panneau de configuration → Portail de connexion → Proxy inverse :
 
 Ajouter un enregistrement DNS ou une entrée `hosts` : `VOTRE_IP lecompas.intranet`
 
-## Étape 6 — GitHub (mises à jour)
+Mettre à jour `CORS_ORIGINS` et `VITE_API_BASE` si l’URL publique change.
+
+## Étape 7 — GitHub (mises à jour)
 
 1. Installer un **runner self-hosted** sur le NAS ou un PC du réseau DIRM
 2. Workflow `.github/workflows/deploy-intranet.yml` (job `deploy` avec `runs-on: self-hosted`)
@@ -67,7 +93,7 @@ Ajouter un enregistrement DNS ou une entrée `hosts` : `VOTRE_IP lecompas.intran
 docker compose up --build
 ```
 
-Frontend dev : http://localhost:5174 — pour activer l’API en local, définir dans `.env` ou docker-compose :
+Frontend dev : http://localhost:5174 — pour activer l’API en local :
 
 ```
 VITE_USE_BACKEND_API=true
@@ -78,13 +104,17 @@ VITE_ALLOW_DEMO_LOGIN=true
 
 Le build Netlify désactive l’API (`VITE_USE_BACKEND_API=false`) et garde la connexion démo.
 
-## Prochaines étapes produit
+## Données persistées (mode intranet)
 
-- [x] Hash bcrypt des mots de passe (upgrade automatique à la connexion)
-- [x] CRUD `/users` (lecture : utilisateurs connectés ; écriture : admin)
-- [x] Actions, accidents, notifications (KV PostgreSQL + sync frontend)
-- [x] Retours d’action (`/action-returns`)
-- [x] Données applicatives (`/app-data/*`) : organisation, droits, références risques, fiches, sensibilisation, protocoles, plans de prévention, repas, PAPRIPACT
-- [x] Réconciliation des suppressions sur les collections synchronisées
-- [ ] Registre accidents bénins (vue séparée) — encore locale
-- [ ] Sauvegardes PostgreSQL planifiées
+| Domaine | API |
+|---------|-----|
+| Utilisateurs | PostgreSQL + `/users` |
+| Risques, actions, accidents, notifications, retours d’action | Collections KV |
+| Organisation (services, domaines, sites, catégories), droits, DUERP annexes, repas, etc. | `/app-data/*` |
+
+## État produit
+
+- [x] Parcours DUERP / accidentologie / action partagés en base
+- [x] Registre accidents bénins, documents, archives, actualités, Cerbère
+- [x] Script de sauvegarde PostgreSQL
+- [ ] Paramètres UI (`SettingsView`) — préférences locales navigateur uniquement

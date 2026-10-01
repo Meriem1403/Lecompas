@@ -562,6 +562,12 @@ const APP_DATA_REGISTRY = {
   mealSubsidyConfig: { adminOnlyWrite: true },
   userInmHistory: { adminOnlyWrite: false },
   papripactSignatures: { adminOnlyWrite: false },
+  registreBenignAccidents: { adminOnlyWrite: false },
+  documentsLibrary: { adminOnlyWrite: false },
+  archivesLibrary: { adminOnlyWrite: false },
+  actualites: { adminOnlyWrite: false },
+  cerbereApplications: { adminOnlyWrite: false },
+  cerbereRequests: { adminOnlyWrite: false },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {
