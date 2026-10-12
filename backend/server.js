@@ -558,9 +558,6 @@ const APP_DATA_REGISTRY = {
   safetyProtocols: { adminOnlyWrite: false },
   deletedProtocols: { adminOnlyWrite: false },
   preventionPlans: { adminOnlyWrite: false },
-  mealTickets: { adminOnlyWrite: false },
-  mealSubsidyConfig: { adminOnlyWrite: true },
-  userInmHistory: { adminOnlyWrite: false },
   papripactSignatures: { adminOnlyWrite: false },
   registreBenignAccidents: { adminOnlyWrite: false },
   documentsLibrary: { adminOnlyWrite: false },
@@ -568,6 +565,9 @@ const APP_DATA_REGISTRY = {
   actualites: { adminOnlyWrite: false },
   cerbereApplications: { adminOnlyWrite: false },
   cerbereRequests: { adminOnlyWrite: false },
+  medicalVisits: { adminOnlyWrite: false },
+  sstRegistryRemarks: { adminOnlyWrite: false },
+  adminRoles: { adminOnlyWrite: true },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {

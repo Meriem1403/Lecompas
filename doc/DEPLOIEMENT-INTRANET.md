@@ -52,7 +52,7 @@ Changez ces mots de passe avant la mise en service.
 6. **Administration** — services, domaines, sites, catégories, comptes.
 7. **Protocoles / plans de prévention / fiches sécurité** — rechargement après déconnexion.
 8. **Documents / archives / actualités / Cerbère** — données partagées.
-9. **Repas** — tickets et barème (admin).
+9. **Visites médicales / registre SST** — persistance serveur (`/app-data/*`).
 
 ## Étape 5 — Sauvegardes PostgreSQL
 
@@ -110,11 +110,11 @@ Le build Netlify désactive l’API (`VITE_USE_BACKEND_API=false`) et garde la c
 |---------|-----|
 | Utilisateurs | PostgreSQL + `/users` |
 | Risques, actions, accidents, notifications, retours d’action | Collections KV |
-| Organisation (services, domaines, sites, catégories), droits, DUERP annexes, repas, etc. | `/app-data/*` |
+| Organisation (services, domaines, sites, catégories), droits, DUERP annexes, visites médicales, registre SST, rôles admin, etc. | `/app-data/*` |
 
 ## État produit
 
 - [x] Parcours DUERP / accidentologie / action partagés en base
-- [x] Registre accidents bénins, documents, archives, actualités, Cerbère
+- [x] Registre accidents bénins, documents, archives, actualités, Cerbère, visites médicales, registre SST
 - [x] Script de sauvegarde PostgreSQL
 - [ ] Paramètres UI (`SettingsView`) — préférences locales navigateur uniquement

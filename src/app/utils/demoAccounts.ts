@@ -33,11 +33,6 @@ export const DEMO_LOGIN_ACCOUNTS = [
     password: "agent123",
     directoryEmail: "agent@dirm-med.gouv.fr",
   },
-  {
-    email: "prestataire@dirm-med.gouv.fr",
-    password: "presta123",
-    directoryEmail: "prestataire@dirm-med.gouv.fr",
-  },
 ] as const;
 
 export function resolveDirectoryEmail(email: string): string {
@@ -93,7 +88,6 @@ const DEMO_DIRECTORY_EMAIL_BY_ROLE: Partial<Record<SessionRole, string>> = {
   admin: "admin@dirm-med.gouv.fr",
   chef_service: "chef@dirm-med.gouv.fr",
   agent: "agent@dirm-med.gouv.fr",
-  prestataire: "prestataire@dirm-med.gouv.fr",
 };
 
 export function findDemoDirectoryUser(

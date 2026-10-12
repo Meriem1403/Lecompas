@@ -260,9 +260,17 @@ const ACTUALITES_PAGE_SIZE = 3;
 export function ActualitesView({
   userRole = 'agent',
   accessToken = '',
+  serviceOptions = [],
+  domainOptions = [],
+  locationOptions = [],
+  categoryOptions = [],
 }: {
   userRole?: 'admin' | 'chef_service' | 'agent';
   accessToken?: string;
+  serviceOptions?: string[];
+  domainOptions?: string[];
+  locationOptions?: string[];
+  categoryOptions?: string[];
 }) {
   const [actualites, setActualites] = useAppDataDocumentStore<Actualite[]>(
     APP_DATA_KEYS.actualites,
@@ -432,6 +440,10 @@ export function ActualitesView({
         actualite={selectedActualite || undefined}
         onBack={() => setViewMode('list')}
         onSubmit={handleSubmitActualite}
+        serviceOptions={serviceOptions}
+        domainOptions={domainOptions}
+        locationOptions={locationOptions}
+        categoryOptions={categoryOptions}
       />
     );
   }

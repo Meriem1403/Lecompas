@@ -37,7 +37,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     { email: 'admin@dirm-med.gouv.fr', password: 'admin123', role: 'Administrateur', color: 'from-purple-500 to-pink-500' },
     { email: 'chef@dirm-med.gouv.fr', password: 'chef123', role: 'Chef de service', color: 'from-blue-500 to-cyan-500' },
     { email: 'agent@dirm-med.gouv.fr', password: 'agent123', role: 'Agent', color: 'from-green-500 to-emerald-500' },
-    { email: 'prestataire@dirm-med.gouv.fr', password: 'presta123', role: 'Prestataire repas', color: 'from-orange-500 to-amber-500' },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

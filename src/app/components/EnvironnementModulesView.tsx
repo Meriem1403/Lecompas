@@ -4,7 +4,6 @@ import {
   Droplet, 
   Shield, 
   FileSignature, 
-  Fish,
   Leaf,
   ArrowLeft,
   ChevronRight
@@ -49,14 +48,6 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
       icon: FileSignature,
       color: "text-amber-600",
       gradient: "from-amber-600 via-orange-500 to-yellow-500",
-    },
-    {
-      id: "fisherman",
-      title: "Gestion de la pêche",
-      description: "Gestion des autorisations de pêche et déclarations",
-      icon: Fish,
-      color: "text-teal-600",
-      gradient: "from-teal-600 via-cyan-500 to-blue-500",
     },
   ];
 
