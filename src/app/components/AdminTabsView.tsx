@@ -4,18 +4,14 @@ import { RoleManagementView, Role } from '@/app/components/admin/RoleManagementV
 import { ServiceManagementView, Service } from '@/app/components/admin/ServiceManagementView';
 import { SimpleEntityManagementView } from '@/app/components/admin/SimpleEntityManagementView';
 import { LocationManagementView } from '@/app/components/admin/LocationManagementView';
-import { UserInmHistoryEntry } from '@/app/utils/mealSubsidyRecord';
 import { Layers, MapPin, Tag } from 'lucide-react';
 import { PERSONNEL_USER_FIXTURES } from '@/app/fixtures/personnelUserFixtures';
-import { PRESTATAIRE_FIXTURES } from '@/app/fixtures/prestataireFixtures';
+export const FAKE_USERS: AppUser[] = [...PERSONNEL_USER_FIXTURES];
 
-export const FAKE_USERS: AppUser[] = [...PERSONNEL_USER_FIXTURES, ...PRESTATAIRE_FIXTURES];
-
-const FAKE_ROLES: Role[] = [
+export const DEFAULT_ADMIN_ROLES: Role[] = [
   { id: 1, code: 'ROLE_ADMIN', displayName: 'Administrateur' },
   { id: 2, code: 'ROLE_AGENT', displayName: 'Agent' },
   { id: 3, code: 'ROLE_CHEF', displayName: 'Chef de service' },
-  { id: 4, code: 'ROLE_PRESTATAIRE', displayName: 'Prestataire' },
 ];
 
 export const FAKE_SERVICES: Service[] = [
@@ -184,9 +180,9 @@ interface AdminTabsViewProps {
   setCategoriesData?: React.Dispatch<
     React.SetStateAction<typeof DEFAULT_ADMIN_CATEGORIES>
   >;
+  rolesData?: Role[];
+  setRolesData?: React.Dispatch<React.SetStateAction<Role[]>>;
   adminDisplayName?: string;
-  inmHistory?: UserInmHistoryEntry[];
-  onInmHistoryChange?: React.Dispatch<React.SetStateAction<UserInmHistoryEntry[]>>;
 }
 
 export function AdminTabsView({
@@ -201,12 +197,12 @@ export function AdminTabsView({
   setLocationsData,
   categoriesData,
   setCategoriesData,
+  rolesData,
+  setRolesData,
   adminDisplayName,
-  inmHistory,
-  onInmHistoryChange,
 }: AdminTabsViewProps) {
   const [internalUsers, setInternalUsers] = useState<AppUser[]>(FAKE_USERS);
-  const [roles, setRoles] = useState<Role[]>(FAKE_ROLES);
+  const [internalRoles, setInternalRoles] = useState<Role[]>(DEFAULT_ADMIN_ROLES);
   const [internalServices, setInternalServices] = useState<Service[]>(FAKE_SERVICES);
   const [internalDomains, setInternalDomains] = useState(FAKE_DOMAINS);
   const [internalLocations, setInternalLocations] = useState(FAKE_LOCATIONS);
@@ -224,6 +220,8 @@ export function AdminTabsView({
   const setLocations = setLocationsData ?? setInternalLocations;
   const categories = categoriesData ?? internalCategories;
   const setCategories = setCategoriesData ?? setInternalCategories;
+  const roles = rolesData ?? internalRoles;
+  const setRoles = setRolesData ?? setInternalRoles;
 
   if (activeTab === 'users') {
     return (
@@ -236,8 +234,6 @@ export function AdminTabsView({
         locations={locations}
         categories={categories}
         createdByName={adminDisplayName ?? "Administrateur"}
-        inmHistory={inmHistory}
-        onInmHistoryChange={onInmHistoryChange}
       />
     );
   }

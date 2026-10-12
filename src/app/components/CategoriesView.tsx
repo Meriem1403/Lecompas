@@ -11,7 +11,6 @@ import {
   Cpu,
   LayoutDashboard,
   ChevronRight,
-  Calculator
 } from "lucide-react";
 
 interface Category {
@@ -83,10 +82,10 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
     {
       id: "environnement",
       title: "Environnement",
-      description: "Campagnes mercure, diagnostics amiante, gestion de la pêche",
+      description: "Campagnes mercure et diagnostics amiante",
       icon: Leaf,
       gradient: "from-cyan-500 via-teal-500 to-blue-500",
-      moduleCount: 4,
+      moduleCount: 3,
     },
     {
       id: "validation",
@@ -95,14 +94,6 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
       icon: FileSignature,
       gradient: "from-rose-600 via-pink-600 to-purple-600",
       moduleCount: 1,
-    },
-    {
-      id: "comptabilite",
-      title: "Comptabilité",
-      description: "Tickets repas mensuels et gestion comptable du personnel",
-      icon: Calculator,
-      gradient: "from-emerald-600 via-teal-500 to-cyan-500",
-      moduleCount: 2,
     },
   ];
 

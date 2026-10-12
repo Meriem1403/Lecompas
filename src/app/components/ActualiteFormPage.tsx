@@ -74,14 +74,30 @@ interface ActualiteFormPageProps {
   actualite?: Actualite;
   onBack: () => void;
   onSubmit: (actualite: Actualite) => void;
+  serviceOptions?: string[];
+  domainOptions?: string[];
+  locationOptions?: string[];
+  categoryOptions?: string[];
 }
 
-const mockServices = ['Direction', 'Service Affaires Maritimes', 'Service Formation', 'Service Administratif', 'Service Technique'];
-const mockDomaines = ['Maritime', 'Administratif', 'Technique', 'Formation'];
-const mockLieux = ['Siège Marseille', 'Port de Marseille', 'Port de Toulon', 'Antenne Nice'];
-const mockCategories = ['Risques physiques', 'Risques chimiques', 'Risques biologiques', 'Risques psychosociaux'];
+const fallbackServices = ['Direction', 'Service Affaires Maritimes', 'Service Formation', 'Service Administratif', 'Service Technique'];
+const fallbackDomaines = ['Maritime', 'Administratif', 'Technique', 'Formation'];
+const fallbackLieux = ['Siège Marseille', 'Port de Marseille', 'Port de Toulon', 'Antenne Nice'];
+const fallbackCategories = ['Risques physiques', 'Risques chimiques', 'Risques biologiques', 'Risques psychosociaux'];
 
-export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteFormPageProps) {
+export function ActualiteFormPage({
+  actualite,
+  onBack,
+  onSubmit,
+  serviceOptions,
+  domainOptions,
+  locationOptions,
+  categoryOptions,
+}: ActualiteFormPageProps) {
+  const services = serviceOptions?.length ? serviceOptions : fallbackServices;
+  const domaines = domainOptions?.length ? domainOptions : fallbackDomaines;
+  const lieux = locationOptions?.length ? locationOptions : fallbackLieux;
+  const categories = categoryOptions?.length ? categoryOptions : fallbackCategories;
   const isEdit = !!actualite;
 
   const [formData, setFormData] = useState({
@@ -564,7 +580,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                   Services (optionnel)
                 </Label>
                 <div className="flex flex-wrap gap-2">
-                  {mockServices.map((service) => (
+                  {services.map((service) => (
                     <div key={service} className="flex items-center space-x-2 bg-green-50 px-3 py-1 rounded-lg border">
                       <Checkbox
                         id={`service-${service}`}
@@ -586,7 +602,7 @@ export function ActualiteFormPage({ actualite, onBack, onSubmit }: ActualiteForm
                   Lieux (optionnel)
                 </Label>
                 <div className="flex flex-wrap gap-2">
-                  {mockLieux.map((lieu) => (
+                  {lieux.map((lieu) => (
                     <div key={lieu} className="flex items-center space-x-2 bg-purple-50 px-3 py-1 rounded-lg border">
                       <Checkbox
                         id={`lieu-${lieu}`}

@@ -15,17 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { User, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Users, UtensilsCrossed, AlertTriangle } from 'lucide-react';
-import { ROLE_AGENT } from '@/app/utils/userRoles';
+import { User, PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { PrestataireManagementView } from './PrestataireManagementView';
-import { ROLE_PRESTATAIRE } from '@/app/utils/userRoles';
-import {
-  UserInmHistoryEntry,
-  upsertInmHistoryEntry,
-} from '@/app/utils/mealSubsidyRecord';
 
 export interface AppUser {
   id: string;
@@ -84,8 +76,6 @@ interface UserManagementViewProps {
   locations: Location[];
   categories: Category[];
   createdByName?: string;
-  inmHistory?: UserInmHistoryEntry[];
-  onInmHistoryChange?: React.Dispatch<React.SetStateAction<UserInmHistoryEntry[]>>;
 }
 
 type ViewMode = 'list' | 'view' | 'edit' | 'create';
@@ -99,17 +89,8 @@ export function UserManagementView({
   locations, 
   categories,
   createdByName = 'Administrateur',
-  inmHistory = [],
-  onInmHistoryChange,
 }: UserManagementViewProps) {
-  const personnelUsers = useMemo(
-    () => users.filter((u) => u.role !== ROLE_PRESTATAIRE),
-    [users],
-  );
-  const personnelRoles = useMemo(
-    () => roles.filter((r) => r.code !== ROLE_PRESTATAIRE),
-    [roles],
-  );
+  const personnelRoles = roles;
 
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
@@ -118,15 +99,15 @@ export function UserManagementView({
   const [listPage, setListPage] = useState(1);
 
   const listPageSize = TABLE_LIST_PAGE_SIZE;
-  const listTotalPages = Math.max(1, Math.ceil(personnelUsers.length / listPageSize));
+  const listTotalPages = Math.max(1, Math.ceil(users.length / listPageSize));
   const paginatedUsers = useMemo(() => {
     const start = (listPage - 1) * listPageSize;
-    return personnelUsers.slice(start, start + listPageSize);
-  }, [personnelUsers, listPage, listPageSize]);
+    return users.slice(start, start + listPageSize);
+  }, [users, listPage, listPageSize]);
 
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
-  }, [listPage, listTotalPages, personnelUsers.length]);
+  }, [listPage, listTotalPages, users.length]);
 
   const handleView = (user: AppUser) => {
     setSelectedUser(user);
@@ -162,29 +143,7 @@ export function UserManagementView({
     setSelectedUser(null);
   };
 
-  const handleSave = (
-    userData: Partial<AppUser>,
-    inmMeta?: { inm?: number; inmEffectiveFrom?: string },
-  ) => {
-    const syncInmHistory = (userId: string, newInm: number | undefined, previousInm?: number) => {
-      if (!onInmHistoryChange || newInm == null || !Number.isFinite(newInm)) return;
-      const effectiveFrom = (inmMeta?.inmEffectiveFrom || new Date().toISOString().slice(0, 10)).slice(
-        0,
-        10,
-      );
-      onInmHistoryChange((prev) =>
-        upsertInmHistoryEntry(prev, {
-          userId,
-          inm: newInm,
-          effectiveFrom,
-          note:
-            previousInm != null && previousInm !== newInm
-              ? `Modification INM (${previousInm} → ${newInm})`
-              : "INM fiche utilisateur",
-        }),
-      );
-    };
-
+  const handleSave = (userData: Partial<AppUser>) => {
     if (viewMode === 'create') {
       const newId = crypto.randomUUID();
       const newUser: AppUser = {
@@ -198,68 +157,34 @@ export function UserManagementView({
         location: userData.location || '',
         category: userData.category || '',
         role: userData.role || '',
-        inm: inmMeta?.inm ?? userData.inm,
+        inm: userData.inm,
         createdAt: new Date().toISOString(),
         createdBy: createdByName,
       };
-      const newInm = inmMeta?.inm ?? userData.inm;
-      setUsers([...users, { ...newUser, inm: newInm }]);
-      syncInmHistory(newId, newInm);
+      setUsers([...users, newUser]);
       toast.success('Utilisateur créé avec succès');
     } else if (viewMode === 'edit' && selectedUser) {
-      const newInm = inmMeta?.inm ?? userData.inm;
       setUsers(
         users.map((u) =>
-          u.id === selectedUser.id ? { ...u, ...userData, inm: newInm } : u,
+          u.id === selectedUser.id ? { ...u, ...userData } : u,
         ),
       );
-      syncInmHistory(selectedUser.id, newInm, selectedUser.inm);
       toast.success('Utilisateur modifié avec succès');
     }
     handleBack();
   };
 
-  // Vue liste avec onglets Personnel / Prestataires
   if (viewMode === 'list') {
     return (
       <>
-        <Tabs defaultValue="personnel" className="space-y-4 sm:space-y-6 w-full min-w-0">
-          <div className="flex flex-col gap-4 min-w-0">
-            <div className="min-w-0">
-              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Gestion des utilisateurs</h3>
-              <p className="text-sm sm:text-base text-gray-600 mt-1">
-                Personnel DIRM et comptes prestataires repas. L&apos;INM et le lieu de travail
-                alimentent le calcul des subventions tickets repas.
-              </p>
-            </div>
-            <TabsList className="w-full grid grid-cols-2 h-auto p-1 gap-1">
-              <TabsTrigger
-                value="personnel"
-                className="gap-2 min-h-11 text-xs sm:text-sm data-[state=active]:bg-white"
-              >
-                <Users className="h-4 w-4 shrink-0" />
-                <span className="truncate">Personnel</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="prestataires"
-                className="gap-2 min-h-11 text-xs sm:text-sm data-[state=active]:bg-white"
-              >
-                <UtensilsCrossed className="h-4 w-4 shrink-0" />
-                <span className="truncate">Prestataires</span>
-              </TabsTrigger>
-            </TabsList>
+        <div className="space-y-4 sm:space-y-6 w-full min-w-0">
+          <div className="min-w-0">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Gestion des utilisateurs</h3>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              Annuaire du personnel DIRM : services, domaines, lieux et rôles applicatifs.
+            </p>
           </div>
 
-          <TabsContent value="prestataires" className="mt-0 min-w-0 focus-visible:outline-none">
-            <PrestataireManagementView
-              users={users}
-              setUsers={setUsers}
-              locations={locations}
-              createdByName={createdByName}
-            />
-          </TabsContent>
-
-          <TabsContent value="personnel" className="space-y-4 sm:space-y-6 mt-0 min-w-0 focus-visible:outline-none">
           <div className="flex justify-end">
             <Button 
               onClick={handleCreate} 
@@ -273,7 +198,7 @@ export function UserManagementView({
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1550px]">
+                <table className="w-full min-w-[1400px]">
                   <thead className="bg-gradient-to-r from-blue-50 to-cyan-50">
                     <tr>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Prénom</th>
@@ -283,9 +208,6 @@ export function UserManagementView({
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Service</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Domaine</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Lieu</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider" title="Indice majoré — subvention interministérielle">
-                        INM
-                      </th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Catégorie</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Rôle</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Créé le</th>
@@ -303,32 +225,6 @@ export function UserManagementView({
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.service}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.domain}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.location || "—"}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {user.inm != null ? (
-                            <div>
-                              <span className="font-mono font-semibold text-slate-900">{user.inm}</span>
-                              {user.role === ROLE_AGENT && (
-                                <span
-                                  className={`block text-xs mt-0.5 ${
-                                    user.inm <= 539 ? "text-emerald-700" : "text-amber-700"
-                                  }`}
-                                >
-                                  {user.inm <= 539 ? "Éligible inter." : "Hors tranche inter."}
-                                </span>
-                              )}
-                            </div>
-                          ) : user.role === ROLE_AGENT ? (
-                            <Badge
-                              variant="outline"
-                              className="gap-1 border-amber-300 text-amber-800 bg-amber-50"
-                            >
-                              <AlertTriangle className="h-3 w-3" />
-                              À renseigner
-                            </Badge>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{user.category}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white border-0">
@@ -378,12 +274,11 @@ export function UserManagementView({
           <ListPaginationBar
             currentPage={listPage}
             totalPages={listTotalPages}
-            totalItems={personnelUsers.length}
+            totalItems={users.length}
             onPageChange={setListPage}
             itemLabel="utilisateur(s)"
           />
-          </TabsContent>
-        </Tabs>
+        </div>
 
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
@@ -511,7 +406,6 @@ export function UserManagementView({
       locations={locations}
       categories={categories}
       isEdit={viewMode === 'edit'}
-      inmHistory={inmHistory}
     />;
   }
 
@@ -529,10 +423,9 @@ function UserFormView({
   locations, 
   categories,
   isEdit,
-  inmHistory = [],
 }: { 
   user: AppUser | null; 
-  onSave: (user: Partial<AppUser>, inmMeta?: { inm?: number; inmEffectiveFrom?: string }) => void; 
+  onSave: (user: Partial<AppUser>) => void; 
   onCancel: () => void;
   roles: Role[];
   services: Service[];
@@ -540,31 +433,12 @@ function UserFormView({
   locations: Location[];
   categories: Category[];
   isEdit: boolean;
-  inmHistory?: UserInmHistoryEntry[];
 }) {
   const [formData, setFormData] = useState<Partial<AppUser>>(user || {});
-  const [inmValue, setInmValue] = useState<string>(user?.inm != null ? String(user.inm) : "");
-  const [inmEffectiveFrom, setInmEffectiveFrom] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
-
-  const userInmHistory = useMemo(
-    () =>
-      user
-        ? inmHistory
-            .filter((e) => e.userId === user.id)
-            .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))
-        : [],
-    [inmHistory, user],
-  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsedInm = inmValue.trim() === "" ? undefined : Number(inmValue);
-    onSave(formData, {
-      inm: Number.isFinite(parsedInm) ? parsedInm : undefined,
-      inmEffectiveFrom,
-    });
+    onSave(formData);
   };
 
   return (
@@ -700,58 +574,6 @@ function UserFormView({
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="md:col-span-2 space-y-3 rounded-xl border border-violet-200 bg-violet-50/50 p-4">
-                <div>
-                  <Label htmlFor="inm">
-                    Indice majoré (INM)
-                    {formData.role === ROLE_AGENT ? " *" : ""}
-                  </Label>
-                  <p className="text-xs text-violet-800 mt-1">
-                    Lié au lieu de travail pour les subventions tickets repas. Tranche inter. de démo :
-                    INM ≤ 539.
-                  </p>
-                </div>
-                <Input
-                  id="inm"
-                  type="number"
-                  min={0}
-                  value={inmValue}
-                  onChange={(e) => setInmValue(e.target.value)}
-                  placeholder="Ex. 480"
-                  className="bg-white border-2 border-slate-300 max-w-xs"
-                  required={formData.role === ROLE_AGENT}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="inm-effective">Date d&apos;effet de l&apos;INM</Label>
-                <Input
-                  id="inm-effective"
-                  type="date"
-                  value={inmEffectiveFrom}
-                  onChange={(e) => setInmEffectiveFrom(e.target.value)}
-                  className="bg-white border-2 border-slate-300"
-                />
-              </div>
-
-              {userInmHistory.length > 0 && (
-                <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2">
-                  <p className="text-sm font-semibold text-slate-800">Historique INM</p>
-                  <ul className="text-sm space-y-1 max-h-32 overflow-y-auto">
-                    {userInmHistory.map((entry) => (
-                      <li key={entry.id} className="flex justify-between gap-2 text-gray-700">
-                        <span>
-                          INM <strong>{entry.inm}</strong>
-                        </span>
-                        <span className="text-gray-500 shrink-0">
-                          depuis {new Date(entry.effectiveFrom).toLocaleDateString("fr-FR")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
 
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="role">Rôle *</Label>

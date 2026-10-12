@@ -10,9 +10,6 @@ export const APP_DATA_KEYS = {
   safetyProtocols: "safetyProtocols",
   deletedProtocols: "deletedProtocols",
   preventionPlans: "preventionPlans",
-  mealTickets: "mealTickets",
-  mealSubsidyConfig: "mealSubsidyConfig",
-  userInmHistory: "userInmHistory",
   papripactSignatures: "papripactSignatures",
   registreBenignAccidents: "registreBenignAccidents",
   documentsLibrary: "documentsLibrary",
@@ -20,6 +17,9 @@ export const APP_DATA_KEYS = {
   actualites: "actualites",
   cerbereApplications: "cerbereApplications",
   cerbereRequests: "cerbereRequests",
+  medicalVisits: "medicalVisits",
+  sstRegistryRemarks: "sstRegistryRemarks",
+  adminRoles: "adminRoles",
 } as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[keyof typeof APP_DATA_KEYS];

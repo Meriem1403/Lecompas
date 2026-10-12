@@ -54,7 +54,9 @@ import {
   FAKE_LOCATIONS,
   FAKE_SERVICES,
   DEFAULT_ADMIN_CATEGORIES,
+  DEFAULT_ADMIN_ROLES,
 } from "./components/AdminTabsView";
+import { Role } from "./components/admin/RoleManagementView";
 import { AppUser } from "./components/admin/UserManagementView";
 import { DocumentsView } from "./components/DocumentsView";
 import { ArchivesView } from "./components/ArchivesView";
@@ -110,7 +112,6 @@ import { AsbestosView } from "./components/AsbestosView";
 import { AsbestosAttestationsView } from "./components/AsbestosAttestationsView";
 import { MedicalVisitsView } from "./components/MedicalVisitsView";
 import { SSTRegistryView } from "./components/SSTRegistryView";
-import { FishermanView } from "./components/FishermanView";
 import { LoginPage } from "./components/LoginPage";
 import { CategoriesView } from "./components/CategoriesView";
 import { DUERPModulesView } from "./components/DUERPModulesView";
@@ -118,8 +119,6 @@ import { RHModulesView } from "./components/RHModulesView";
 import { EnvironnementModulesView } from "./components/EnvironnementModulesView";
 import { ApplicationsModulesView } from "./components/ApplicationsModulesView";
 import { AdministrationModulesView } from "./components/AdministrationModulesView";
-import { ComptabiliteModulesView } from "./components/ComptabiliteModulesView";
-import { RepasView } from "./components/RepasView";
 import { TeamView } from "./components/TeamView";
 import { AccessManagementView } from "./components/AccessManagementView";
 import { RiskAwarenessView } from "./components/RiskAwarenessView";
@@ -132,23 +131,8 @@ import {
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
 import { loadAdminUsers, saveAdminUsers } from "./utils/adminUserRecord";
-import { hydrateMealTickets } from "./utils/mealTicketIndexedDb";
-import { MealTicket, getMealTicketsResetNonce, saveMealTickets, subscribeMealTicketsReset } from "./utils/mealTicketRecord";
-import {
-  loadMealSubsidyConfig,
-  loadUserInmHistory,
-  MealSubsidyConfig,
-  repairMealSubsidyConfig,
-  saveMealSubsidyConfig,
-  saveUserInmHistory,
-  UserInmHistoryEntry,
-} from "./utils/mealSubsidyRecord";
-import { MealSubsidyManagementView } from "./components/repas/MealSubsidyManagementView";
 import {
   appUserDisplayName,
-  appUserToMealProvider,
-  resolvePrestataireByEmail,
-  ROLE_PRESTATAIRE,
   sessionRoleFromAppRole,
 } from "./utils/userRoles";
 import {
@@ -219,14 +203,11 @@ import {
   FileSignature,
   Database,
   Stethoscope,
-  Fish,
   Info,
   ArrowLeft,
   ChevronLeft,
   Menu,
   FileCheck,
-  UtensilsCrossed,
-  Coins,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -641,15 +622,7 @@ export default function App() {
   const [actionReturns, setActionReturns] = useState<ActionReturn[]>(() =>
     isBackendApiEnabled() ? [] : ACTION_RETURN_FIXTURES,
   );
-  const [mealTickets, setMealTickets] = useState<MealTicket[]>([]);
-  const [mealTicketsHydrated, setMealTicketsHydrated] = React.useState(false);
-  const mealTicketsResetNonceRef = React.useRef(getMealTicketsResetNonce());
-  const [mealSubsidyConfig, setMealSubsidyConfig] = useState<MealSubsidyConfig>(() =>
-    loadMealSubsidyConfig(FAKE_LOCATIONS),
-  );
-  const [userInmHistory, setUserInmHistory] = useState<UserInmHistoryEntry[]>(() =>
-    loadUserInmHistory(),
-  );
+  const [adminRoles, setAdminRoles] = useState<Role[]>(DEFAULT_ADMIN_ROLES);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(
     null,
   );
@@ -1141,25 +1114,14 @@ export default function App() {
     [],
   );
 
-  const hydrateMealSubsidyFromApi = React.useCallback(async (token: string) => {
-    await hydrateAppDataValue<MealSubsidyConfig>({
-      key: APP_DATA_KEYS.mealSubsidyConfig,
+  const hydrateAdminRolesFromApi = React.useCallback(async (token: string) => {
+    await hydrateAppDataValue<Role[]>({
+      key: APP_DATA_KEYS.adminRoles,
       token,
       skipRef: appDataSkipRef,
-      setValue: setMealSubsidyConfig,
-      getDefault: () => loadMealSubsidyConfig(FAKE_LOCATIONS),
-      getLocal: () => loadMealSubsidyConfig(adminLocations),
-    });
-  }, [adminLocations]);
-
-  const hydrateUserInmHistoryFromApi = React.useCallback(async (token: string) => {
-    await hydrateAppDataValue<UserInmHistoryEntry[]>({
-      key: APP_DATA_KEYS.userInmHistory,
-      token,
-      skipRef: appDataSkipRef,
-      setValue: setUserInmHistory,
-      getDefault: () => [],
-      getLocal: () => loadUserInmHistory(),
+      setValue: setAdminRoles,
+      getDefault: () => DEFAULT_ADMIN_ROLES,
+      getLocal: () => DEFAULT_ADMIN_ROLES,
     });
   }, []);
 
@@ -1182,35 +1144,6 @@ export default function App() {
     },
     [],
   );
-
-  const hydrateMealTicketsFromApi = React.useCallback(async (token: string) => {
-    appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = true;
-    try {
-      const fromApi = await fetchAppData<MealTicket[]>(
-        APP_DATA_KEYS.mealTickets,
-        token,
-      );
-      if (fromApi && Array.isArray(fromApi)) {
-        setMealTickets(fromApi);
-        setMealTicketsHydrated(true);
-        return;
-      }
-    } catch (error) {
-      console.warn("[Lecompas] chargement tickets repas API", error);
-      setMealTicketsHydrated(true);
-      return;
-    }
-    const local = await hydrateMealTickets();
-    setMealTickets(local);
-    setMealTicketsHydrated(true);
-    appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = false;
-    try {
-      await saveAppData(APP_DATA_KEYS.mealTickets, local, token);
-      appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = true;
-    } catch (error) {
-      console.error("[Lecompas] sync tickets repas API", error);
-    }
-  }, []);
 
   React.useEffect(() => {
     if (
@@ -1489,7 +1422,6 @@ export default function App() {
       "admin@dirm-med.gouv.fr": "admin",
       "chef@dirm-med.gouv.fr": "chef_service",
       "agent@dirm-med.gouv.fr": "agent",
-      "prestataire@dirm-med.gouv.fr": "prestataire",
     };
     const fallback = demoAccount
       ? {
@@ -1573,10 +1505,8 @@ export default function App() {
           hydrateSecuritySheetsFromApi(access_token),
           hydrateAwarenessFromApi(access_token),
           hydrateSuppressedAwarenessFromApi(access_token),
-          hydrateMealSubsidyFromApi(access_token),
-          hydrateUserInmHistoryFromApi(access_token),
+          hydrateAdminRolesFromApi(access_token),
           hydratePapripactSignaturesFromApi(access_token),
-          hydrateMealTicketsFromApi(access_token),
         ]);
         return true;
       } catch (error) {
@@ -1659,10 +1589,8 @@ export default function App() {
             hydrateSecuritySheetsFromApi(savedToken),
             hydrateAwarenessFromApi(savedToken),
             hydrateSuppressedAwarenessFromApi(savedToken),
-            hydrateMealSubsidyFromApi(savedToken),
-            hydrateUserInmHistoryFromApi(savedToken),
+            hydrateAdminRolesFromApi(savedToken),
             hydratePapripactSignaturesFromApi(savedToken),
-            hydrateMealTicketsFromApi(savedToken),
           ]);
         })();
         return;
@@ -1699,10 +1627,8 @@ export default function App() {
     hydrateSecuritySheetsFromApi,
     hydrateAwarenessFromApi,
     hydrateSuppressedAwarenessFromApi,
-    hydrateMealSubsidyFromApi,
-    hydrateUserInmHistoryFromApi,
+    hydrateAdminRolesFromApi,
     hydratePapripactSignaturesFromApi,
-    hydrateMealTicketsFromApi,
   ]);
 
   React.useEffect(() => {
@@ -1715,67 +1641,6 @@ export default function App() {
       }
     }
   }, [adminUsers, isAuthenticated]);
-
-  React.useEffect(() => {
-    return subscribeMealTicketsReset(() => {
-      mealTicketsResetNonceRef.current = getMealTicketsResetNonce();
-      setMealTickets([]);
-    });
-  }, []);
-
-  React.useEffect(() => {
-    if (isBackendApiEnabled()) {
-      return;
-    }
-    let cancelled = false;
-    void hydrateMealTickets().then((loaded) => {
-      if (!cancelled) {
-        setMealTickets(loaded);
-        setMealTicketsHydrated(true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (!mealTicketsHydrated) return;
-    if (
-      isBackendApiEnabled() &&
-      accessToken &&
-      isApiAccessToken(accessToken)
-    ) {
-      if (appDataSkipRef.current[APP_DATA_KEYS.mealTickets]) {
-        appDataSkipRef.current[APP_DATA_KEYS.mealTickets] = false;
-        return;
-      }
-      const timer = window.setTimeout(() => {
-        void saveAppData(
-          APP_DATA_KEYS.mealTickets,
-          mealTickets,
-          accessToken,
-        ).catch((error) => {
-          console.error("[Lecompas] sync tickets repas API", error);
-        });
-      }, 800);
-      return () => window.clearTimeout(timer);
-    }
-    const nonceAtSchedule = mealTicketsResetNonceRef.current;
-    const timer = window.setTimeout(() => {
-      const nonceNow = getMealTicketsResetNonce();
-      if (nonceNow !== nonceAtSchedule && mealTickets.length > 0) {
-        return;
-      }
-      mealTicketsResetNonceRef.current = nonceNow;
-      saveMealTickets(mealTickets);
-    }, 280);
-    return () => window.clearTimeout(timer);
-  }, [mealTickets, mealTicketsHydrated, accessToken]);
-
-  React.useEffect(() => {
-    setMealSubsidyConfig((prev) => repairMealSubsidyConfig(prev, adminLocations));
-  }, [adminLocations]);
 
   const organizationSnapshot = useMemo<OrganizationSnapshot>(
     () => ({
@@ -1830,18 +1695,11 @@ export default function App() {
     saveSuppressedAwarenessKeys,
   );
   useAppDataBackendSync(
-    APP_DATA_KEYS.mealSubsidyConfig,
-    mealSubsidyConfig,
+    APP_DATA_KEYS.adminRoles,
+    adminRoles,
     accessToken,
     appDataSkipRef,
-    saveMealSubsidyConfig,
-  );
-  useAppDataBackendSync(
-    APP_DATA_KEYS.userInmHistory,
-    userInmHistory,
-    accessToken,
-    appDataSkipRef,
-    saveUserInmHistory,
+    () => {},
   );
   useAppDataBackendSync(
     APP_DATA_KEYS.papripactSignatures,
@@ -1853,12 +1711,6 @@ export default function App() {
       savePapripactSignatures(records);
     },
   );
-
-  const currentMealProvider = useMemo(() => {
-    if (!user || user.role !== "prestataire") return null;
-    const prestataire = resolvePrestataireByEmail(adminUsers, user.email);
-    return prestataire ? appUserToMealProvider(prestataire) : null;
-  }, [user, adminUsers]);
 
   const serviceNames = useMemo(
     () => adminServices.map((s) => s.name),
@@ -2593,12 +2445,6 @@ export default function App() {
           icon: FileSignature,
           color: "text-amber-600",
         },
-        {
-          id: "fisherman",
-          label: "Gestion de la pêche",
-          icon: Fish,
-          color: "text-teal-600",
-        },
       ],
     },
     {
@@ -2609,23 +2455,6 @@ export default function App() {
           label: "Signature DUERP",
           icon: FileSignature,
           color: "text-purple-600",
-        },
-      ],
-    },
-    {
-      section: "Comptabilité",
-      items: [
-        {
-          id: "repas",
-          label: "Repas",
-          icon: UtensilsCrossed,
-          color: "text-emerald-600",
-        },
-        {
-          id: "tarifs-repas",
-          label: "Tarifs repas",
-          icon: Coins,
-          color: "text-violet-600",
         },
       ],
     },
@@ -2679,10 +2508,7 @@ export default function App() {
   const filteredSidebarItems = sidebarItems
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => {
-        if (item.id === "tarifs-repas" && user?.role !== "admin") return false;
-        return hasViewAccess(item.id);
-      }),
+      items: section.items.filter((item) => hasViewAccess(item.id)),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -2785,18 +2611,6 @@ export default function App() {
     if (categoryView === "informatique") {
       return <Navigate to={getPathForView("cerbere")} replace />;
     }
-    if (categoryView === "comptabilite") {
-      return (
-        <>
-          <ComptabiliteModulesView
-            isAdmin={user?.role === "admin"}
-            onSelectModule={(moduleId) => goToView(moduleId)}
-            onGoBack={() => goToView("categories")}
-          />
-        </>
-      );
-    }
-
     return <Navigate to={DEFAULT_AUTHENTICATED_PATH} replace />;
   }
 
@@ -2873,13 +2687,6 @@ export default function App() {
                   newRole,
                 );
 
-                if (newRole === "prestataire" && !directoryUser) {
-                  toast.error(
-                    "Créez d'abord un prestataire dans Utilisateurs → onglet Prestataires",
-                  );
-                  return;
-                }
-
                 if (!directoryUser) {
                   toast.error(
                     "Aucun utilisateur correspondant dans l'onglet Utilisateurs.",
@@ -2905,17 +2712,12 @@ export default function App() {
                   prestataire: "Prestataire",
                 };
                 toast.success(`Rôle changé : ${roleLabels[newRole]}`);
-                if (newRole === "prestataire") {
-                  goToView("repas");
-                  setIsMobileSidebarOpen(false);
-                }
               }}
               className="w-full px-3 py-2 text-sm font-semibold bg-white border-2 border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 cursor-pointer"
             >
               <option value="agent">Agent</option>
               <option value="admin">Administrateur</option>
               <option value="chef_service">Chef de service</option>
-              <option value="prestataire">Prestataire</option>
             </select>
             <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
               <UserCheck className="h-3.5 w-3.5 text-indigo-600 shrink-0" aria-hidden />
@@ -3166,7 +2968,11 @@ export default function App() {
 
           {/* Medical Visits View */}
           {activeView === "medical-visits" && (
-            <MedicalVisitsView risks={risks} users={adminUsers} />
+            <MedicalVisitsView
+              risks={risks}
+              users={adminUsers}
+              accessToken={accessToken}
+            />
           )}
 
           {/* SST Registry View */}
@@ -3174,13 +2980,7 @@ export default function App() {
             <SSTRegistryView
               currentUserRole={user?.role || "agent"}
               currentUserName={user?.name || "Utilisateur"}
-            />
-          )}
-
-          {/* Fisherman View */}
-          {activeView === "fisherman" && (
-            <FishermanView
-              currentUserName={user?.name || "Utilisateur"}
+              accessToken={accessToken}
             />
           )}
 
@@ -4351,17 +4151,8 @@ export default function App() {
               categoriesData={adminCategories}
               setCategoriesData={setAdminCategories}
               adminDisplayName={user?.name}
-              inmHistory={userInmHistory}
-              onInmHistoryChange={setUserInmHistory}
-            />
-          )}
-
-          {activeView === "tarifs-repas" && user?.role === "admin" && (
-            <MealSubsidyManagementView
-              config={mealSubsidyConfig}
-              setConfig={setMealSubsidyConfig}
-              locations={adminLocations}
-              onGoBack={() => goToView("category-modules", "comptabilite")}
+              rolesData={adminRoles}
+              setRolesData={setAdminRoles}
             />
           )}
 
@@ -4413,24 +4204,10 @@ export default function App() {
             <ActualitesView
               userRole={user?.role || "agent"}
               accessToken={accessToken}
-            />
-          )}
-
-          {/* Arrivées & Départs view */}
-          {activeView === "repas" && user && (
-            <RepasView
-              currentUser={user}
-              adminUsers={adminUsers}
-              services={serviceNames}
-              domains={domainNames}
-              locations={locationNames}
-              locationCatalog={adminLocations}
-              mealTickets={mealTickets}
-              setMealTickets={setMealTickets}
-              currentProvider={currentMealProvider}
-              mealSubsidyConfig={mealSubsidyConfig}
-              setMealSubsidyConfig={setMealSubsidyConfig}
-              userInmHistory={userInmHistory}
+              serviceOptions={serviceNames}
+              domainOptions={domainNames}
+              locationOptions={locationNames}
+              categoryOptions={adminCategories.map((c) => c.name)}
             />
           )}
 

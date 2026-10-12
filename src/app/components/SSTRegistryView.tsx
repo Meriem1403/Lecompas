@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { SSTRegistryListView } from './sst-registry/SSTRegistryListView';
 import { SSTRegistryForm } from './sst-registry/SSTRegistryForm';
 import { SSTRegistryDetail } from './sst-registry/SSTRegistryDetail';
@@ -266,10 +268,19 @@ type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 interface SSTRegistryViewProps {
   currentUserRole: 'admin' | 'chef_service' | 'agent';
   currentUserName: string;
+  accessToken?: string;
 }
 
-export function SSTRegistryView({ currentUserRole, currentUserName }: SSTRegistryViewProps) {
-  const [remarks, setRemarks] = useState<SSTRemark[]>(initialRemarks);
+export function SSTRegistryView({
+  currentUserRole,
+  currentUserName,
+  accessToken = '',
+}: SSTRegistryViewProps) {
+  const [remarks, setRemarks] = useAppDataDocumentStore<SSTRemark[]>(
+    APP_DATA_KEYS.sstRegistryRemarks,
+    accessToken,
+    { seed: initialRemarks },
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedRemark, setSelectedRemark] = useState<SSTRemark | null>(null);
 

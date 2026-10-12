@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { MedicalVisitsListView } from './medical/MedicalVisitsListView';
 import { MedicalVisitForm } from './medical/MedicalVisitForm';
 import { MedicalVisitDetail } from './medical/MedicalVisitDetail';
@@ -225,10 +227,19 @@ type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 interface MedicalVisitsViewProps {
   risks: Risk[];
   users: AppUser[];
+  accessToken?: string;
 }
 
-export function MedicalVisitsView({ risks, users }: MedicalVisitsViewProps) {
-  const [medicalVisits, setMedicalVisits] = useState<MedicalVisit[]>(initialMedicalVisits);
+export function MedicalVisitsView({
+  risks,
+  users,
+  accessToken = '',
+}: MedicalVisitsViewProps) {
+  const [medicalVisits, setMedicalVisits] = useAppDataDocumentStore<MedicalVisit[]>(
+    APP_DATA_KEYS.medicalVisits,
+    accessToken,
+    { seed: initialMedicalVisits },
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedVisit, setSelectedVisit] = useState<MedicalVisit | null>(null);
 

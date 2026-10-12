@@ -183,28 +183,10 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Edition et suivi des attestations amiante.",
   },
   {
-    id: "fisherman",
-    label: "Gestion de la pêche",
-    section: "Environnement",
-    description: "Suivi des autorisations et activites peche.",
-  },
-  {
     id: "signature-duerp",
     label: "Signature DUERP",
     section: "Validation",
     description: "Processus de signature electronique DUERP.",
-  },
-  {
-    id: "repas",
-    label: "Repas",
-    section: "Comptabilité",
-    description: "Tickets repas mensuels avec QR code et validation prestataire.",
-  },
-  {
-    id: "tarifs-repas",
-    label: "Tarifs repas",
-    section: "Comptabilité",
-    description: "Barèmes subventions ministérielle et interministérielle, tranches INM.",
   },
   {
     id: "settings",

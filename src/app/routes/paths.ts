@@ -34,10 +34,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   mercury: "/mercure",
   asbestos: "/amiante",
   "asbestos-attestations": "/amiante/attestations",
-  fisherman: "/gestion-peche",
   "signature-duerp": "/signature-duerp",
-  repas: "/repas",
-  "tarifs-repas": "/repas/tarifs",
   settings: "/parametres",
 };
 
