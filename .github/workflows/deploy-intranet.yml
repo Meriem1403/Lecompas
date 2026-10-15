@@ -36,3 +36,10 @@ jobs:
             exit 1
           fi
           docker compose -f docker-compose.prod.yml up -d --build
+      - name: Smoke test (API + frontend)
+        run: |
+          set -a
+          source .env
+          set +a
+          curl -fsS "http://127.0.0.1:${BACKEND_PORT:-8000}/make-server-cfb78916/health"
+          curl -fsS -o /dev/null "http://127.0.0.1:${FRONTEND_PORT:-8080}/"

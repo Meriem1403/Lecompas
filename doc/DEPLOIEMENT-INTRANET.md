@@ -42,7 +42,14 @@ Comptes initiaux (base `backend/db/init.sql`) :
 | chef@dirm-med.gouv.fr | chef123 |
 | agent@dirm-med.gouv.fr | agent123 |
 
-Changez ces mots de passe avant la mise en service.
+Changez ces mots de passe avant la mise en service (via **Administration → utilisateurs** ; `init.sql` ne s’applique qu’à une base **vide** au premier démarrage).
+
+Contrôle automatique après déploiement :
+
+```bash
+chmod +x scripts/go-live-check.sh
+./scripts/go-live-check.sh
+```
 
 ## Étape 4 — Vérification fonctionnelle (checklist)
 
@@ -122,4 +129,6 @@ Le build Netlify désactive l’API (`VITE_USE_BACKEND_API=false`) et garde la c
 - [x] Parcours DUERP / accidentologie / action partagés en base
 - [x] Registre accidents bénins, documents, archives, actualités, Cerbère, visites médicales, registre SST
 - [x] Script de sauvegarde PostgreSQL
-- [ ] Paramètres UI (`SettingsView`) — préférences locales navigateur uniquement
+- [x] Script de contrôle go-live (`scripts/go-live-check.sh`)
+- [x] Paramètres → **notifications** persistées (`notificationPreferencesByUser`)
+- [ ] Paramètres UI (organisation, SMTP, apparence) — local navigateur

@@ -89,13 +89,15 @@ Pour chaque module listé ci-dessus :
 
 Sans modifier les rôles :
 
-1. `.env` prod : `VITE_USE_BACKEND_API=true`, `VITE_ALLOW_DEMO_LOGIN=false`.
+1. `.env` prod : `VITE_USE_BACKEND_API=true`, `VITE_ALLOW_DEMO_LOGIN=false` (rebuild frontend si changement).
 2. `docker compose -f docker-compose.prod.yml up -d --build`.
-3. Changer mots de passe seed (`init.sql`).
-4. Créer les comptes réels (login PostgreSQL + fiche annuaire, **même e-mail**).
-5. Aligner organisation (services, domaines, lieux) et données risques avec le périmètre des agents.
-6. Sauvegardes Postgres (`scripts/backup-postgres.sh` + cron).
-7. Reverse proxy / DNS interne si besoin ; mettre à jour `CORS_ORIGINS` et `VITE_API_BASE`.
+3. `./scripts/go-live-check.sh` (API `/health`, frontend, PostgreSQL).
+4. Changer mots de passe seed (UI admin ; pas via `init.sql` si la base existe déjà).
+5. Créer les comptes réels (login PostgreSQL + fiche annuaire, **même e-mail**).
+6. Aligner organisation (services, domaines, lieux) et données risques avec le périmètre des agents.
+7. Sauvegardes Postgres (`scripts/backup-postgres.sh` + cron).
+8. Reverse proxy / DNS interne si besoin ; mettre à jour `CORS_ORIGINS` et `VITE_API_BASE`.
+9. Checklist manuelle [DEPLOIEMENT-INTRANET.md](./DEPLOIEMENT-INTRANET.md) étape 4 (tous rôles).
 
 ---
 
@@ -133,7 +135,7 @@ Sans modifier les rôles :
 | 1 — Persistance modules | ☑ | Tous modules menu (dont déclarations amiante) |
 | 2 — Complétude fonctionnelle | ☑ | Dashboard périmètre, paramètres documentés, routes OK |
 | 3 — Tests | ☑ (E2E démo) | `e2e/login`, `agent-navigation`, `admin-navigation` |
-| 4 — Go-live | ☐ | |
+| 4 — Go-live | ◐ | Script `go-live-check.sh`, healthchecks Docker, smoke CI ; reste : comptes réels + checklist manuelle sur le NAS |
 
 ---
 
