@@ -14,7 +14,7 @@
 Run `docker compose up --build` to start the full local stack with Docker:
 - frontend Vite (`http://localhost:5174`)
 - backend API (`http://localhost:8000/make-server-cfb78916`)
-- PostgreSQL local database (`localhost:5433`)
+- PostgreSQL local database (`localhost:5436`, variable `POSTGRES_HOST_PORT`)
 
 Then open `http://localhost:5174`.
 

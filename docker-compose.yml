@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: lecompas
       POSTGRES_PASSWORD: lecompas
     ports:
-      - "5433:5432"
+      - "${POSTGRES_HOST_PORT:-5436}:5432"
     volumes:
       - lecompas_pg_data:/var/lib/postgresql/data
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
