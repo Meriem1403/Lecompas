@@ -20,8 +20,13 @@ jobs:
           VITE_USE_BACKEND_API: "false"
           VITE_ALLOW_DEMO_LOGIN: "true"
       - run: npm run test:unit
+      - name: Stack API (PostgreSQL + backend)
+        run: docker compose up -d --build db backend
+      - run: node scripts/wait-for-backend.mjs
+      - run: npm run test:integration
       - run: npx playwright install chromium --with-deps
       - run: npm run test:e2e
+      - run: npm run test:e2e:intranet
 
   deploy:
     needs: test

@@ -254,6 +254,7 @@ import {
   useAppDataBackendSync,
 } from "./hooks/useAppDataBackendSync";
 import type { OrganizationSnapshot } from "./types/organization";
+import { normalizeOrganizationSnapshot } from "./utils/normalizeOrganizationSnapshot";
 import { buildDefaultAccessProfiles } from "./utils/accessProfileDefaults";
 
 interface User {
@@ -743,11 +744,11 @@ export default function App() {
     );
 
     const allowedDomains =
-      selectedServiceConfig?.domains.filter((domain) =>
+      selectedServiceConfig?.domains?.filter((domain) =>
         domainOptions.includes(domain),
       ) || domainOptions;
     const allowedLocations =
-      selectedServiceConfig?.locations.filter((location) =>
+      selectedServiceConfig?.locations?.filter((location) =>
         locationOptions.includes(location),
       ) || locationOptions;
 
@@ -1035,13 +1036,18 @@ export default function App() {
       token,
       skipRef: appDataSkipRef,
       setValue: (snapshot) => {
-        setAdminServices(snapshot.services);
-        setAdminDomains(snapshot.domains);
-        setAdminLocations(snapshot.locations);
+        const defaults = {
+          services: FAKE_SERVICES,
+          domains: FAKE_DOMAINS,
+          locations: FAKE_LOCATIONS,
+          categories: DEFAULT_ADMIN_CATEGORIES,
+        };
+        const safe = normalizeOrganizationSnapshot(snapshot, defaults);
+        setAdminServices(safe.services);
+        setAdminDomains(safe.domains);
+        setAdminLocations(safe.locations);
         setAdminCategories(
-          snapshot.categories?.length
-            ? snapshot.categories
-            : DEFAULT_ADMIN_CATEGORIES,
+          safe.categories.length ? safe.categories : DEFAULT_ADMIN_CATEGORIES,
         );
       },
       getDefault: () => ({
@@ -2217,7 +2223,7 @@ export default function App() {
       value: risks.reduce(
         (acc, r) =>
           acc +
-          r.plannedMeasures.filter(
+          (r.plannedMeasures ?? []).filter(
             (m) => m.status === "in_progress",
           ).length,
         0,

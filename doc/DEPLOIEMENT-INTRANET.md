@@ -64,7 +64,7 @@ chmod +x scripts/go-live-check.sh
 9. **Visites médicales / registre SST** — persistance serveur (`/app-data/*`).
 10. **Mercure / amiante (diagnostics, attestations, déclarations) / arrivées-départs** — persistance serveur (`/app-data/*`).
 11. **Paramètres → notifications** — préférences par utilisateur (`notificationPreferencesByUser`).
-12. **Tests E2E** — `npm run test:e2e` (connexion démo + parcours agent/admin).
+12. **Tests automatisés** — `npm run test:verify` (build, unitaires, smoke API avec Docker, E2E démo + E2E intranet API).
 
 ## Étape 5 — Sauvegardes PostgreSQL
 
