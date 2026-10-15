@@ -12,6 +12,8 @@ services:
     volumes:
       - lecompas_pg_data:/var/lib/postgresql/data
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "${POSTGRES_HOST_PORT:-5436}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U lecompas -d lecompas"]
       interval: 5s
@@ -28,7 +30,7 @@ services:
       PORT: 8000
       DATABASE_URL: postgresql://${POSTGRES_USER:-lecompas}:${POSTGRES_PASSWORD:-lecompas}@db:5432/${POSTGRES_DB:-lecompas}
       API_PREFIX: /make-server-cfb78916
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5174}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -58,7 +60,7 @@ services:
         VITE_ALLOW_DEMO_LOGIN: ${VITE_ALLOW_DEMO_LOGIN:-false}
     container_name: lecompas-frontend
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-5174}:80"
     depends_on:
       backend:
         condition: service_healthy

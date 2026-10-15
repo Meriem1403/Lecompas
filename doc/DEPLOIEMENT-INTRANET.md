@@ -6,7 +6,15 @@ Plan détaillé (périmètre prod, tests, suivi) : [PLAN-MISE-EN-PROD.md](./PLAN
 
 - Docker et Docker Compose sur le serveur (Synology Container Manager ou Linux)
 - IP fixe intranet (ex. `10.13.186.8`)
-- Ports : `8080` (app), `8000` (API), PostgreSQL en interne uniquement
+- Ports sur le NAS (ex. **NAS-APPLI**, sans conflit avec Atlantide sur **5433**) :
+
+  | Service | Port hôte Lecompas |
+  |---------|-------------------|
+  | Frontend | **5174** |
+  | Backend API | **8000** |
+  | PostgreSQL | **5436** (`POSTGRES_HOST_PORT`) |
+
+  Les conteneurs backend/db communiquent en interne (PostgreSQL reste **5432** dans le réseau Docker).
 
 ## Étape 2 — Configuration
 
@@ -18,8 +26,10 @@ cp .env.example .env
 
 - `PUBLIC_HOST` = IP ou nom DNS interne
 - `POSTGRES_PASSWORD` = mot de passe fort
+- `POSTGRES_HOST_PORT=5436` (ne pas utiliser 5433 si Atlantide est sur le même NAS)
+- `FRONTEND_PORT=5174` et `BACKEND_PORT=8000`
 - `VITE_API_BASE=http://VOTRE_IP:8000/make-server-cfb78916`
-- `CORS_ORIGINS=http://VOTRE_IP:8080`
+- `CORS_ORIGINS=http://VOTRE_IP:5174` (même port que le frontend)
 - `VITE_USE_BACKEND_API=true`
 - `VITE_ALLOW_DEMO_LOGIN=false`
 
@@ -31,7 +41,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Accès :
 
-- **Application** : `http://VOTRE_IP:8080`
+- **Application** : `http://VOTRE_IP:5174` (ou la valeur de `FRONTEND_PORT`)
 - **API santé** : `http://VOTRE_IP:8000/make-server-cfb78916/health`
 
 Comptes initiaux (base `backend/db/init.sql`) :
@@ -87,7 +97,7 @@ gunzip -c backups/postgres/lecompas-YYYYMMDD-HHMMSS.sql.gz | \
 Panneau de configuration → Portail de connexion → Proxy inverse :
 
 - Source : `http://lecompas.intranet:80`
-- Destination : `http://localhost:8080`
+- Destination : `http://localhost:5174` (ou `FRONTEND_PORT` du `.env`)
 
 Ajouter un enregistrement DNS ou une entrée `hosts` : `VOTRE_IP lecompas.intranet`
 

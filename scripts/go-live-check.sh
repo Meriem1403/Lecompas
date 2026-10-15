@@ -13,7 +13,7 @@ fi
 # shellcheck disable=SC1091
 source .env
 
-FRONTEND_PORT="${FRONTEND_PORT:-8080}"
+FRONTEND_PORT="${FRONTEND_PORT:-5174}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 API_PREFIX="/make-server-cfb78916"
 HEALTH_URL="http://127.0.0.1:${BACKEND_PORT}${API_PREFIX}/health"
