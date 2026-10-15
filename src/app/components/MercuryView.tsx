@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { MercuryListView } from './mercury/MercuryListView';
 import { MercuryCampaignForm } from './mercury/MercuryCampaignForm';
 import { MercuryCampaignDetail } from './mercury/MercuryCampaignDetail';
@@ -188,8 +190,16 @@ const initialCampaigns: MercuryCampaign[] = [
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
-export function MercuryView() {
-  const [campaigns, setCampaigns] = useState<MercuryCampaign[]>(initialCampaigns);
+interface MercuryViewProps {
+  accessToken?: string;
+}
+
+export function MercuryView({ accessToken = '' }: MercuryViewProps) {
+  const [campaigns, setCampaigns] = useAppDataDocumentStore<MercuryCampaign[]>(
+    APP_DATA_KEYS.mercuryCampaigns,
+    accessToken,
+    { seed: initialCampaigns },
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedCampaign, setSelectedCampaign] = useState<MercuryCampaign | null>(null);
 

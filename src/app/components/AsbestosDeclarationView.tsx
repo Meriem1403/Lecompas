@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { AsbestosDeclarationListView } from './asbestos-declaration/AsbestosDeclarationListView';
 import { AsbestosDeclarationForm } from './asbestos-declaration/AsbestosDeclarationForm';
 import { AsbestosDeclarationDetail } from './asbestos-declaration/AsbestosDeclarationDetail';
@@ -272,10 +274,18 @@ interface AsbestosDeclarationViewProps {
     name: string;
     role: 'admin' | 'chef_service' | 'agent';
   };
+  accessToken?: string;
 }
 
-export function AsbestosDeclarationView({ currentUser }: AsbestosDeclarationViewProps) {
-  const [declarations, setDeclarations] = useState<AsbestosDeclaration[]>(initialDeclarations);
+export function AsbestosDeclarationView({
+  currentUser,
+  accessToken = '',
+}: AsbestosDeclarationViewProps) {
+  const [declarations, setDeclarations] = useAppDataDocumentStore<AsbestosDeclaration[]>(
+    APP_DATA_KEYS.asbestosDeclarations,
+    accessToken,
+    { seed: initialDeclarations },
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedDeclaration, setSelectedDeclaration] = useState<AsbestosDeclaration | null>(null);
 

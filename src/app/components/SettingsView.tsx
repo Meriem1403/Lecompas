@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -46,7 +48,55 @@ import { toast } from 'sonner';
 
 type SettingsSection = 'organization' | 'notifications' | 'security' | 'appearance' | 'data' | 'documents';
 
-export function SettingsView() {
+function buildDefaultNotificationPreferences(
+  userId: string,
+  email: string,
+): NotificationPreference {
+  return {
+    id: userId,
+    userId,
+    email,
+    enableEmail: true,
+    enableInApp: true,
+    notifyNewRisk: true,
+    notifyRiskUpdate: true,
+    notifyNewAccident: true,
+    notifyAccidentUpdate: true,
+    notifyNewActuality: true,
+    notifyActionReturn: true,
+    notifyActionReturnValidation: true,
+    notifyCerbereRequest: true,
+    notifyCerbereValidation: true,
+    notifyArriveesDeparts: true,
+    filters: {
+      roles: [],
+      services: [],
+      domaines: [],
+      lieux: [],
+      categories: [],
+    },
+    frequency: 'immediate',
+  };
+}
+
+interface SettingsViewProps {
+  accessToken?: string;
+  userId?: string;
+  userEmail?: string;
+}
+
+export function SettingsView({
+  accessToken = '',
+  userId = 'local',
+  userEmail = '',
+}: SettingsViewProps) {
+  const [notificationPreferencesByUser, setNotificationPreferencesByUser] =
+    useAppDataDocumentStore<Record<string, NotificationPreference>>(
+      APP_DATA_KEYS.notificationPreferencesByUser,
+      accessToken,
+      { seed: {} },
+    );
+
   const [activeSection, setActiveSection] = useState<SettingsSection>('organization');
   
   // États pour les paramètres d'organisation
@@ -55,6 +105,16 @@ export function SettingsView() {
   const [orgSiret, setOrgSiret] = useState('');
   const [orgPhone, setOrgPhone] = useState('+33 4 91 32 85 00');
   const [orgEmail, setOrgEmail] = useState('dirm.mediterranee@developpement-durable.gouv.fr');
+
+  const notificationPreferences = useMemo(
+    () =>
+      notificationPreferencesByUser[userId] ??
+      buildDefaultNotificationPreferences(
+        userId,
+        userEmail || orgEmail,
+      ),
+    [notificationPreferencesByUser, userId, userEmail, orgEmail],
+  );
   const [orgMinistry, setOrgMinistry] = useState('Ministère de la Transition écologique');
   const [orgService, setOrgService] = useState('Direction Interrégionale');
   
@@ -280,6 +340,11 @@ export function SettingsView() {
         <div className="min-w-0">
           <h3 className="text-2xl font-bold text-gray-900">Paramètres</h3>
           <p className="text-gray-600">Gérez les paramètres de votre application DUERP</p>
+          <p className="text-sm text-slate-600 mt-2 max-w-2xl">
+            Les préférences de la section <strong>Notifications</strong> sont enregistrées
+            sur le serveur (par utilisateur). Les autres sections restent locales au
+            navigateur tant qu&apos;elles ne sont pas branchées à l&apos;API.
+          </p>
         </div>
         <Button 
           onClick={handleSaveSettings}
@@ -512,36 +577,16 @@ export function SettingsView() {
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
               <CardContent className="pt-6">
                 <NotificationSettings
-                  preferences={{
-                    id: '1',
-                    userId: 'current-user',
-                    email: orgEmail,
-                    enableEmail: emailNotifications,
-                    enableInApp: true,
-                    notifyNewRisk: riskAlerts,
-                    notifyRiskUpdate: riskAlerts,
-                    notifyNewAccident: accidentAlerts,
-                    notifyAccidentUpdate: accidentAlerts,
-                    notifyNewActuality: true,
-                    notifyActionReturn: true,
-                    notifyActionReturnValidation: true,
-                    notifyCerbereRequest: true,
-                    notifyCerbereValidation: true,
-                    notifyArriveesDeparts: true,
-                    filters: {
-                      roles: [],
-                      services: [],
-                      domaines: [],
-                      lieux: [],
-                      categories: []
-                    },
-                    frequency: 'immediate'
-                  }}
+                  preferences={notificationPreferences}
                   onSave={(prefs) => {
-                    console.log('Préférences de notification sauvegardées:', prefs);
+                    setNotificationPreferencesByUser((prev) => ({
+                      ...prev,
+                      [userId]: prefs,
+                    }));
                     setEmailNotifications(prefs.enableEmail);
                     setRiskAlerts(prefs.notifyNewRisk);
                     setAccidentAlerts(prefs.notifyNewAccident);
+                    toast.success('Préférences de notification enregistrées');
                   }}
                   availableServices={['Service Général', 'Service Technique', 'Service Administratif', 'Service RH', 'Service Financier']}
                   availableDomaines={['Terre', 'Mer', 'Bureau', 'Chantier', 'Laboratoire']}

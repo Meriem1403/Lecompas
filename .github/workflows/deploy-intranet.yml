@@ -20,6 +20,8 @@ jobs:
           VITE_USE_BACKEND_API: "false"
           VITE_ALLOW_DEMO_LOGIN: "true"
       - run: npm run test:unit
+      - run: npx playwright install chromium --with-deps
+      - run: npm run test:e2e
 
   deploy:
     needs: test

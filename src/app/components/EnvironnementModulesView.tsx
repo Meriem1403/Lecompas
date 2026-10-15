@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { 
   Droplet, 
   Shield, 
-  FileSignature, 
+  FileSignature,
+  ClipboardList,
   Leaf,
   ArrowLeft,
   ChevronRight
@@ -49,6 +50,14 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
       color: "text-amber-600",
       gradient: "from-amber-600 via-orange-500 to-yellow-500",
     },
+    {
+      id: "asbestos-declarations",
+      title: "Déclarations amiante",
+      description: "Déclarations d'exposition et validation administrative",
+      icon: ClipboardList,
+      color: "text-rose-600",
+      gradient: "from-rose-600 via-pink-500 to-orange-500",
+    },
   ];
 
   return (
@@ -69,7 +78,7 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
                   Environnement
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Campagnes mercure, diagnostics amiante, gestion de la pêche
+                  Campagnes mercure et suivi amiante
                 </p>
               </div>
             </div>

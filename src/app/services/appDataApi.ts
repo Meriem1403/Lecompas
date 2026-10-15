@@ -20,6 +20,13 @@ export const APP_DATA_KEYS = {
   medicalVisits: "medicalVisits",
   sstRegistryRemarks: "sstRegistryRemarks",
   adminRoles: "adminRoles",
+  mercuryCampaigns: "mercuryCampaigns",
+  asbestosInterventions: "asbestosInterventions",
+  asbestosAttestations: "asbestosAttestations",
+  asbestosDeclarations: "asbestosDeclarations",
+  rhArriveesDepartsDemandes: "rhArriveesDepartsDemandes",
+  rhArriveesDepartsQuestionnaires: "rhArriveesDepartsQuestionnaires",
+  notificationPreferencesByUser: "notificationPreferencesByUser",
 } as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[keyof typeof APP_DATA_KEYS];

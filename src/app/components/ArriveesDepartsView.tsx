@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -321,10 +323,24 @@ const mockDemandes: Demande[] = [
 
 type ViewMode = 'list' | 'new-demande' | 'view-demande' | 'new-questionnaire' | 'edit-questionnaire';
 
-export function ArriveesDepartsView({ userRole = 'agent' }: { userRole?: 'admin' | 'chef_service' | 'agent' }) {
+export function ArriveesDepartsView({
+  userRole = 'agent',
+  accessToken = '',
+}: {
+  userRole?: 'admin' | 'chef_service' | 'agent';
+  accessToken?: string;
+}) {
   const [activeTab, setActiveTab] = useState(userRole === 'admin' ? 'demandes' : 'mes-demandes');
-  const [demandes, setDemandes] = useState<Demande[]>(mockDemandes);
-  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>(mockQuestionnaires);
+  const [demandes, setDemandes] = useAppDataDocumentStore<Demande[]>(
+    APP_DATA_KEYS.rhArriveesDepartsDemandes,
+    accessToken,
+    { seed: mockDemandes },
+  );
+  const [questionnaires, setQuestionnaires] = useAppDataDocumentStore<Questionnaire[]>(
+    APP_DATA_KEYS.rhArriveesDepartsQuestionnaires,
+    accessToken,
+    { seed: mockQuestionnaires },
+  );
   const [filteredDemandes, setFilteredDemandes] = useState<Demande[]>(mockDemandes);
   
   // Mode d'affichage

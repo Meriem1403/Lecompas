@@ -82,10 +82,10 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
     {
       id: "environnement",
       title: "Environnement",
-      description: "Campagnes mercure et diagnostics amiante",
+      description: "Campagnes mercure et suivi amiante",
       icon: Leaf,
       gradient: "from-cyan-500 via-teal-500 to-blue-500",
-      moduleCount: 3,
+      moduleCount: 4,
     },
     {
       id: "validation",

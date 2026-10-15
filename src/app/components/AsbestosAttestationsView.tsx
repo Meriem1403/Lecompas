@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { AsbestosAttestationsListView } from './asbestos-attestations/AsbestosAttestationsListView';
 import { AsbestosAttestationForm } from './asbestos-attestations/AsbestosAttestationForm';
 import { AsbestosAttestationDetail } from './asbestos-attestations/AsbestosAttestationDetail';
@@ -298,10 +300,19 @@ type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 interface AsbestosAttestationsViewProps {
   currentUserRole: 'admin' | 'chef_service' | 'agent';
   currentUserName: string;
+  accessToken?: string;
 }
 
-export function AsbestosAttestationsView({ currentUserRole, currentUserName }: AsbestosAttestationsViewProps) {
-  const [attestations, setAttestations] = useState<AsbestosAttestation[]>(initialAttestations);
+export function AsbestosAttestationsView({
+  currentUserRole,
+  currentUserName,
+  accessToken = '',
+}: AsbestosAttestationsViewProps) {
+  const [attestations, setAttestations] = useAppDataDocumentStore<AsbestosAttestation[]>(
+    APP_DATA_KEYS.asbestosAttestations,
+    accessToken,
+    { seed: initialAttestations },
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedAttestation, setSelectedAttestation] = useState<AsbestosAttestation | null>(null);
 
