@@ -27,7 +27,7 @@ services:
       PORT: 8000
       DATABASE_URL: postgresql://lecompas:lecompas@db:5432/lecompas
       API_PREFIX: /make-server-cfb78916
-      CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174
+      CORS_ORIGINS: http://localhost:5174,http://127.0.0.1:5174,http://127.0.0.1:4173,http://127.0.0.1:4174
     ports:
       - "8000:8000"
     depends_on:

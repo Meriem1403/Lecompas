@@ -134,7 +134,7 @@ Sans modifier les rôles :
 |-------|--------|-------|
 | 1 — Persistance modules | ☑ | Tous modules menu (dont déclarations amiante) |
 | 2 — Complétude fonctionnelle | ☑ | Dashboard périmètre, paramètres documentés, routes OK |
-| 3 — Tests | ☑ (E2E démo) | `e2e/login`, `agent-navigation`, `admin-navigation` |
+| 3 — Tests | ☑ | `npm run test:verify` (build, unitaires, smoke API Docker, E2E démo + intranet API) |
 | 4 — Go-live | ◐ | Script `go-live-check.sh`, healthchecks Docker, smoke CI ; reste : comptes réels + checklist manuelle sur le NAS |
 
 ---
