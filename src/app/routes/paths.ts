@@ -34,6 +34,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   mercury: "/mercure",
   asbestos: "/amiante",
   "asbestos-attestations": "/amiante/attestations",
+  "asbestos-declarations": "/amiante/declarations",
   "signature-duerp": "/signature-duerp",
   settings: "/parametres",
 };

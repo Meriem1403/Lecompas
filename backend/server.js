@@ -568,6 +568,13 @@ const APP_DATA_REGISTRY = {
   medicalVisits: { adminOnlyWrite: false },
   sstRegistryRemarks: { adminOnlyWrite: false },
   adminRoles: { adminOnlyWrite: true },
+  mercuryCampaigns: { adminOnlyWrite: false },
+  asbestosInterventions: { adminOnlyWrite: false },
+  asbestosAttestations: { adminOnlyWrite: false },
+  asbestosDeclarations: { adminOnlyWrite: false },
+  rhArriveesDepartsDemandes: { adminOnlyWrite: false },
+  rhArriveesDepartsQuestionnaires: { adminOnlyWrite: false },
+  notificationPreferencesByUser: { adminOnlyWrite: false },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {

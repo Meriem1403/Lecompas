@@ -183,6 +183,12 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Edition et suivi des attestations amiante.",
   },
   {
+    id: "asbestos-declarations",
+    label: "Déclarations amiante",
+    section: "Environnement",
+    description: "Declarations d'exposition amiante et circuit de validation.",
+  },
+  {
     id: "signature-duerp",
     label: "Signature DUERP",
     section: "Validation",

@@ -16,3 +16,4 @@ test("affiche l'écran de connexion", async ({ page }) => {
     page.getByRole("button", { name: "Se connecter" }),
   ).toBeVisible();
 });
+

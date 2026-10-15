@@ -115,6 +115,8 @@ export function DashboardView({
   getRiskLevelColor,
   getRiskLevelLabel
 }: DashboardViewProps) {
+  const showEmptyScopeHint = risks.length === 0;
+
   // Statistiques
   const stats = [
     { 
@@ -254,6 +256,15 @@ export function DashboardView({
 
   return (
     <div className="space-y-6">
+      {showEmptyScopeHint && (
+        <div
+          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          Aucun risque dans votre périmètre (service, domaine, lieu). Les indicateurs
+          du tableau de bord reflètent uniquement les risques auxquels vous avez accès.
+        </div>
+      )}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {

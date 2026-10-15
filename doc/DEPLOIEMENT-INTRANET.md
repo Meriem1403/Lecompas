@@ -1,5 +1,7 @@
 # Déploiement Lecompas en intranet (serveur / NAS)
 
+Plan détaillé (périmètre prod, tests, suivi) : [PLAN-MISE-EN-PROD.md](./PLAN-MISE-EN-PROD.md)
+
 ## Étape 1 — Prérequis
 
 - Docker et Docker Compose sur le serveur (Synology Container Manager ou Linux)
@@ -53,6 +55,9 @@ Changez ces mots de passe avant la mise en service.
 7. **Protocoles / plans de prévention / fiches sécurité** — rechargement après déconnexion.
 8. **Documents / archives / actualités / Cerbère** — données partagées.
 9. **Visites médicales / registre SST** — persistance serveur (`/app-data/*`).
+10. **Mercure / amiante (diagnostics, attestations, déclarations) / arrivées-départs** — persistance serveur (`/app-data/*`).
+11. **Paramètres → notifications** — préférences par utilisateur (`notificationPreferencesByUser`).
+12. **Tests E2E** — `npm run test:e2e` (connexion démo + parcours agent/admin).
 
 ## Étape 5 — Sauvegardes PostgreSQL
 

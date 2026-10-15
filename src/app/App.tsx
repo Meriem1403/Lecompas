@@ -110,6 +110,7 @@ import {
 import { MercuryView } from "./components/MercuryView";
 import { AsbestosView } from "./components/AsbestosView";
 import { AsbestosAttestationsView } from "./components/AsbestosAttestationsView";
+import { AsbestosDeclarationView } from "./components/AsbestosDeclarationView";
 import { MedicalVisitsView } from "./components/MedicalVisitsView";
 import { SSTRegistryView } from "./components/SSTRegistryView";
 import { LoginPage } from "./components/LoginPage";
@@ -2445,6 +2446,12 @@ export default function App() {
           icon: FileSignature,
           color: "text-amber-600",
         },
+        {
+          id: "asbestos-declarations",
+          label: "Déclarations amiante",
+          icon: ClipboardList,
+          color: "text-rose-600",
+        },
       ],
     },
     {
@@ -2922,7 +2929,7 @@ export default function App() {
           {/* Dashboard View */}
           {activeView === "dashboard" && (
             <DashboardView
-              risks={risks}
+              risks={visibleRisks}
               accidents={accidents}
               onNavigateToRisk={(risk) => {
                 setSelectedRisk(risk);
@@ -2953,16 +2960,31 @@ export default function App() {
           )}
 
           {/* Mercury Campaigns View */}
-          {activeView === "mercury" && <MercuryView />}
+          {activeView === "mercury" && (
+            <MercuryView accessToken={accessToken} />
+          )}
 
           {/* Asbestos Diagnostics View */}
-          {activeView === "asbestos" && <AsbestosView />}
+          {activeView === "asbestos" && (
+            <AsbestosView accessToken={accessToken} />
+          )}
 
           {/* Asbestos Attestations View */}
           {activeView === "asbestos-attestations" && (
             <AsbestosAttestationsView
               currentUserRole={user?.role || "agent"}
               currentUserName={user?.name || "Utilisateur"}
+              accessToken={accessToken}
+            />
+          )}
+
+          {activeView === "asbestos-declarations" && (
+            <AsbestosDeclarationView
+              accessToken={accessToken}
+              currentUser={{
+                name: user?.name || "Utilisateur",
+                role: user?.role || "agent",
+              }}
             />
           )}
 
@@ -4183,7 +4205,13 @@ export default function App() {
           )}
 
           {/* Settings view */}
-          {activeView === "settings" && <SettingsView />}
+          {activeView === "settings" && (
+            <SettingsView
+              accessToken={accessToken}
+              userId={user?.id}
+              userEmail={user?.email}
+            />
+          )}
 
           {/* Cerbere view */}
           {activeView === "cerbere" && (
@@ -4214,6 +4242,7 @@ export default function App() {
           {activeView === "arrivees-departs" && (
             <ArriveesDepartsView
               userRole={user?.role || "agent"}
+              accessToken={accessToken}
             />
           )}
 

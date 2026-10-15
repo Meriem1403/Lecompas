@@ -82,7 +82,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      const success = await onLogin(demoEmail, demoPassword, false);
+      const success = await onLogin(demoEmail, demoPassword, true);
       if (!success) {
         setError("Compte ou mot de passe non reconnu.");
         toast.error("Échec de la connexion");

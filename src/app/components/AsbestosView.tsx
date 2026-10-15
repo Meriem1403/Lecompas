@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { APP_DATA_KEYS } from '@/app/services/appDataApi';
+import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
 import { AsbestosListView } from './asbestos/AsbestosListView';
 import { AsbestosInterventionForm } from './asbestos/AsbestosInterventionForm';
 import { AsbestosInterventionDetail } from './asbestos/AsbestosInterventionDetail';
@@ -178,8 +180,16 @@ const initialInterventions: AsbestosIntervention[] = [
 
 type ViewMode = 'list' | 'create' | 'edit' | 'detail';
 
-export function AsbestosView() {
-  const [interventions, setInterventions] = useState<AsbestosIntervention[]>(initialInterventions);
+interface AsbestosViewProps {
+  accessToken?: string;
+}
+
+export function AsbestosView({ accessToken = '' }: AsbestosViewProps) {
+  const [interventions, setInterventions] = useAppDataDocumentStore<AsbestosIntervention[]>(
+    APP_DATA_KEYS.asbestosInterventions,
+    accessToken,
+    { seed: initialInterventions },
+  );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedIntervention, setSelectedIntervention] = useState<AsbestosIntervention | null>(null);
 
