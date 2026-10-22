@@ -29,7 +29,7 @@ Trois comptes pré-configurés pour tester l'application :
 #### 👑 **Administrateur**
 ```
 Email    : admin@dirm-med.gouv.fr
-Password : admin123
+Password : change-me
 Nom      : Jean-Marc DUBOIS
 Rôle     : admin
 Accès    : Tous les modules + Administration complète

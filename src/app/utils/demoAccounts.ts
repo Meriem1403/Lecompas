@@ -20,7 +20,7 @@ export const DEMO_EMAIL_ALIASES: Record<string, string> = {
 export const DEMO_LOGIN_ACCOUNTS = [
   {
     email: "admin@dirm-med.gouv.fr",
-    password: "admin123",
+    password: "change-me",
     directoryEmail: "admin@dirm-med.gouv.fr",
   },
   {

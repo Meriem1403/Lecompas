@@ -9,7 +9,7 @@ test("mercure : données /app-data visibles après rechargement", async ({
   const token = await loginWithApiCredentials(
     page,
     "admin@dirm-med.gouv.fr",
-    "admin123",
+    "change-me",
   );
 
   const campaign = {

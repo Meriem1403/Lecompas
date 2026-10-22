@@ -81,7 +81,7 @@ async function main() {
   const { res: healthRes, json: health } = await api("/health");
   assert(healthRes.ok && health?.status === "ok", "Health KO");
 
-  const adminToken = await login("admin@dirm-med.gouv.fr", "admin123");
+  const adminToken = await login("admin@dirm-med.gouv.fr", "change-me");
   const agentToken = await login("agent@dirm-med.gouv.fr", "agent123");
 
   for (const role of ["admin", "agent"]) {

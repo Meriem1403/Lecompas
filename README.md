@@ -1,37 +1,22 @@
+# Lecompas
 
-  # Application de gestion des risques
+Application de gestion des risques pour la Direction interrégionale de la mer Méditerranée.
 
-  This is a code bundle for Application de gestion des risques. The original project is available at https://www.figma.com/design/vT8MtILUP0ZJfYLvzKCC4S/Application-de-gestion-des-risques.
+Elle couvre la cartographie des risques, les mesures de prévention, la signature électronique du document unique, le suivi amiante, le registre SST et les droits d'accès. Les données métier restent sur l'intranet : elles ne sont pas dans ce dépôt.
 
-  ## Running the code
+## Stack
 
-  Run `npm i` to install the dependencies.
+- React, Vite, Tailwind CSS
+- API Node.js, PostgreSQL
+- Docker Compose
 
-  Run `npm run dev` to start the development server.
+## Démarrage
 
-## Running with Docker
+```bash
+cp .env.example .env
+docker compose up --build
+```
 
-Run `docker compose up --build` to start the full local stack with Docker:
-- frontend Vite (`http://localhost:5174`)
-- backend API (`http://localhost:8000/make-server-cfb78916`)
-- PostgreSQL local database (`localhost:5436`, variable `POSTGRES_HOST_PORT`)
+Renseigner `POSTGRES_PASSWORD` dans `.env` avant le premier lancement. Ne pas réutiliser un mot de passe d'exemple.
 
-Then open `http://localhost:5174`.
-
-To stop the containers, run `docker compose down`.
-
-## Production intranet (NAS / serveur local)
-
-See [doc/DEPLOIEMENT-INTRANET.md](doc/DEPLOIEMENT-INTRANET.md) for `docker-compose.prod.yml`, `.env`, and GitHub self-hosted runner setup.
-
-With backend API enabled, login uses server accounts (`admin@dirm-med.gouv.fr` / `admin123` from `init.sql`) and risks are stored in PostgreSQL.
-
-### Local fixtures and no remote Supabase
-
-- The local database is initialized from `backend/db/init.sql`.
-- Demo users are pre-seeded:
-  - `admin@dirm-med.gouv.fr` / `admin123`
-  - `chef@dirm-med.gouv.fr` / `chef123`
-  - `agent@dirm-med.gouv.fr` / `agent123`
-- The app is configured to use the local API (`VITE_API_BASE`) instead of remote Supabase.
-  
+Les guides de mise en production sont dans `doc/`.

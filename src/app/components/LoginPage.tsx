@@ -34,7 +34,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   // Comptes de démonstration
   const demoAccounts = [
-    { email: 'admin@dirm-med.gouv.fr', password: 'admin123', role: 'Administrateur', color: 'from-purple-500 to-pink-500' },
+    { email: 'admin@dirm-med.gouv.fr', password: 'change-me', role: 'Administrateur', color: 'from-purple-500 to-pink-500' },
     { email: 'chef@dirm-med.gouv.fr', password: 'chef123', role: 'Chef de service', color: 'from-blue-500 to-cyan-500' },
     { email: 'agent@dirm-med.gouv.fr', password: 'agent123', role: 'Agent', color: 'from-green-500 to-emerald-500' },
   ];

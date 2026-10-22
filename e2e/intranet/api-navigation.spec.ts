@@ -6,7 +6,7 @@ test.describe("intranet API — navigation", () => {
     const token = await loginWithApiCredentials(
       page,
       "admin@dirm-med.gouv.fr",
-      "admin123",
+      "change-me",
     );
 
     await page.goto("/mercure");

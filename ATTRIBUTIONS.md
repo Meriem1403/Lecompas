@@ -1,3 +1,4 @@
-Ce fichier Figma Make comprend des composants de [shadcn/ui](https://ui.shadcn.com/) utilisés sous [licence MIT](https://github.com/shadcn-ui/ui/blob/main/LICENSE.md).
+# Crédits
 
-Ce fichier Figma Make inclut des photos de [Unsplash](https://unsplash.com) utilisées sous [licence](https://unsplash.com/license).
+- Composants [shadcn/ui](https://ui.shadcn.com/), licence MIT.
+- Photographies [Unsplash](https://unsplash.com), selon leur licence.

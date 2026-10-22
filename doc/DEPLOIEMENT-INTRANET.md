@@ -48,7 +48,7 @@ Comptes initiaux (base `backend/db/init.sql`) :
 
 | Email | Mot de passe |
 |-------|----------------|
-| admin@dirm-med.gouv.fr | admin123 |
+| admin@dirm-med.gouv.fr | change-me |
 | chef@dirm-med.gouv.fr | chef123 |
 | agent@dirm-med.gouv.fr | agent123 |
 

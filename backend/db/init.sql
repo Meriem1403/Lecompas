@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS kv_store_cfb78916 (
 );
 
 INSERT INTO users(id, email, password, name, role, service) VALUES
-('11111111-1111-1111-1111-111111111111', 'admin@dirm-med.gouv.fr', 'admin123', 'Jean-Marc DUBOIS', 'admin', 'Direction'),
+('11111111-1111-1111-1111-111111111111', 'admin@dirm-med.gouv.fr', 'change-me', 'Jean-Marc DUBOIS', 'admin', 'Direction'),
 ('22222222-2222-2222-2222-222222222222', 'chef@dirm-med.gouv.fr', 'chef123', 'Marie MARTIN', 'chef_service', 'Maintenance'),
 ('33333333-3333-3333-3333-333333333333', 'agent@dirm-med.gouv.fr', 'agent123', 'Pierre LECLERC', 'agent', 'Maintenance')
 ON CONFLICT (id) DO NOTHING;

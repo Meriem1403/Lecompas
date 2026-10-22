@@ -9,7 +9,7 @@ export const PERSONNEL_USER_FIXTURES: AppUser[] = [
     firstName: "Jean-Marc",
     lastName: "DUBOIS",
     email: "admin@dirm-med.gouv.fr",
-    password: "admin123",
+    password: "change-me",
     position: "Directeur interrégional",
     service: "Direction",
     domain: "Pilotage",
