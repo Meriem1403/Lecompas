@@ -103,11 +103,45 @@ Ajouter un enregistrement DNS ou une entrée `hosts` : `VOTRE_IP lecompas.intran
 
 Mettre à jour `CORS_ORIGINS` et `VITE_API_BASE` si l’URL publique change.
 
+## NAS faible RAM (≈ 1 Go) — ne pas compiler le frontend sur le NAS
+
+`npm run build` (Vite) consomme beaucoup de CPU/RAM. Sur un NAS partagé (ex. avec Atlantide), un `docker compose … --build` qui rebuild le frontend peut saturer la machine.
+
+**Stratégie retenue :**
+
+| Composant | Où ça build | Sur le NAS |
+|-----------|-------------|------------|
+| Frontend React | **GitHub Actions** (runner `ubuntu-latest`) | Charge une image nginx + `dist/` déjà compilé |
+| Backend Node | NAS (léger) ou CI | `docker compose up -d db backend --build` |
+| PostgreSQL | Image officielle | Pas de compilation |
+
+Le workflow `.github/workflows/deploy-intranet.yml` :
+
+1. Job **build-frontend-image** : `npm run build` + `Dockerfile.prod.static` → artifact `lecompas-frontend.tar.gz`
+2. Job **deploy** (runner self-hosted) : rebuild backend/db si besoin, **frontend avec `--no-build`**
+
+Variable dépôt GitHub (Settings → Variables) recommandée :
+
+- `LECOMPAS_VITE_API_BASE` = ex. `http://10.13.186.8:8000/make-server-cfb78916` (URL API vue par les navigateurs)
+
+**Déploiement manuel du frontend** (sans tout rebuilder sur le NAS) :
+
+```bash
+# Sur un PC avec Node 20+, avec le .env NAS pour VITE_API_BASE :
+npm ci && npm run build
+docker build -f Dockerfile.prod.static -t lecompas-frontend:deploy .
+docker save lecompas-frontend:deploy | gzip > lecompas-frontend.tar.gz
+# Copier le .tar.gz sur le NAS puis :
+./scripts/deploy-nas-frontend.sh lecompas-frontend.tar.gz
+```
+
+**À éviter sur le NAS 1 Go :** `docker compose -f docker-compose.prod.yml up -d --build` (rebuild complet incluant Vite).
+
 ## Étape 7 — GitHub (mises à jour)
 
 1. Installer un **runner self-hosted** sur le NAS ou un PC du réseau DIRM
-2. Workflow `.github/workflows/deploy-intranet.yml` (job `deploy` avec `runs-on: self-hosted`)
-3. `git push` sur `main` → tests cloud + déploiement sur le serveur
+2. Workflow `.github/workflows/deploy-intranet.yml` (jobs `build-frontend-image` + `deploy` self-hosted)
+3. `git push` sur `main` → tests cloud, build frontend cloud, déploiement léger sur le serveur
 
 ## Mode développement local
 

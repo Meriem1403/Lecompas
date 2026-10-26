@@ -81,6 +81,12 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Demandes d'habilitation et validations.",
   },
   {
+    id: "reservations",
+    label: "Réservations véhicules & salles",
+    section: "Informatique",
+    description: "Planning véhicules, salles de réunion et visio.",
+  },
+  {
     id: "users",
     label: "Utilisateurs",
     section: "Administration",

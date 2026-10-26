@@ -575,6 +575,7 @@ const APP_DATA_REGISTRY = {
   rhArriveesDepartsDemandes: { adminOnlyWrite: false },
   rhArriveesDepartsQuestionnaires: { adminOnlyWrite: false },
   notificationPreferencesByUser: { adminOnlyWrite: false },
+  resourceReservations: { adminOnlyWrite: false },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {

@@ -27,8 +27,12 @@ export function buildCerbereRequestSeed(
   currentUserRole: "admin" | "chef_service" | "agent",
   currentUserService?: string,
 ): CerbereRequestSeed[] {
-  const normalize = (value?: string) => (value || "").trim().toLowerCase();
-  const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
+  const normalize = (value?: string | null) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+  const fullName = (u: AppUser) =>
+    `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
   const currentUserData =
     usersData.find(
       (u) => normalize(fullName(u)) === normalize(currentUserName),

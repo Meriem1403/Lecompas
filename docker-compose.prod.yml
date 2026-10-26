@@ -51,6 +51,8 @@ services:
     restart: unless-stopped
 
   frontend:
+    # Sur NAS 1 Go RAM : ne pas builder ici — utiliser l'image CI (scripts/deploy-nas-frontend.sh).
+    image: ${LECOMPAS_FRONTEND_IMAGE:-lecompas-frontend:deploy}
     build:
       context: .
       dockerfile: Dockerfile.prod

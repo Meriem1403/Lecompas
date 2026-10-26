@@ -88,8 +88,24 @@ export function CerbereRequestForm({
   const [adminDomainFilter, setAdminDomainFilter] = useState('all');
   const [adminLocationFilter, setAdminLocationFilter] = useState('all');
 
-  const normalize = (value?: string) => (value || '').trim().toLowerCase();
-  const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
+  const normalize = (value?: string | null) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+  const fullName = (u: AppUser) =>
+    `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
+
+  const safeApplications = useMemo(
+    () =>
+      applications.filter(
+        (app) =>
+          app &&
+          typeof app.code === "string" &&
+          typeof app.nom === "string" &&
+          Array.isArray(app.profils),
+      ),
+    [applications],
+  );
 
   const currentUserData = useMemo(() => {
     if (!usersData.length) return null;
@@ -190,13 +206,13 @@ export function CerbereRequestForm({
     setRestrictions(initialData.restrictions === 'Aucune' ? '' : initialData.restrictions || '');
     setJustification(initialData.justification || '');
 
-    const appIds = applications
+    const appIds = safeApplications
       .filter((app) => initialData.applications.includes(app.code))
       .map((app) => app.id);
     setSelectedApplications(appIds);
 
     const profilsByApp: { [key: string]: string[] } = {};
-    applications.forEach((app) => {
+    safeApplications.forEach((app) => {
       if (!appIds.includes(app.id)) return;
       const selectedProfilIds = app.profils
         .filter((profil) => initialData.profils.includes(profil.identifiant))
@@ -206,7 +222,7 @@ export function CerbereRequestForm({
       }
     });
     setSelectedProfils(profilsByApp);
-  }, [applications, initialData]);
+  }, [safeApplications, initialData]);
 
   const handleApplicationToggle = (appId: string) => {
     if (selectedApplications.includes(appId)) {
@@ -265,14 +281,14 @@ export function CerbereRequestForm({
     }
 
     // Préparer les données
-    const selectedApps = applications.filter((app) =>
+    const selectedApps = safeApplications.filter((app) =>
       selectedApplications.includes(app.id)
     );
     const appNames = selectedApps.map((app) => app.code);
 
     const allSelectedProfils: string[] = [];
     Object.entries(selectedProfils).forEach(([appId, profilIds]) => {
-      const app = applications.find((a) => a.id === appId);
+      const app = safeApplications.find((a) => a.id === appId);
       if (app) {
         profilIds.forEach((profilId) => {
           const profil = app.profils.find((p) => p.id === profilId);
@@ -445,7 +461,7 @@ export function CerbereRequestForm({
               Applications et profils demandés *
             </h3>
 
-            {applications.map((app) => (
+            {safeApplications.map((app) => (
               <Card
                 key={app.id}
                 className={`border-2 transition-all ${
@@ -593,7 +609,7 @@ export function CerbereRequestForm({
                 <p>
                   <strong>Applications :</strong>{' '}
                   {selectedApplications
-                    .map((id) => applications.find((a) => a.id === id)?.code)
+                    .map((id) => safeApplications.find((a) => a.id === id)?.code)
                     .join(', ')}
                 </p>
                 <p>

@@ -63,6 +63,8 @@ import { ArchivesView } from "./components/ArchivesView";
 import { RegistreAccidentsView } from "./components/RegistreAccidentsView";
 import { SettingsView } from "./components/SettingsView";
 import { CerbereView } from "./components/CerbereView";
+import { ReservationsView } from "./components/ReservationsView";
+import { InformatiqueModulesView } from "./components/InformatiqueModulesView";
 import { ActualitesView } from "./components/ActualitesView";
 import { NotificationBell } from "./components/NotificationBell";
 import { ArriveesDepartsView } from "./components/ArriveesDepartsView";
@@ -209,6 +211,7 @@ import {
   ChevronLeft,
   Menu,
   FileCheck,
+  Car,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -1371,7 +1374,8 @@ export default function App() {
   ): User => {
     const lookupEmail = resolveDirectoryEmail(email);
     const adminUser = adminUsers.find(
-      (u) => u.email.toLowerCase() === lookupEmail.toLowerCase(),
+      (u) =>
+        (u.email ?? "").toLowerCase() === lookupEmail.toLowerCase(),
     );
     if (adminUser) {
       return directoryUserToSessionUser(adminUser, fallback.role);
@@ -1412,8 +1416,8 @@ export default function App() {
     const directoryLookupEmail = resolveDirectoryEmail(email);
     const directoryUser = adminUsers.find(
       (u) =>
-        u.email.toLowerCase() === email.toLowerCase() ||
-        u.email.toLowerCase() === directoryLookupEmail.toLowerCase(),
+        (u.email ?? "").toLowerCase() === email.toLowerCase() ||
+        (u.email ?? "").toLowerCase() === directoryLookupEmail.toLowerCase(),
     );
     const directoryMatch =
       directoryUser &&
@@ -2364,6 +2368,12 @@ export default function App() {
           icon: Shield,
           color: "text-indigo-600",
         },
+        {
+          id: "reservations",
+          label: "Réservations",
+          icon: Car,
+          color: "text-violet-600",
+        },
       ],
     },
     {
@@ -2622,10 +2632,20 @@ export default function App() {
       return <Navigate to={getPathForView("signature-duerp")} replace />;
     }
     if (categoryView === "informatique") {
-      return <Navigate to={getPathForView("cerbere")} replace />;
+      return (
+        <>
+          <InformatiqueModulesView
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
+          />
+        </>
+      );
     }
     return <Navigate to={DEFAULT_AUTHENTICATED_PATH} replace />;
   }
+
+  const fullBleedModuleViews = new Set(["reservations"]);
+  const isFullBleedModule = fullBleedModuleViews.has(activeView);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex">
@@ -2819,8 +2839,13 @@ export default function App() {
         Aller au contenu principal
       </a>
       {/* Main Content */}
-      <main id="main-content" className="flex-1 overflow-auto" tabIndex={-1}>
+      <main
+        id="main-content"
+        className="flex min-w-0 flex-1 flex-col overflow-auto"
+        tabIndex={-1}
+      >
         {/* Header */}
+        {!isFullBleedModule ? (
         <header className="bg-white/80 backdrop-blur-xl border-b border-purple-100 sticky top-0 z-10 shadow-sm">
           <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="flex items-center justify-between gap-4">
@@ -2930,8 +2955,15 @@ export default function App() {
             </div>
           </div>
         </header>
+        ) : null}
 
-        <div className="p-8">
+        <div
+          className={
+            isFullBleedModule
+              ? "flex min-h-0 min-w-0 w-full flex-1 flex-col"
+              : "p-8"
+          }
+        >
           {/* Dashboard View */}
           {activeView === "dashboard" && (
             <DashboardView
@@ -4230,6 +4262,14 @@ export default function App() {
               currentUserDomain={user?.domain}
               currentUserLocation={user?.location}
               accessToken={accessToken}
+            />
+          )}
+
+          {activeView === "reservations" && (
+            <ReservationsView
+              accessToken={accessToken}
+              currentUserName={user?.name || "Utilisateur"}
+              onBack={() => goToView("category-modules", "informatique")}
             />
           )}
 

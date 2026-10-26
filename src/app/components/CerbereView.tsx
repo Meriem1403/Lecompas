@@ -180,6 +180,86 @@ export function CerbereView({
     accessToken,
     { seed: cerbereRequestsSeed },
   );
+
+  const applicationsForUi = useMemo(() => {
+    if (!Array.isArray(applications)) return mockApplications;
+    const valid = applications
+      .filter(
+        (app): app is CerbereApplication =>
+          !!app &&
+          !(app as { __smokeMarker?: unknown }).__smokeMarker &&
+          typeof app.code === "string" &&
+          typeof app.nom === "string",
+      )
+      .map((app) => ({
+        ...app,
+        description: app.description ?? "",
+        profils: Array.isArray(app.profils)
+          ? app.profils.filter((p) => p && typeof p.identifiant === "string")
+          : [],
+      }));
+    return valid.length > 0 ? valid : mockApplications;
+  }, [applications]);
+
+  const requestsForUi = useMemo(() => {
+    if (!Array.isArray(requests)) return cerbereRequestsSeed;
+    const valid = requests
+      .filter(
+        (req): req is CerbereRequest =>
+          !!req &&
+          !(req as { __smokeMarker?: unknown }).__smokeMarker &&
+          typeof req.agentConcerne === "string" &&
+          typeof req.demandeur === "string" &&
+          typeof req.statut === "string" &&
+          Array.isArray(req.applications),
+      )
+      .map((req) => ({
+        ...req,
+        applications: req.applications.filter(
+          (a): a is string => typeof a === "string",
+        ),
+        profils: Array.isArray(req.profils)
+          ? req.profils.filter((p): p is string => typeof p === "string")
+          : [],
+        reglePortee: req.reglePortee ?? "",
+        restrictions: req.restrictions ?? "",
+        soumiseLe: req.soumiseLe ?? new Date().toISOString().split("T")[0],
+      }));
+    return valid.length > 0 ? valid : cerbereRequestsSeed;
+  }, [requests, cerbereRequestsSeed]);
+
+  React.useEffect(() => {
+    if (!Array.isArray(applications)) {
+      setApplications(mockApplications);
+      return;
+    }
+    const hasOnlySmoke = applications.every(
+      (app) =>
+        !app ||
+        (app as { __smokeMarker?: unknown }).__smokeMarker ||
+        typeof (app as CerbereApplication).code !== "string",
+    );
+    if (applications.length > 0 && hasOnlySmoke) {
+      setApplications(mockApplications);
+    }
+  }, [applications, setApplications]);
+
+  React.useEffect(() => {
+    if (!Array.isArray(requests)) {
+      setRequests(cerbereRequestsSeed);
+      return;
+    }
+    const hasOnlySmoke = requests.every(
+      (req) =>
+        !req ||
+        (req as { __smokeMarker?: unknown }).__smokeMarker ||
+        typeof (req as CerbereRequest).agentConcerne !== "string",
+    );
+    if (requests.length > 0 && hasOnlySmoke) {
+      setRequests(cerbereRequestsSeed);
+    }
+  }, [cerbereRequestsSeed, requests, setRequests]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [chefScopeFilter, setChefScopeFilter] = useState<'all' | 'moi' | 'mes_agents'>('all');
@@ -375,8 +455,12 @@ export function CerbereView({
     toast.success('Demande refusée');
   };
 
-  const normalize = (value?: string) => (value || '').trim().toLowerCase();
-  const fullName = (u: AppUser) => `${u.firstName} ${u.lastName}`.trim();
+  const normalize = (value?: string | null) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+  const fullName = (u: AppUser) =>
+    `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim();
   const currentUserData = useMemo(() => {
     return usersData.find((u) => normalize(fullName(u)) === normalize(currentUserName)) || null;
   }, [currentUserName, usersData]);
@@ -460,28 +544,31 @@ export function CerbereView({
   };
 
   // Filtrage par rôle + filtres UI
-  const filteredRequests = requests.filter((req) => {
+  const filteredRequests = requestsForUi.filter((req) => {
+    const q = (searchTerm ?? "").toLowerCase();
     const matchesSearch =
-      req.agentConcerne.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.demandeur.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      req.applications.some((app) => app.toLowerCase().includes(searchTerm.toLowerCase()));
+      (req.agentConcerne ?? "").toLowerCase().includes(q) ||
+      (req.demandeur ?? "").toLowerCase().includes(q) ||
+      (req.applications ?? []).some((app) =>
+        (app ?? "").toLowerCase().includes(q),
+      );
     const matchesStatus = statusFilter === 'all' || req.statut === statusFilter;
     if (!matchesSearch || !matchesStatus) return false;
 
     return matchesRoleScope(req);
   });
 
-  const filteredApplications = applications.filter((app) => {
+  const filteredApplications = applicationsForUi.filter((app) => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return true;
-    const profileBlob = app.profils
-      .map((p) => `${p.identifiant} ${p.description}`)
-      .join(' ')
+    const profileBlob = (app.profils ?? [])
+      .map((p) => `${p.identifiant ?? ""} ${p.description ?? ""}`)
+      .join(" ")
       .toLowerCase();
     return (
-      app.code.toLowerCase().includes(q) ||
-      app.nom.toLowerCase().includes(q) ||
-      app.description.toLowerCase().includes(q) ||
+      (app.code ?? "").toLowerCase().includes(q) ||
+      (app.nom ?? "").toLowerCase().includes(q) ||
+      (app.description ?? "").toLowerCase().includes(q) ||
       profileBlob.includes(q)
     );
   });
@@ -539,7 +626,7 @@ export function CerbereView({
     }
   };
 
-  const pendingRequestsCount = requests.filter(
+  const pendingRequestsCount = requestsForUi.filter(
     (r) =>
       (userRole === 'admin'
         ? r.statut === 'en_attente_admin'
@@ -649,7 +736,7 @@ export function CerbereView({
           setEditingRequest(null);
         }}
         onSubmit={handleSubmitNewRequest}
-        applications={applications}
+        applications={applicationsForUi}
         userRole={userRole}
         currentUserName={currentUserName}
         currentUserEmail={currentUserEmail}

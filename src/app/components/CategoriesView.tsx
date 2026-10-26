@@ -69,7 +69,7 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
       description: "Applications Cerbère et habilitations",
       icon: Cpu,
       gradient: "from-indigo-500 via-blue-500 to-cyan-500",
-      moduleCount: 1,
+      moduleCount: 2,
     },
     {
       id: "duerp",

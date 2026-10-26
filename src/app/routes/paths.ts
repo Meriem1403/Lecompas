@@ -17,6 +17,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   actions: "/plan-action",
   documents: "/documents-duerp",
   cerbere: "/cerbere",
+  reservations: "/reservations",
   users: "/admin/utilisateurs",
   "risks-management": "/gestion-risques",
   "risk-references": "/referentiel-risques",

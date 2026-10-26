@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  LECOMPAS_FRONTEND_IMAGE: lecompas-frontend:deploy
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -28,19 +31,54 @@ jobs:
       - run: npm run test:e2e
       - run: npm run test:e2e:intranet
 
-  deploy:
+  build-frontend-image:
     needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Build Vite (prod intranet)
+        run: npm ci && npm run build
+        env:
+          VITE_USE_BACKEND_API: "true"
+          VITE_ALLOW_DEMO_LOGIN: "false"
+          VITE_API_BASE: ${{ vars.LECOMPAS_VITE_API_BASE || 'http://10.13.186.8:8000/make-server-cfb78916' }}
+      - name: Image nginx (sans Node sur le NAS)
+        run: |
+          docker build -f Dockerfile.prod.static -t "${{ env.LECOMPAS_FRONTEND_IMAGE }}" .
+          docker save "${{ env.LECOMPAS_FRONTEND_IMAGE }}" | gzip > lecompas-frontend.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lecompas-frontend-image
+          path: lecompas-frontend.tar.gz
+          retention-days: 14
+
+  deploy:
+    needs: build-frontend-image
     runs-on: self-hosted
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy with Docker Compose
+      - uses: actions/download-artifact@v4
+        with:
+          name: lecompas-frontend-image
+      - name: Backend + base (léger sur NAS)
         run: |
           if [ ! -f .env ]; then
             echo "Créez .env sur le serveur (voir .env.example) avant le premier deploy."
             exit 1
           fi
-          docker compose -f docker-compose.prod.yml up -d --build
+          docker compose -f docker-compose.prod.yml up -d db backend --build
+      - name: Frontend précompilé (sans Vite sur NAS)
+        env:
+          LECOMPAS_FRONTEND_IMAGE: ${{ env.LECOMPAS_FRONTEND_IMAGE }}
+        run: |
+          chmod +x scripts/deploy-nas-frontend.sh
+          ./scripts/deploy-nas-frontend.sh lecompas-frontend.tar.gz
       - name: Smoke test (API + frontend)
         run: |
           set -a

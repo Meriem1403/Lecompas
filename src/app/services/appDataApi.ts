@@ -27,6 +27,7 @@ export const APP_DATA_KEYS = {
   rhArriveesDepartsDemandes: "rhArriveesDepartsDemandes",
   rhArriveesDepartsQuestionnaires: "rhArriveesDepartsQuestionnaires",
   notificationPreferencesByUser: "notificationPreferencesByUser",
+  resourceReservations: "resourceReservations",
 } as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[keyof typeof APP_DATA_KEYS];
