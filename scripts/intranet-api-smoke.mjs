@@ -153,7 +153,11 @@ async function main() {
       case "rhArriveesDepartsDemandes":
       case "rhArriveesDepartsQuestionnaires":
       case "resourceReservations":
+      case "asbestosSuiviRegister":
+      case "asbestosSitesDta":
         return [{ id: `smoke-${key}`, __smokeMarker: marker, __smokeAt: at }];
+      case "accidentSuiviIndicateurs":
+        return { __smokeMarker: marker, __smokeAt: at, byYear: [], byCauseYear: [] };
       default:
         return { __smokeMarker: marker, __smokeAt: at, key };
     }

@@ -1,0 +1,533 @@
+[
+  {
+    "id": "acc-import-2",
+    "date": "2025-01-17",
+    "time": "",
+    "title": "Sur le lieu de travail — La Garde",
+    "description": "CROSS La Garde/22h43) L'agent intervenait d'astreinte sur site (CROSSMED) plusieurs déplacements été nécessaires pour dépanner l'avarie sur l'équipement radio (MHF secondaire). Lors d'un trajet au niveau du chemin de ronde côté sud du bâtiment principal il a trébuché sur une différence de niveau et s'est foulé la cheville gauche lorsqu'il a perdu l'équilibre.",
+    "accidentCategory": "TRAVAIL",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "La Garde",
+    "service": "4. CROSS MED",
+    "domain": "4. CROSS MED",
+    "circumstances": "CROSS La Garde/22h43) L'agent intervenait d'astreinte sur site (CROSSMED) plusieurs déplacements été nécessaires pour dépanner l'avarie sur l'équipement radio (MHF secondaire). Lors d'un trajet au niveau du chemin de ronde côté sud du bâtiment principal il a trébuché sur une différence de niveau et s'est foulé la cheville gauche lorsqu'il a perdu l'équilibre.",
+    "accidentCauses": "Chute de terrain accidenté/glissant",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Cheville"
+    ],
+    "lesionNatures": [
+      "Lésion ligamentaire",
+      "musculaire"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-3",
+    "date": "2025-05-09",
+    "time": "",
+    "title": "Travail-domicile — COB TOULON",
+    "description": "(Voie publique Toulon/15h40) L'agent rentrait à son domicile par temps sec et beau en planche à roulettes, sur son trajet il se retourne pour saluer le gardien du site de son lieu de travail, c'est alors qu'il a perdu l'équilibre et a chuter au sol sur sa cheville gauche.",
+    "accidentCategory": "Trajet",
+    "accidentEventType": "Travail-domicile",
+    "severity": "bénin",
+    "regulatoryGravity": "G2",
+    "type": "trajet",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB TOULON",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "(Voie publique Toulon/15h40) L'agent rentrait à son domicile par temps sec et beau en planche à roulettes, sur son trajet il se retourne pour saluer le gardien du site de son lieu de travail, c'est alors qu'il a perdu l'équilibre et a chuter au sol sur sa cheville gauche.",
+    "accidentCauses": "Chute 2 roues",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Cheville"
+    ],
+    "lesionNatures": [
+      "Entorse"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-4",
+    "date": "2025-05-18",
+    "time": "",
+    "title": "Sur le lieu de travail — Secteur d'intervention du navire et de son équipage",
+    "description": "En embarquant à partir du quai sur l'annexe du navire, l'agent a glissé sur la partie avant du zodiac et a fait un faux mouvement qui a généré une doleur au niveau de son genoux. \n20h05",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "grave",
+    "regulatoryGravity": "G5",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Secteur d'intervention du navire et de son équipage",
+    "service": "5. NAVIRE DCS",
+    "domain": "5. NAVIRE DCS",
+    "circumstances": "En embarquant à partir du quai sur l'annexe du navire, l'agent a glissé sur la partie avant du zodiac et a fait un faux mouvement qui a généré une doleur au niveau de son genoux. \n20h05",
+    "accidentCauses": "Faux mouvement",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Genou"
+    ],
+    "lesionNatures": [
+      "Autre"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-5",
+    "date": "2025-05-28",
+    "time": "",
+    "title": "Travail-domicile — TOUS SITES administratifs DIRM (hébergés y compris)",
+    "description": "(Marseille voie publique/17h30) L'agent empruntait le chemin habituel le plus court pour rejoindre son domicile, lorsqu'il à mit son pied droit sur un passage de chaussée déformée (trous/creux).",
+    "accidentCategory": "Trajet",
+    "accidentEventType": "Travail-domicile",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "trajet",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "TOUS SITES administratifs DIRM (hébergés y compris)",
+    "service": "1. SERVICES ADMINISTRATIFS",
+    "domain": "1. SERVICES ADMINISTRATIFS",
+    "circumstances": "(Marseille voie publique/17h30) L'agent empruntait le chemin habituel le plus court pour rejoindre son domicile, lorsqu'il à mit son pied droit sur un passage de chaussée déformée (trous/creux).",
+    "accidentCauses": "Faux mouvement",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Cheville",
+      "Genou",
+      "Bassin",
+      "Cou"
+    ],
+    "lesionNatures": [
+      "Entorse",
+      "Entorse",
+      "Autre",
+      "Autre"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-6",
+    "date": "2025-06-10",
+    "time": "",
+    "title": "Travail-domicile — Sites SPB secteur Bonifacio",
+    "description": "Lorsque je me rendais au travail au matin avec ma voiture, j'ai perdu le contrôle du véhicule.",
+    "accidentCategory": "Trajet",
+    "accidentEventType": "Travail-domicile",
+    "severity": "bénin",
+    "regulatoryGravity": "G1",
+    "type": "trajet",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Sites SPB secteur Bonifacio",
+    "service": "2. SPB",
+    "domain": "2. SPB",
+    "circumstances": "Lorsque je me rendais au travail au matin avec ma voiture, j'ai perdu le contrôle du véhicule.",
+    "accidentCauses": "Accident de la route",
+    "hasWorkStoppage": false,
+    "lesionSites": [
+      "COU",
+      "DOS",
+      "EPAULE",
+      "AUTRE"
+    ],
+    "lesionNatures": [
+      "Douleur musculaire",
+      "Douleur musculaire",
+      "Douleur musculaire",
+      "Choc psychologique"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-7",
+    "date": "2025-10-17",
+    "time": "",
+    "title": "Sur le lieu de travail — Secteur d'intervention du navire et de son équipage",
+    "description": "En se rendant à sa cabine située au pont inférieur du patrouilleur, l'agent a chuté dans descente (escalier).",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Secteur d'intervention du navire et de son équipage",
+    "service": "5. NAVIRE DCS",
+    "domain": "5. NAVIRE DCS",
+    "circumstances": "En se rendant à sa cabine située au pont inférieur du patrouilleur, l'agent a chuté dans descente (escalier).",
+    "accidentCauses": "Chute sur obstacle",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "DOS"
+    ],
+    "lesionNatures": [
+      "Mal de dos"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-8",
+    "date": "2025-12-17",
+    "time": "",
+    "title": "Sur le lieu de travail — COB Sète",
+    "description": "Lors d'une intervention consistant à remplacer un feu de bouée en panne, l'agent a eu une douleur intense suite au trajet sur le semi rigide à vitesse élevée (30 n¿uds) et lors du saut de bouée depuis le bateau qui est surélevé.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB Sète",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "Lors d'une intervention consistant à remplacer un feu de bouée en panne, l'agent a eu une douleur intense suite au trajet sur le semi rigide à vitesse élevée (30 n¿uds) et lors du saut de bouée depuis le bateau qui est surélevé.",
+    "accidentCauses": "Heurt lors de la navigation",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "DOS",
+      "Jambe"
+    ],
+    "lesionNatures": [
+      "Lumbago",
+      "Mal de dos",
+      "Sciatique"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-9",
+    "date": "2026-01-14",
+    "time": "",
+    "title": "Sur le lieu de travail — COB Sète",
+    "description": "Après avoir constaté au pied du phare que la câble d'alimentation et le capteur d'éclat du feu de secours pendaient le long de la passerelle extérieure et se balançaient avec le vent. L'agent est monté les rattacher au pied du support. En redescendant, il a glissé sur les marches de l'escalier métallique et son dos a heurté les marches. Il a depuis une douleur dans le haut du dos.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "bénin",
+    "regulatoryGravity": "G1",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB Sète",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "Après avoir constaté au pied du phare que la câble d'alimentation et le capteur d'éclat du feu de secours pendaient le long de la passerelle extérieure et se balançaient avec le vent. L'agent est monté les rattacher au pied du support. En redescendant, il a glissé sur les marches de l'escalier métallique et son dos a heurté les marches. Il a depuis une douleur dans le haut du dos.",
+    "accidentCauses": "Chute sur obstacle",
+    "hasWorkStoppage": false,
+    "lesionSites": [
+      "DOS"
+    ],
+    "lesionNatures": [
+      "Mal de dos",
+      "Douleur musculaire",
+      "Traumatisme",
+      "luxation",
+      "hématome"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-10",
+    "date": "2026-03-16",
+    "time": "",
+    "title": "Sur le lieu de travail — Antennes CSN (agents hébergés) en PACA, Corse",
+    "description": "A pied, équipé et en sac à dos, dans une descente urbaine (escaliers de la ville de Bastia) l'agent perds l'équilibre (pluie et boue de la veille) et tombe l’œil gauche sur une barre (environ 8-10mm) supportant de la rubalise de signalisation. L'agent à d'abord eu du mal à ouvrir son oeil, il s'est rendu aux urgences avec le véhicule de service. A ce jour, l'agent n'a pas été suivi par un ophtalmologiste mais a été arrêté par le CH de Bastia.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "bénin",
+    "regulatoryGravity": "G1",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Antennes CSN (agents hébergés) en PACA, Corse",
+    "service": "6. CSN",
+    "domain": "6. CSN",
+    "circumstances": "A pied, équipé et en sac à dos, dans une descente urbaine (escaliers de la ville de Bastia) l'agent perds l'équilibre (pluie et boue de la veille) et tombe l’œil gauche sur une barre (environ 8-10mm) supportant de la rubalise de signalisation. L'agent à d'abord eu du mal à ouvrir son oeil, il s'est rendu aux urgences avec le véhicule de service. A ce jour, l'agent n'a pas été suivi par un ophtalmologiste mais a été arrêté par le CH de Bastia.",
+    "accidentCauses": "Chute de terrain accidenté/glissant",
+    "hasWorkStoppage": false,
+    "lesionSites": [
+      "Yeux"
+    ],
+    "lesionNatures": [
+      "plaie"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-11",
+    "date": "2026-03-13",
+    "time": "",
+    "title": "Mission ou déplacement — COB Sète",
+    "description": "Chute de plein pied entre la dalle d'entrée fu Feu de SAUSSET et les enrochement de la Digue.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Mission ou déplacement",
+    "severity": "bénin",
+    "regulatoryGravity": "G1",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB Sète",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "Chute de plein pied entre la dalle d'entrée fu Feu de SAUSSET et les enrochement de la Digue.",
+    "accidentCauses": "Chute de plain pied",
+    "hasWorkStoppage": false,
+    "lesionSites": [
+      "Tête"
+    ],
+    "lesionNatures": [
+      "Coupure"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-12",
+    "date": "2026-03-24",
+    "time": "",
+    "title": "Sur le lieu de travail — COB Sète",
+    "description": "L'agent s'est tordu la cheville gauche en descendant les marches du phare de Bear et a ressenti une vive douleur.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "grave",
+    "regulatoryGravity": "G4",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB Sète",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "L'agent s'est tordu la cheville gauche en descendant les marches du phare de Bear et a ressenti une vive douleur.",
+    "accidentCauses": "Perte de vigilance",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Cheville"
+    ],
+    "lesionNatures": [
+      "Entorse"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-13",
+    "date": "2026-04-20",
+    "time": "",
+    "title": "Sur le lieu de travail — Secteur d'intervention du navire et de son équipage",
+    "description": "En effectuant une manœuvre d'accostage avec l'annexe du navire M. Mardelle s'est mis en situation périlleuse et a fait un faux mouvement générant une douleur dans la cuisse gauche.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Secteur d'intervention du navire et de son équipage",
+    "service": "5. NAVIRE DCS",
+    "domain": "5. NAVIRE DCS",
+    "circumstances": "En effectuant une manœuvre d'accostage avec l'annexe du navire M. Mardelle s'est mis en situation périlleuse et a fait un faux mouvement générant une douleur dans la cuisse gauche.",
+    "accidentCauses": "Perte de vigilance",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Cuisse"
+    ],
+    "lesionNatures": [
+      "Lésion ligamentaire",
+      "musculaire"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-14",
+    "date": "2026-04-23",
+    "time": "",
+    "title": "Sur le lieu de travail — Secteur d'intervention du navire et de son équipage",
+    "description": "En se déplaçant sur le pont l'agent à mis sur pied sur le câble d'alimentation électrique posé sur le pont.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "bénin",
+    "regulatoryGravity": "G1",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Secteur d'intervention du navire et de son équipage",
+    "service": "5. NAVIRE DCS",
+    "domain": "5. NAVIRE DCS",
+    "circumstances": "En se déplaçant sur le pont l'agent à mis sur pied sur le câble d'alimentation électrique posé sur le pont.",
+    "accidentCauses": "Perte de vigilance",
+    "hasWorkStoppage": false,
+    "lesionSites": [
+      "Cheville"
+    ],
+    "lesionNatures": [
+      "Entorse"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-15",
+    "date": "2026-07-23",
+    "time": "",
+    "title": "Sur le lieu de travail — COB 2B",
+    "description": "L'agent s'est transpercé le deuxième doigt de la main avec un tournevis le 23/07/2026. Il n'a pas eu de douleurs jusqu'au 28/07/2026, date à laquelle sa blessure s'est surinfectée.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "bénin",
+    "regulatoryGravity": "G1",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB 2B",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "L'agent s'est transpercé le deuxième doigt de la main avec un tournevis le 23/07/2026. Il n'a pas eu de douleurs jusqu'au 28/07/2026, date à laquelle sa blessure s'est surinfectée.",
+    "accidentCauses": "Manutention manuelle",
+    "hasWorkStoppage": false,
+    "lesionSites": [
+      "Main"
+    ],
+    "lesionNatures": [
+      "Coupure"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-16",
+    "date": "2026-08-20",
+    "time": "",
+    "title": "Sur le lieu de travail — COB Sète",
+    "description": "Lors d'une intervention sur une bouée, l'agent s'est percé avec un forêt son annulaire droit.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB Sète",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "Lors d'une intervention sur une bouée, l'agent s'est percé avec un forêt son annulaire droit.",
+    "accidentCauses": "Perte de vigilance",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Main"
+    ],
+    "lesionNatures": [
+      "Coupure"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-17",
+    "date": "2026-09-07",
+    "time": "",
+    "title": "Sur le lieu de travail — Secteur d'intervention du navire et de son équipage",
+    "description": "Douleur lombaire ressentie lors de la manipulation d'une vanne dans le local machine.",
+    "accidentCategory": "Travail",
+    "accidentEventType": "Sur le lieu de travail",
+    "severity": "modéré",
+    "regulatoryGravity": "G3",
+    "type": "travail",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "Secteur d'intervention du navire et de son équipage",
+    "service": "5. NAVIRE DCS",
+    "domain": "5. NAVIRE DCS",
+    "circumstances": "Douleur lombaire ressentie lors de la manipulation d'une vanne dans le local machine.",
+    "accidentCauses": "Lieu",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Dos"
+    ],
+    "lesionNatures": [
+      "Mal de dos"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  },
+  {
+    "id": "acc-import-18",
+    "date": "2026-10-27",
+    "time": "",
+    "title": "Sur le trajet — COB Marseille",
+    "description": "En évitant un obstacle, l'agent s'est tordu le genou droit en se rendant sur son lieu de travail.",
+    "accidentCategory": "Trajet",
+    "accidentEventType": "Sur le trajet",
+    "severity": "bénin",
+    "regulatoryGravity": "G2",
+    "type": "trajet",
+    "victim": "Anonymisé",
+    "victimFirstName": "",
+    "victimLastName": "",
+    "location": "COB Marseille",
+    "service": "2.SPB",
+    "domain": "2.SPB",
+    "circumstances": "En évitant un obstacle, l'agent s'est tordu le genou droit en se rendant sur son lieu de travail.",
+    "accidentCauses": "Obstacle",
+    "hasWorkStoppage": true,
+    "lesionSites": [
+      "Genou"
+    ],
+    "lesionNatures": [
+      "Entorse"
+    ],
+    "witnesses": [],
+    "measures": "",
+    "createdAt": "2026-10-29T09:34:44.992Z"
+  }
+]

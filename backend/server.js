@@ -576,6 +576,9 @@ const APP_DATA_REGISTRY = {
   rhArriveesDepartsQuestionnaires: { adminOnlyWrite: false },
   notificationPreferencesByUser: { adminOnlyWrite: false },
   resourceReservations: { adminOnlyWrite: false },
+  asbestosSuiviRegister: { adminOnlyWrite: false },
+  asbestosSitesDta: { adminOnlyWrite: false },
+  accidentSuiviIndicateurs: { adminOnlyWrite: false },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {

@@ -3902,6 +3902,7 @@ export default function App() {
               serviceOptions={serviceOptions}
               domainOptions={domainOptions}
               locationOptions={locationOptions}
+              accessToken={accessToken}
             />
           )}
 

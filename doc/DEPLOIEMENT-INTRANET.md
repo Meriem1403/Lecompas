@@ -167,6 +167,31 @@ Le build Netlify désactive l’API (`VITE_USE_BACKEND_API=false`) et garde la c
 | Utilisateurs | PostgreSQL + `/users` |
 | Risques, actions, accidents, notifications, retours d’action | Collections KV |
 | Organisation (services, domaines, sites, catégories), droits, DUERP annexes, visites médicales, registre SST, rôles admin, etc. | `/app-data/*` |
+| Registre amiante (tableau COB + sites DTA + PJ), indicateurs accidentologie Excel | `/app-data/asbestosSuiviRegister`, `asbestosSitesDta`, `accidentSuiviIndicateurs` |
+
+## Import des tableaux Excel (`data/`)
+
+Les fichiers source restent dans `data/*.xlsx`. Les JSON embarqués dans l’app (`src/app/seeds/imported/`) servent de **seed** au premier chargement ; en prod ils sont **écrasés / complétés** via l’API.
+
+Sur une machine avec accès au NAS (ou en SSH sur le serveur après `git pull`) :
+
+```bash
+# 1) Regénérer les JSON depuis les xlsx (après MAJ des fichiers dans data/)
+npm run import:excel
+
+# 2) Pousser vers l’API (login admin requis, rebuild API si nouvelles clés app-data)
+export INTRANET_API_BASE=http://VOTRE_IP:8000/make-server-cfb78916
+export INTRANET_ADMIN_EMAIL=admin@dirm-med.gouv.fr
+export INTRANET_ADMIN_PASSWORD=...
+npm run seed:imported
+# Options : --force | --app-data-only | --risks-only | --accidents-only
+```
+
+- **DUERP** (`MAJ DUERP.xlsx`) → collection `/risks` (478 lignes).
+- **Amiante** (`tableau suivi amiante Tim (1).xlsx` feuille 1 + matériaux + `Nouveau tableau de suivi.xlsx`) → app-data + PJ par ligne dans l’UI.
+- **Accidents** (`analyse accident.xlsx`) → indicateurs en app-data, déclaratif anonymisé en `/accidents`.
+
+Reconstruire le conteneur **API** après mise à jour de `backend/server.js` (nouvelles clés app-data).
 
 ## État produit
 

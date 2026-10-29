@@ -27,6 +27,11 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from './ui/list-pagination-bar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import {
+  AccidentDeclaratifTable,
+  AccidentSuiviIndicateursPanel,
+} from '@/app/components/accidents/AccidentSuiviPanels';
 import {
   getRegulatoryGravityBadgeClass,
   normalizeAccidentStoppageFields,
@@ -96,6 +101,7 @@ interface AccidentsViewProps {
   serviceOptions: string[];
   domainOptions: string[];
   locationOptions: string[];
+  accessToken?: string;
 }
 
 function toAccidentPdfSource(accident: Accident): AccidentPdfSource {
@@ -154,8 +160,12 @@ export function AccidentsView({
   agents,
   serviceOptions,
   domainOptions,
-  locationOptions
+  locationOptions,
+  accessToken = '',
 }: AccidentsViewProps) {
+  const [suiviTab, setSuiviTab] = useState<'indicateurs' | 'declaratif' | 'fiches'>(
+    'declaratif',
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [editingAccident, setEditingAccident] = useState<Accident | null>(null);
   const [viewingAccident, setViewingAccident] = useState<Accident | null>(null);
@@ -738,6 +748,41 @@ export function AccidentsView({
           </div>
         </div>
 
+        <Tabs
+          value={suiviTab}
+          onValueChange={(v) =>
+            setSuiviTab(v as 'indicateurs' | 'declaratif' | 'fiches')
+          }
+        >
+          <TabsList className="mb-4">
+            <TabsTrigger value="indicateurs">Indicateurs / an</TabsTrigger>
+            <TabsTrigger value="declaratif">Déclaratif (tableau)</TabsTrigger>
+            <TabsTrigger value="fiches">Fiches détaillées</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="indicateurs">
+            <AccidentSuiviIndicateursPanel accessToken={accessToken} />
+          </TabsContent>
+
+          <TabsContent value="declaratif">
+            <AccidentDeclaratifTable
+              accidents={paginatedAccidents}
+              onSelect={(id) => {
+                const acc = accidents.find((a) => a.id === id);
+                if (acc) setViewingAccident(acc);
+              }}
+            />
+            <ListPaginationBar
+              className="mt-4"
+              currentPage={listPage}
+              totalPages={listTotalPages}
+              totalItems={filteredAccidents.length}
+              onPageChange={setListPage}
+              itemLabel="ligne(s)"
+            />
+          </TabsContent>
+
+          <TabsContent value="fiches">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Input
             value={searchTerm}
@@ -923,16 +968,17 @@ export function AccidentsView({
             })
           )}
         </div>
+        <ListPaginationBar
+          currentPage={listPage}
+          totalPages={listTotalPages}
+          totalItems={filteredAccidents.length}
+          onPageChange={setListPage}
+          itemLabel="accident(s)"
+          className="mt-6"
+        />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <ListPaginationBar
-        currentPage={listPage}
-        totalPages={listTotalPages}
-        totalItems={filteredAccidents.length}
-        onPageChange={setListPage}
-        itemLabel="accident(s)"
-        className="mt-6"
-      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

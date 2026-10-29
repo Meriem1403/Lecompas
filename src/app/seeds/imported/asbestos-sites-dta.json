@@ -1,0 +1,282 @@
+[
+  {
+    "id": "amiante-site-1",
+    "departement": "Département 06",
+    "site": "Jetée abri Port de Nice (Le Phare)",
+    "dateDernierControle": "35370",
+    "acces": "Accès interdit en voiture, il faut marcher 500m",
+    "commentaires": "On ne retrouve pas le DTA, on part sur une visite initiale",
+    "dtaStatut": "Non",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-2",
+    "departement": "2A - Ajaccio",
+    "site": "Feu du Cap Feno",
+    "dateDernierControle": "35612",
+    "acces": "Pas accessible directement en voiture --> difficile",
+    "commentaires": "Convention avec le conservatoire : DTA déjà réalisé",
+    "dtaStatut": "Non",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-3",
+    "departement": "2B - Bastia",
+    "site": "Jetée du Dragon (dépôt de matériel)",
+    "dateDernierControle": "35827",
+    "acces": "facile d'accès",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-4",
+    "departement": "2B - Bastia",
+    "site": "Phare de Fornali",
+    "dateDernierControle": "35827",
+    "acces": "facile d'accès mais faut terminer à pied par une propriété privé (<500m) : éviter juin à septembre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-5",
+    "departement": "2B - Bastia",
+    "site": "Phare de la Jetée du Port de l’Île Rousse",
+    "dateDernierControle": "35827",
+    "acces": "accessible en voiture",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-6",
+    "departement": "2B - Bastia",
+    "site": "Phare de la Mortella",
+    "dateDernierControle": "35827",
+    "acces": "Accessible en bateau",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-7",
+    "departement": "2B - Bastia",
+    "site": "Phare de la Revellata",
+    "dateDernierControle": "35827",
+    "acces": "Accessible en voiture, pas de difficulté",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-8",
+    "departement": "2B - Bastia",
+    "site": "Phare du Dragon et du môle Génois",
+    "dateDernierControle": "35827",
+    "acces": "accès terrestre, pas de difficulté",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-9",
+    "departement": "2B - Bastia",
+    "site": "Phare du Port de Commerce (StNicolas)",
+    "dateDernierControle": "35827",
+    "acces": "zone à accès réglementé, mais son accès ne présente pas de difficulté pour les entreprises",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-10",
+    "departement": "2B - Bastia",
+    "site": "Phare d’Alistro",
+    "dateDernierControle": "35855",
+    "acces": "facile d'accès",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-11",
+    "departement": "Département 13",
+    "site": "Feu rouge (avant-port-nord ?) de la digue de Saumaty",
+    "dateDernierControle": "39873",
+    "acces": "accès réserver voir GPMM, accessible en voiture",
+    "commentaires": "Concernant le feu de la digue Saumaty, s'il s'agit de celui de l'avant port Nord, la structure du feu a été déplacée en 2016 à l'occasion de travaux d'extension et de confortement de la digue. Il y a donc fort à parier qu'à cette occasion, le nécessaire a été fait pour éliminer ou s'assurer de l'absence d'amiante.",
+    "dtaStatut": "Non",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-12",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu Est pointe courte",
+    "dateDernierControle": "39965",
+    "acces": "accès terrestre sans soucis particulier",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-13",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu Ouest plagette",
+    "dateDernierControle": "39965",
+    "acces": "terrestre, facile d'accès",
+    "commentaires": "synchroniser avec feu est",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-14",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la nouvelle digue (Port de Sète)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre, facile d'accès mais peut être finir à pied",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-15",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la digue Ouest (Port de Marseillan)",
+    "dateDernierControle": "39965",
+    "acces": "accès maritime",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-16",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la digue Ouest (Port du Cap d’Agde)",
+    "dateDernierControle": "39965",
+    "acces": "accès maritime et difficile",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-17",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la digue Est (Port du Cap d’Agde)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-18",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la jetée Sud (Le Barcares)",
+    "dateDernierControle": "39965",
+    "acces": "accès maritime",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-19",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la jetée Sud (Port de Canet)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-20",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la digue Ouest (Port Camargue)",
+    "dateDernierControle": "39965",
+    "acces": "accès maritime",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-21",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la jetée Ouest (Port du Grau du Roi)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-22",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la jetée Est (Port du Grau du Roi)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-23",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la jetée Ouest (Port de Carnon)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-24",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu de la jetée Est (Port de Carnon)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-25",
+    "departement": "Département 30-34-11-66",
+    "site": "Feu rive gauche (Port de Palavas)",
+    "dateDernierControle": "39965",
+    "acces": "terrestre",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-26",
+    "departement": "Département 30-34-11-66",
+    "site": "Centre Opérationnel de balisage de Sète",
+    "dateDernierControle": "2018-08-01",
+    "acces": "Facile",
+    "commentaires": "",
+    "dtaStatut": "Oui",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-27",
+    "departement": "Département 13",
+    "site": "Centre Polmar Port de Bouc pompe Warren",
+    "dateDernierControle": "2020-11-01",
+    "acces": "Facile",
+    "commentaires": "S'agissant de parties qui ne sont pas démontées lors de l'entretien, il avait été convenu d'y apposer des plaques signalétiques pour prévenir les opérateurs.",
+    "dtaStatut": "Non",
+    "attachments": []
+  },
+  {
+    "id": "amiante-site-28",
+    "departement": "Département 30-34-11-66",
+    "site": "Centre de sécurité des navires Sète",
+    "dateDernierControle": "2021",
+    "acces": "Facile",
+    "commentaires": "Le précédent diagnostic avait relevé une présence d'amiante dans un tuyautage débouchant des combles sur le toit par un conduit en brique (a priori sans connexion avec un réseau quelconque à l'époque).\nCe conduit et a priori le tuyautage ont disparu lors de la réfection de la toiture voir photos jointes.",
+    "dtaStatut": "Oui",
+    "attachments": []
+  }
+]

@@ -1,0 +1,231 @@
+{
+  "byYear": [
+    {
+      "year": 2023,
+      "nbAccidents": 13,
+      "sansArret": 4,
+      "avecArret": 9
+    },
+    {
+      "year": 2024,
+      "nbAccidents": 11,
+      "sansArret": 4,
+      "avecArret": 7
+    },
+    {
+      "year": 2025,
+      "nbAccidents": 7,
+      "sansArret": 1,
+      "avecArret": 6
+    },
+    {
+      "year": 2026,
+      "nbAccidents": 10,
+      "sansArret": 5,
+      "avecArret": 5
+    }
+  ],
+  "byCauseYear": [
+    {
+      "cause": "Brûlure",
+      "year": 2023,
+      "nbAccidents": 1,
+      "sansArret": 1,
+      "avecArret": 0,
+      "joursArret": 0
+    },
+    {
+      "cause": "Chute 2 roues",
+      "year": 2023,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 225
+    },
+    {
+      "cause": "Chute hauteur >3m",
+      "year": 2023,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 3
+    },
+    {
+      "cause": "Chute hauteur -3m",
+      "year": 2023,
+      "nbAccidents": 2,
+      "sansArret": 1,
+      "avecArret": 1,
+      "joursArret": 104
+    },
+    {
+      "cause": "Chute plain pied",
+      "year": 2023,
+      "nbAccidents": 2,
+      "sansArret": 0,
+      "avecArret": 2,
+      "joursArret": 63
+    },
+    {
+      "cause": "Faux mouvement",
+      "year": 2023,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 301
+    },
+    {
+      "cause": "Heurt",
+      "year": 2023,
+      "nbAccidents": 2,
+      "sansArret": 1,
+      "avecArret": 1,
+      "joursArret": 113
+    },
+    {
+      "cause": "Manutention manuelle",
+      "year": 2023,
+      "nbAccidents": 3,
+      "sansArret": 1,
+      "avecArret": 2,
+      "joursArret": 7
+    },
+    {
+      "cause": "Accident de la route",
+      "year": 2024,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 155
+    },
+    {
+      "cause": "Chute hauteur -3m",
+      "year": 2024,
+      "nbAccidents": 1,
+      "sansArret": 1,
+      "avecArret": 0,
+      "joursArret": 0
+    },
+    {
+      "cause": "Chute plain pied",
+      "year": 2024,
+      "nbAccidents": 2,
+      "sansArret": 0,
+      "avecArret": 2,
+      "joursArret": 89
+    },
+    {
+      "cause": "Coupure",
+      "year": 2024,
+      "nbAccidents": 2,
+      "sansArret": 1,
+      "avecArret": 1,
+      "joursArret": 4
+    },
+    {
+      "cause": "Faux mouvement",
+      "year": 2024,
+      "nbAccidents": 1,
+      "sansArret": 1,
+      "avecArret": 0,
+      "joursArret": 0
+    },
+    {
+      "cause": "Manutention manuelle",
+      "year": 2024,
+      "nbAccidents": 3,
+      "sansArret": 1,
+      "avecArret": 2,
+      "joursArret": 80
+    },
+    {
+      "cause": "Manutention mécanique",
+      "year": 2024,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 15
+    },
+    {
+      "cause": "Accident de la route",
+      "year": 2025,
+      "nbAccidents": 1,
+      "sansArret": 1,
+      "avecArret": 0,
+      "joursArret": 0
+    },
+    {
+      "cause": "Chute 2 roues",
+      "year": 2025,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 8
+    },
+    {
+      "cause": "Chute sur obstacle",
+      "year": 2025,
+      "nbAccidents": 2,
+      "sansArret": 0,
+      "avecArret": 2,
+      "joursArret": 41
+    },
+    {
+      "cause": "Faux mouvement",
+      "year": 2025,
+      "nbAccidents": 2,
+      "sansArret": 0,
+      "avecArret": 2,
+      "joursArret": 134
+    },
+    {
+      "cause": "Posture",
+      "year": 2025,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 23
+    },
+    {
+      "cause": "Faux mouvement",
+      "year": 2026,
+      "nbAccidents": 4,
+      "sansArret": 1,
+      "avecArret": 3,
+      "joursArret": 92
+    },
+    {
+      "cause": "Chute sur obstacle",
+      "year": 2026,
+      "nbAccidents": 3,
+      "sansArret": 2,
+      "avecArret": 1,
+      "joursArret": 4
+    },
+    {
+      "cause": "Chute plain pied",
+      "year": 2026,
+      "nbAccidents": 1,
+      "sansArret": 1,
+      "avecArret": 0,
+      "joursArret": 0
+    },
+    {
+      "cause": "Manutention manuelle",
+      "year": 2026,
+      "nbAccidents": 1,
+      "sansArret": 1,
+      "avecArret": 0,
+      "joursArret": 0
+    },
+    {
+      "cause": "Lieu",
+      "year": 2026,
+      "nbAccidents": 1,
+      "sansArret": 0,
+      "avecArret": 1,
+      "joursArret": 11
+    }
+  ],
+  "importedAt": "2026-10-29T09:34:44.992Z"
+}
