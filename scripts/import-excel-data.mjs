@@ -308,11 +308,133 @@ function importAccidents() {
   };
 }
 
+const PAPRIPACT_STATUS_MAP = {
+  "en cours": "En cours",
+  "a débuter": "À faire",
+  "a debuter": "À faire",
+  finalisé: "Terminée",
+  finalise: "Terminée",
+  "a reporter": "À faire",
+  "stand by": "En cours",
+  "a supprimer": "À faire",
+};
+
+function excelSerialToIso(serial) {
+  const n = Number(serial);
+  if (!Number.isFinite(n) || n < 1) return "2026-12-31";
+  const base = new Date(Date.UTC(1899, 11, 30));
+  base.setUTCDate(base.getUTCDate() + n);
+  return base.toISOString().slice(0, 10);
+}
+
+function parsePapripactServices(units) {
+  const trimmed = cellStr(units);
+  if (!trimmed || trimmed.toLowerCase() === "tous les services") return [];
+  return trimmed
+    .split(/[-–—]/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function importPapripact() {
+  const filePath = path.join(DATA_DIR, "Papripact (1).xlsx");
+  if (!fs.existsSync(filePath)) {
+    return { actions: [], program: null };
+  }
+  const wb = XLSX.readFile(filePath);
+  const sheetName =
+    wb.SheetNames.find((n) => n.toLowerCase().includes("papripact")) ??
+    wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+  let programYear = 2026;
+  let referent = "";
+  let administration = "";
+  let presentedOnF3sct = "";
+  for (const line of matrix.slice(0, 8)) {
+    for (let c = 0; c < line.length - 1; c++) {
+      const label = cellStr(line[c]).toLowerCase();
+      const val = line[c + 1];
+      if (label === "année" && val) programYear = Number(val) || 2026;
+      if (label === "référent" || label === "referent") referent = cellStr(val);
+      if (label === "administration") administration = cellStr(val);
+      if (label.includes("présenté en f3sct") || label.includes("presente en f3sct")) {
+        presentedOnF3sct = cellStr(val);
+      }
+    }
+  }
+
+  const rows = XLSX.utils.sheet_to_json(sheet, { range: 6, defval: "" });
+  const actions = [];
+  let index = 0;
+  for (const row of rows) {
+    const category =
+      row["Catégorie d'action / Risques"] ||
+      row["Categorie d'action / Risques"] ||
+      "";
+    const units = row["Unités concernées"] || row["Unites concernees"] || "";
+    const description =
+      row[
+        "Actions de prévention à mettre en place (Organisationnelle, collective, individuelle)"
+      ] ||
+      row[
+        "Actions de prevention a mettre en place (Organisationnelle, collective, individuelle)"
+      ] ||
+      "";
+    if (!cellStr(description)) continue;
+    index += 1;
+    const responsable = cellStr(
+      row["Responsable(s) de l'action "] || row["Responsable(s) de l'action"],
+    )
+      .replace(/\r?\n/g, ", ")
+      .trim();
+    const statusRaw = cellStr(row["Statut"]).toLowerCase();
+    const deadline = excelSerialToIso(row["Échéance"] || row["Echeance"]);
+    const title = cellStr(description).split("\n")[0].slice(0, 140);
+    actions.push({
+      id: `papripact-${programYear}-${String(index).padStart(3, "0")}`,
+      title,
+      description: cellStr(description),
+      riskId: "",
+      riskTitle: cellStr(category) || "PAPRIPACT",
+      priority: "Moyenne",
+      status: PAPRIPACT_STATUS_MAP[statusRaw] ?? "À faire",
+      responsable: responsable || "CP",
+      deadline,
+      createdAt: "2026-01-01",
+      source: "MANUEL",
+      services: parsePapripactServices(units),
+      site: "",
+      papripactYear: programYear,
+      papripactIndicators: cellStr(row["Indicateurs"]),
+      papripactComments: cellStr(row["Commentaires"]),
+      papripactCost: cellStr(row["Coût de la mesure"] || row["Cout de la mesure"]),
+    });
+  }
+
+  const program = {
+    year: programYear,
+    administration: administration || "DIRM MED",
+    referent: referent || "CP",
+    presentedOnF3sct: presentedOnF3sct
+      ? excelSerialToIso(presentedOnF3sct)
+      : "",
+    actionCount: actions.length,
+    importedAt: new Date().toISOString(),
+    sourceFile: "Papripact (1).xlsx",
+  };
+
+  return { actions, program };
+}
+
 function main() {
   ensureDir(OUT_DIR);
   const risks = importDuerpRisks();
   const { register, sitesDta } = importAsbestosRegister();
   const { indicateurs, accidents } = importAccidents();
+  const { actions: papripactActions, program: papripactProgram } =
+    importPapripact();
 
   fs.writeFileSync(
     path.join(OUT_DIR, "duerp-risks.json"),
@@ -334,6 +456,16 @@ function main() {
     path.join(OUT_DIR, "accidents-declaratif.json"),
     JSON.stringify(accidents, null, 2),
   );
+  fs.writeFileSync(
+    path.join(OUT_DIR, "papripact-actions.json"),
+    JSON.stringify(papripactActions, null, 2),
+  );
+  if (papripactProgram) {
+    fs.writeFileSync(
+      path.join(OUT_DIR, "papripact-program.json"),
+      JSON.stringify(papripactProgram, null, 2),
+    );
+  }
 
   console.log("Import terminé:");
   console.log(`  DUERP risques: ${risks.length}`);
@@ -341,6 +473,7 @@ function main() {
   console.log(`  Amiante sites DTA: ${sitesDta.length}`);
   console.log(`  Accidents déclaratif: ${accidents.length}`);
   console.log(`  Indicateurs années: ${indicateurs.byYear.length}`);
+  console.log(`  PAPRIPACT actions: ${papripactActions.length}`);
 }
 
 main();

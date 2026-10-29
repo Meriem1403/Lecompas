@@ -158,6 +158,8 @@ async function main() {
         return [{ id: `smoke-${key}`, __smokeMarker: marker, __smokeAt: at }];
       case "accidentSuiviIndicateurs":
         return { __smokeMarker: marker, __smokeAt: at, byYear: [], byCauseYear: [] };
+      case "papripactProgram":
+        return { __smokeMarker: marker, __smokeAt: at, year: 2026, actionCount: 0 };
       default:
         return { __smokeMarker: marker, __smokeAt: at, key };
     }

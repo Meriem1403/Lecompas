@@ -31,6 +31,7 @@ export const APP_DATA_KEYS = {
   asbestosSuiviRegister: "asbestosSuiviRegister",
   asbestosSitesDta: "asbestosSitesDta",
   accidentSuiviIndicateurs: "accidentSuiviIndicateurs",
+  papripactProgram: "papripactProgram",
 } as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[keyof typeof APP_DATA_KEYS];

@@ -3967,6 +3967,7 @@ export default function App() {
                   return [...others, record];
                 })
               }
+              accessToken={accessToken}
             />
           )}
 

@@ -579,6 +579,7 @@ const APP_DATA_REGISTRY = {
   asbestosSuiviRegister: { adminOnlyWrite: false },
   asbestosSitesDta: { adminOnlyWrite: false },
   accidentSuiviIndicateurs: { adminOnlyWrite: false },
+  papripactProgram: { adminOnlyWrite: false },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {

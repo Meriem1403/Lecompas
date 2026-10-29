@@ -184,12 +184,13 @@ export INTRANET_API_BASE=http://VOTRE_IP:8000/make-server-cfb78916
 export INTRANET_ADMIN_EMAIL=admin@dirm-med.gouv.fr
 export INTRANET_ADMIN_PASSWORD=...
 npm run seed:imported
-# Options : --force | --app-data-only | --risks-only | --accidents-only
+# Options : --force | --app-data-only | --risks-only | --accidents-only | --papripact-only
 ```
 
 - **DUERP** (`MAJ DUERP.xlsx`) → collection `/risks` (478 lignes).
 - **Amiante** (`tableau suivi amiante Tim (1).xlsx` feuille 1 + matériaux + `Nouveau tableau de suivi.xlsx`) → app-data + PJ par ligne dans l’UI.
 - **Accidents** (`analyse accident.xlsx`) → indicateurs en app-data, déclaratif anonymisé en `/accidents`.
+- **PAPRIPACT** (`Papripact (1).xlsx`) → **36 actions** dans `/actions` (`papripactYear: 2026`) + métadonnées programme dans `/app-data/papripactProgram`.
 
 Reconstruire le conteneur **API** après mise à jour de `backend/server.js` (nouvelles clés app-data).
 

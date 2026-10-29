@@ -39,6 +39,9 @@ import {
 } from '@/app/utils/actionFilterLogic';
 
 import type { Action, DuerpActionRisk } from "@/app/types/action";
+import { APP_DATA_KEYS } from "@/app/services/appDataApi";
+import { useAppDataDocumentStore } from "@/app/hooks/useAppDataDocumentStore";
+import { IMPORTED_PAPRIPACT_PROGRAM } from "@/app/seeds/importedSeeds";
 
 export type { Action, DuerpActionRisk };
 export type Risk = DuerpActionRisk;
@@ -137,6 +140,7 @@ interface ActionsViewProps {
   locationOptions?: string[];
   papripactSignatures?: PapripactSignatureRecord[];
   onSavePapripactSignature?: (record: PapripactSignatureRecord) => void;
+  accessToken?: string;
 }
 
 function parseDuerpActionId(actionId: string): { riskId: string; measureIndex: number } | null {
@@ -172,7 +176,15 @@ export function ActionsView({
   locationOptions = [],
   papripactSignatures = [],
   onSavePapripactSignature,
+  accessToken = '',
 }: ActionsViewProps) {
+  const [papripactProgram] = useAppDataDocumentStore(
+    APP_DATA_KEYS.papripactProgram,
+    accessToken,
+    { seed: IMPORTED_PAPRIPACT_PROGRAM },
+  );
+  const papripactYear = papripactProgram?.year ?? 2026;
+
   const [actions, setActions] = useState<Action[]>(
     (propActions ?? FAKE_ACTIONS).map((action) => ({
       ...action,
@@ -684,9 +696,9 @@ export function ActionsView({
       </div>
 
       <PapripactSignaturePanel
-        year={2026}
-        actions={allActions}
-        signature={papripactSignatures.find((item) => item.year === 2026)}
+        year={papripactYear}
+        actions={allActions.filter((a) => a.papripactYear === papripactYear)}
+        signature={papripactSignatures.find((item) => item.year === papripactYear)}
         onSaveSignature={(record) => onSavePapripactSignature?.(record)}
         canSign={currentUserRole === 'admin'}
       />

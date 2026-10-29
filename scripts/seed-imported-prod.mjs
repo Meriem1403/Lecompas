@@ -6,7 +6,7 @@
  *
  * Usage: node scripts/seed-imported-prod.mjs
  * Options: --force  écrase app-data même si déjà rempli
- *          --risks-only | --accidents-only | --app-data-only
+ *          --risks-only | --accidents-only | --app-data-only | --papripact-only
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -76,16 +76,27 @@ async function putAppData(key, value, token) {
   if (!res.ok) throw new Error(`PUT app-data/${key}: ${res.status} ${JSON.stringify(json)}`);
 }
 
-async function seedAppData(token) {
+async function seedAppData(token, { keysFilter = null } = {}) {
   const register = readJson("asbestos-register.json");
   const sitesDta = readJson("asbestos-sites-dta.json");
   const indicateurs = readJson("accident-indicators.json");
 
-  const pairs = [
+  let papripactProgram = null;
+  try {
+    papripactProgram = readJson("papripact-program.json");
+  } catch {
+    /* optional */
+  }
+
+  let pairs = [
     ["asbestosSuiviRegister", register],
     ["asbestosSitesDta", sitesDta],
     ["accidentSuiviIndicateurs", indicateurs],
+    ...(papripactProgram ? [["papripactProgram", papripactProgram]] : []),
   ];
+  if (keysFilter) {
+    pairs = pairs.filter(([key]) => keysFilter.includes(key));
+  }
 
   for (const [key, value] of pairs) {
     const existing = await getAppData(key, token);
@@ -137,13 +148,48 @@ async function seedAccidents(token) {
   console.log(`✓ /accidents: ${ok}/${accidents.length} créés (victimes anonymisées)`);
 }
 
+async function seedPapripactActions(token) {
+  const actions = readJson("papripact-actions.json");
+  const { json: listJson } = await api("/actions", { token });
+  const existing = listJson?.actions ?? [];
+  const year = actions[0]?.papripactYear ?? 2026;
+  const hasPapripact = existing.some((a) => a.papripactYear === year);
+  if (hasPapripact && !force) {
+    console.log(
+      `⏭  /actions: PAPRIPACT ${year} déjà présent (--force pour réimporter)`,
+    );
+    return;
+  }
+  let ok = 0;
+  for (const action of actions) {
+    const { res } = await api("/actions", {
+      method: "POST",
+      token,
+      body: action,
+    });
+    if (res.ok) ok += 1;
+  }
+  console.log(`✓ /actions PAPRIPACT: ${ok}/${actions.length} créées`);
+}
+
 async function main() {
   const token = await login();
   console.log(`API: ${API_BASE}`);
 
-  const all = !args.has("--risks-only") && !args.has("--accidents-only") && !args.has("--app-data-only");
+  const all =
+    !args.has("--risks-only") &&
+    !args.has("--accidents-only") &&
+    !args.has("--app-data-only") &&
+    !args.has("--papripact-only");
 
   if (all || args.has("--app-data-only")) await seedAppData(token);
+  if (args.has("--papripact-only")) {
+    await seedAppData(token, { keysFilter: ["papripactProgram"] });
+    await seedPapripactActions(token);
+  } else if (all) {
+    await seedAppData(token);
+    await seedPapripactActions(token);
+  }
   if (all || args.has("--risks-only")) await seedRisks(token);
   if (all || args.has("--accidents-only")) await seedAccidents(token);
 
