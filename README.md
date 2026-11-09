@@ -189,6 +189,7 @@ Lecompas/
 |----------|---------|
 | [doc/DEPLOIEMENT-INTRANET.md](./doc/DEPLOIEMENT-INTRANET.md) | Mise en ligne intranet |
 | [doc/PLAN-MISE-EN-PROD.md](./doc/PLAN-MISE-EN-PROD.md) | Plan de production |
+| [doc/TEST-ENVOI-EMAILS.md](./doc/TEST-ENVOI-EMAILS.md) | Tester le relais SMTP (Mél) avant notifs auto |
 | [GESTION_RISQUES_ADMIN.md](./GESTION_RISQUES_ADMIN.md) | Administration des risques |
 | [SIGNATURE_DUERP_GUIDE.md](./SIGNATURE_DUERP_GUIDE.md) | Signature du document unique |
 | [LOGIN_PAGE_GUIDE.md](./LOGIN_PAGE_GUIDE.md) | Page de connexion |

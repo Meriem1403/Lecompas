@@ -127,6 +127,8 @@ async function main() {
           categories: [{ id: "smoke-cat", name: marker }],
         };
       case "accessProfiles":
+      case "workflowAssignments":
+      case "agentProfiles":
       case "notificationPreferencesByUser":
         return { __smokeMarker: marker, __smokeAt: at };
       case "securitySheets":
@@ -155,6 +157,7 @@ async function main() {
       case "resourceReservations":
       case "asbestosSuiviRegister":
       case "asbestosSitesDta":
+      case "transportCoverageRequests":
         return [{ id: `smoke-${key}`, __smokeMarker: marker, __smokeAt: at }];
       case "accidentSuiviIndicateurs":
         return { __smokeMarker: marker, __smokeAt: at, byYear: [], byCauseYear: [] };

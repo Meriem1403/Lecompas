@@ -64,6 +64,9 @@ const getBearerToken = (authorizationHeader) => {
   return authorizationHeader.slice(7).trim();
 };
 
+const SESSION_IDLE = "30 minutes";
+const SESSION_ABSOLUTE = "8 hours";
+
 const getUserFromToken = async (token) => {
   if (!token) {
     return null;
@@ -75,11 +78,27 @@ const getUserFromToken = async (token) => {
       FROM auth_tokens t
       JOIN users u ON u.id = t.user_id
       WHERE t.token = $1
+        AND COALESCE(t.expires_at, t.created_at + INTERVAL '${SESSION_ABSOLUTE}') > NOW()
+        AND COALESCE(t.last_seen_at, t.created_at) > NOW() - INTERVAL '${SESSION_IDLE}'
       LIMIT 1
     `,
     [token],
   );
-  return rows[0] ?? null;
+  const user = rows[0] ?? null;
+  if (!user) {
+    await pool.query("DELETE FROM auth_tokens WHERE token = $1", [token]);
+    return null;
+  }
+  await pool.query(
+    `
+      UPDATE auth_tokens
+      SET last_seen_at = NOW()
+      WHERE token = $1
+        AND last_seen_at < NOW() - INTERVAL '1 minute'
+    `,
+    [token],
+  );
+  return user;
 };
 
 const hashPassword = async (plain) => bcrypt.hash(plain, 10);
@@ -379,10 +398,13 @@ app.post(`${apiPrefix}/login`, async (req, res) => {
     await kvSet(`user:${row.id}`, user);
 
     const token = crypto.randomUUID();
-    await pool.query("INSERT INTO auth_tokens(token, user_id) VALUES ($1, $2)", [
-      token,
-      row.id,
-    ]);
+    await pool.query(
+      `
+        INSERT INTO auth_tokens(token, user_id, expires_at, last_seen_at)
+        VALUES ($1, $2, NOW() + INTERVAL '${SESSION_ABSOLUTE}', NOW())
+      `,
+      [token, row.id],
+    );
     return res.json({ access_token: token, user });
   } catch (_error) {
     return res.status(500).json({ error: "Server error during login" });
@@ -580,6 +602,9 @@ const APP_DATA_REGISTRY = {
   asbestosSitesDta: { adminOnlyWrite: false },
   accidentSuiviIndicateurs: { adminOnlyWrite: false },
   papripactProgram: { adminOnlyWrite: false },
+  transportCoverageRequests: { adminOnlyWrite: false },
+  workflowAssignments: { adminOnlyWrite: true },
+  agentProfiles: { adminOnlyWrite: false },
 };
 
 app.get(`${apiPrefix}/app-data/:key`, async (req, res) => {

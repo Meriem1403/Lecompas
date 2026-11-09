@@ -153,6 +153,12 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Gestion des demandes et questionnaires RH.",
   },
   {
+    id: "transport-coverage",
+    label: "Transports",
+    section: "Ressources humaines",
+    description: "Demande de prise en charge partielle des titres d'abonnement.",
+  },
+  {
     id: "accidents",
     label: "Accidentologie",
     section: "Prevention",

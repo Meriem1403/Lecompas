@@ -14,6 +14,8 @@ export interface EmployeeAccessProfile {
     {
       canView: boolean;
       crud: Record<CrudAction, boolean>;
+      /** Actions de circuit (déposer, envoyer, valider…). Absentes des anciens profils. */
+      actions?: Record<string, boolean>;
     }
   >;
 }

@@ -106,12 +106,14 @@ export function NotificationSettings({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-          <Mail className="h-6 w-6 text-white" />
+        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-900 via-indigo-700 to-purple-700 flex items-center justify-center shadow-lg ring-2 ring-indigo-100">
+          <Bell className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Notifications par Email</h2>
-          <p className="text-gray-600">Configurez vos préférences de notification</p>
+          <h2 className="text-2xl font-bold text-gray-900">Préférences de notification</h2>
+          <p className="text-gray-600">
+            Canaux in-app et e-mail, événements et filtres
+          </p>
         </div>
       </div>
 
@@ -140,11 +142,13 @@ export function NotificationSettings({
           </Card>
 
           {/* Canaux de notification */}
-          <Card className="border-0 shadow-xl">
-            <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+          <Card className="border-0 shadow-xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-indigo-50 via-purple-50 to-sky-50 border-b border-indigo-100/60">
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-purple-600" />
-                Canaux de Notification
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 shadow-sm">
+                  <Bell className="h-4 w-4 text-white" />
+                </span>
+                Canaux de notification
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">

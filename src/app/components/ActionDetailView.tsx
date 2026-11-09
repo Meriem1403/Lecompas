@@ -15,6 +15,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import type { Action } from '@/app/types/action';
+import { papripactUnitsLabel } from '@/app/components/PapripactActionFields';
 
 interface ActionDetailViewProps {
   action: Action;
@@ -112,6 +113,11 @@ export function ActionDetailView({
               <div className="flex-1">
                 <CardTitle className="text-2xl mb-2">{action.title}</CardTitle>
                 <div className="flex flex-wrap gap-2">
+                  {action.papripactYear ? (
+                    <Badge className="bg-indigo-50 text-indigo-800 border-0">
+                      PAPRIPACT {action.papripactYear}
+                    </Badge>
+                  ) : null}
                   <Badge className={`bg-gradient-to-r ${priorityGradient} text-white border-0 shadow-md`}>
                     Priorité {action.priority}
                   </Badge>
@@ -131,20 +137,43 @@ export function ActionDetailView({
           <CardContent className="space-y-6">
             {/* Description */}
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5 rounded-xl border-l-4 border-blue-500">
-              <h3 className="text-sm font-bold text-blue-900 mb-3">Description</h3>
-              <p className="text-gray-700 leading-relaxed">{action.description}</p>
+              <h3 className="text-sm font-bold text-blue-900 mb-3">
+                {action.papripactYear ? "Actions de prévention à mettre en place" : "Description"}
+              </h3>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{action.description}</p>
             </div>
 
             <Separator />
 
-            {/* Risque associé */}
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border-l-4 border-purple-500">
               <h3 className="text-sm font-bold text-purple-900 mb-3 flex items-center">
                 <Shield className="h-4 w-4 mr-2" />
-                Risque associé
+                {action.papripactYear ? "Catégorie d'action / Risques" : "Risque associé"}
               </h3>
               <p className="text-gray-700 font-semibold text-lg">{action.riskTitle}</p>
+              {action.papripactYear ? (
+                <p className="mt-3 text-sm text-purple-900">
+                  <span className="font-semibold">Unités concernées : </span>
+                  {papripactUnitsLabel(action)}
+                </p>
+              ) : null}
             </div>
+            {action.papripactYear ? (
+              <div className="grid grid-cols-1 gap-4">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm font-bold text-slate-700">Indicateurs</p>
+                  <p className="mt-1 whitespace-pre-wrap text-slate-800">{action.papripactIndicators || "Non renseigné"}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm font-bold text-slate-700">Commentaires</p>
+                  <p className="mt-1 whitespace-pre-wrap text-slate-800">{action.papripactComments || "Non renseigné"}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-sm font-bold text-slate-700">Coût de la mesure</p>
+                  <p className="mt-1 text-slate-800">{action.papripactCost || "Non renseigné"}</p>
+                </div>
+              </div>
+            ) : null}
 
             <Separator />
 
@@ -249,7 +278,6 @@ export function ActionDetailView({
             </CardContent>
           </Card>
 
-          {/* Priority Info */}
           <Card className={`border-0 shadow-xl bg-gradient-to-br ${priorityGradient} text-white`}>
             <CardContent className="pt-6">
               <div className="text-center">

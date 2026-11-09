@@ -68,6 +68,7 @@ import { InformatiqueModulesView } from "./components/InformatiqueModulesView";
 import { ActualitesView } from "./components/ActualitesView";
 import { NotificationBell } from "./components/NotificationBell";
 import { ArriveesDepartsView } from "./components/ArriveesDepartsView";
+import { TransportCoverageView } from "./components/TransportCoverageView";
 import { ActionReturnHistory } from "./components/ActionReturnHistory";
 import { RetourActionView } from "./components/RetourActionView";
 import { DashboardView } from "./components/DashboardView";
@@ -102,6 +103,7 @@ import {
   loadPapripactSignatures,
   savePapripactSignatures,
   mergeInitialManualActions,
+  completePapripactFromFixtures,
   type PapripactSignatureRecord,
 } from "./utils/papripactStorage";
 import {
@@ -133,6 +135,7 @@ import {
   SecuritySheetView,
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
+import { profileFromRoleCode, profileHasAnyGrant } from "./components/access-management/roleAccess";
 import { loadAdminUsers, saveAdminUsers } from "./utils/adminUserRecord";
 import {
   appUserDisplayName,
@@ -141,7 +144,6 @@ import {
 import {
   DEMO_LOGIN_ACCOUNTS,
   directoryUserToSessionUser,
-  findDemoDirectoryUser,
   resolveDirectoryEmail,
   sessionUsersMatch,
   syncSessionWithDirectory,
@@ -212,6 +214,7 @@ import {
   Menu,
   FileCheck,
   Car,
+  Bus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -224,6 +227,13 @@ import {
   isApiAccessToken,
   setStoredAccessToken,
 } from "@/lib/apiClient";
+import {
+  clearAuthSession,
+  readAuthSession,
+  touchAuthActivity,
+  updateStoredSessionUser,
+  writeAuthSession,
+} from "./utils/authSession";
 import {
   fetchProfile,
   loginWithApi,
@@ -264,7 +274,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "chef_service" | "agent" | "prestataire";
+  role: "admin" | "chef_service" | "agent" | "prestataire" | "rh";
   service: string;
   domain?: string;
   location?: string;
@@ -558,6 +568,7 @@ export default function App() {
   const actionsSkipSyncRef = React.useRef(false);
   const accidentsSkipSyncRef = React.useRef(false);
   const notificationsSkipSyncRef = React.useRef(false);
+  const mainScrollRef = React.useRef<HTMLElement>(null);
   const actionReturnsSkipSyncRef = React.useRef(false);
   const appDataSkipRef = React.useRef<Record<string, boolean>>({});
   const [risks, setRisks] = useState<Risk[]>(() =>
@@ -924,7 +935,12 @@ export default function App() {
       try {
         const fromApi = await fetchActionsFromApi(token);
         if (fromApi.length > 0) {
-          setManualActions(fromApi);
+          const completed = completePapripactFromFixtures(
+            fromApi,
+            PAPRIPACT_2026_ACTION_FIXTURES,
+          );
+          if (completed !== fromApi) actionsSkipSyncRef.current = false;
+          setManualActions(completed);
           return;
         }
       } catch (error) {
@@ -1397,10 +1413,7 @@ export default function App() {
       setAccessToken(token);
       setIsAuthenticated(true);
 
-      if (rememberMe) {
-        localStorage.setItem("duerp_user", JSON.stringify(resolvedUser));
-        localStorage.setItem("duerp_token", token);
-      }
+      writeAuthSession(resolvedUser, token, rememberMe);
     });
   };
 
@@ -1525,38 +1538,40 @@ export default function App() {
           return false;
         }
         console.warn("[Lecompas] login API indisponible", error);
-        if (!isDemoLoginAllowed()) {
-          toast.error(
-            "Serveur indisponible. Vérifiez l’API ou le réseau intranet.",
-          );
-          return false;
-        }
+        toast.error(
+          "Serveur indisponible. Vérifiez l’API ou le réseau intranet.",
+        );
+        return false;
       }
     }
 
+    if (!isDemoLoginAllowed()) return false;
     return completeDemoLogin(email, password, rememberMe);
   };
 
   // Handle Logout
-  const handleLogout = () => {
+  const handleLogout = (reason?: "expired") => {
     setUser(null);
     setAccessToken("");
     setIsAuthenticated(false);
     navigate(DEFAULT_AUTHENTICATED_PATH);
-    localStorage.removeItem("duerp_user");
-    localStorage.removeItem("duerp_token");
+    clearAuthSession();
     setStoredAccessToken(null);
-    queueMicrotask(() => toast.info("Déconnexion réussie"));
+    queueMicrotask(() =>
+      toast.info(
+        reason === "expired"
+          ? "Session expirée. Reconnectez-vous."
+          : "Déconnexion réussie",
+      ),
+    );
   };
 
   // Vérifier si l'utilisateur est déjà connecté au chargement
   React.useEffect(() => {
-    const savedUser = localStorage.getItem("duerp_user");
-    const savedToken = localStorage.getItem("duerp_token");
-
-    if (!savedUser || !savedToken) {
-      return;
-    }
+    const saved = readAuthSession();
+    if (!saved) return;
+    const savedToken = saved.token;
+    const savedUser = saved.userJson;
 
     const restoreDemoSession = (userData: User) => {
       const synced = syncSessionWithDirectory(userData, FAKE_USERS);
@@ -1572,8 +1587,7 @@ export default function App() {
         void (async () => {
           const profile = await fetchProfile(savedToken);
           if (!profile) {
-            localStorage.removeItem("duerp_user");
-            localStorage.removeItem("duerp_token");
+            clearAuthSession();
             setStoredAccessToken(null);
             return;
           }
@@ -1581,7 +1595,7 @@ export default function App() {
             id: profile.id,
             email: profile.email,
             name: profile.name,
-            role: mapApiRoleToSessionRole(profile.role),
+            role: userData.role === "rh" ? "rh" : mapApiRoleToSessionRole(profile.role),
             service: profile.service ?? userData.service ?? "",
             domain: profile.domain ?? userData.domain,
             location: profile.location ?? userData.location,
@@ -1621,8 +1635,7 @@ export default function App() {
         "Erreur lors de la récupération des données utilisateur",
         error,
       );
-      localStorage.removeItem("duerp_user");
-      localStorage.removeItem("duerp_token");
+      clearAuthSession();
       setStoredAccessToken(null);
     }
   }, [
@@ -1647,11 +1660,31 @@ export default function App() {
     const synced = syncSessionWithDirectory(user, adminUsers);
     if (!sessionUsersMatch(user, synced)) {
       setUser(synced);
-      if (localStorage.getItem("duerp_token")) {
-        localStorage.setItem("duerp_user", JSON.stringify(synced));
-      }
+      updateStoredSessionUser(synced);
     }
-  }, [adminUsers, isAuthenticated]);
+  }, [adminUsers, isAuthenticated, user]);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    const expireIfNeeded = () => {
+      if (!readAuthSession()) handleLogout("expired");
+    };
+    const onActivity = () => {
+      if (!readAuthSession()) {
+        handleLogout("expired");
+        return;
+      }
+      touchAuthActivity();
+    };
+    window.addEventListener("pointerdown", onActivity);
+    window.addEventListener("keydown", onActivity);
+    const timer = window.setInterval(expireIfNeeded, 60_000);
+    return () => {
+      window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("keydown", onActivity);
+      window.clearInterval(timer);
+    };
+  }, [isAuthenticated]);
 
   const organizationSnapshot = useMemo<OrganizationSnapshot>(
     () => ({
@@ -2357,6 +2390,12 @@ export default function App() {
           icon: ClipboardList,
           color: "text-teal-600",
         },
+        {
+          id: "transport-coverage",
+          label: "Transports",
+          icon: Bus,
+          color: "text-sky-700",
+        },
       ],
     },
     {
@@ -2523,9 +2562,17 @@ export default function App() {
     if (!moduleExists) return true;
 
     if (!currentAdminUser) return true;
-    const profile = accessProfiles[currentAdminUser.id];
-    if (!profile) return true;
-    return profile.modulePermissions[viewId]?.canView ?? true;
+    const stored = accessProfiles[currentAdminUser.id];
+    const profile = profileHasAnyGrant(stored)
+      ? stored
+      : profileFromRoleCode(currentAdminUser.id, currentAdminUser.role, adminRoles);
+    const grant = profile.modulePermissions[viewId];
+    if (grant) return Boolean(grant.canView);
+    return profileFromRoleCode(
+      currentAdminUser.id,
+      currentAdminUser.role,
+      adminRoles,
+    ).modulePermissions[viewId]?.canView ?? false;
   };
 
   const filteredSidebarItems = sidebarItems
@@ -2542,7 +2589,11 @@ export default function App() {
       toast.error("Accès non autorisé pour cet onglet.");
       navigate(getPathForView("dashboard"));
     }
-  }, [activeView, user, accessProfiles, currentAdminUser, navigate]);
+  }, [activeView, user, accessProfiles, currentAdminUser, adminRoles, navigate]);
+
+  useEffect(() => {
+    mainScrollRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [activeView]);
 
   const normalizedPath = location.pathname.replace(/\/$/, "") || "/";
   if (normalizedPath === "/") {
@@ -2648,7 +2699,7 @@ export default function App() {
   const isFullBleedModule = fullBleedModuleViews.has(activeView);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
 
       {/* Sidebar */}
       {isMobileSidebarOpen && (
@@ -2660,7 +2711,7 @@ export default function App() {
         />
       )}
       <aside
-        className={`w-72 bg-white/80 backdrop-blur-xl border-r border-purple-100 flex flex-col shadow-xl fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 overflow-hidden lg:static lg:z-auto lg:translate-x-0 ${
+        className={`h-full w-72 shrink-0 bg-white/80 backdrop-blur-xl border-r border-purple-100 flex flex-col shadow-xl fixed inset-y-0 left-0 z-40 transform transition-transform duration-300 overflow-hidden lg:static lg:z-auto lg:translate-x-0 ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
         } ${isSidebarOpen ? "lg:flex" : "lg:hidden"}`}
       >
@@ -2715,40 +2766,23 @@ export default function App() {
               value={user?.role || "agent"}
               onChange={(e) => {
                 const newRole = e.target.value as User["role"];
-                const directoryUser = findDemoDirectoryUser(
-                  adminUsers,
-                  newRole,
-                );
-
-                if (!directoryUser) {
-                  toast.error(
-                    "Aucun utilisateur correspondant dans l'onglet Utilisateurs.",
-                  );
-                  return;
-                }
-
-                const syncedUser = directoryUserToSessionUser(
-                  directoryUser,
-                  newRole,
-                );
+                if (!user) return;
+                const syncedUser = { ...user, role: newRole };
                 setUser(syncedUser);
-                if (localStorage.getItem("duerp_token")) {
-                  localStorage.setItem(
-                    "duerp_user",
-                    JSON.stringify(syncedUser),
-                  );
-                }
+                updateStoredSessionUser(syncedUser);
                 const roleLabels: Record<User["role"], string> = {
                   admin: "Administrateur",
                   chef_service: "Chef de service",
                   agent: "Agent",
                   prestataire: "Prestataire",
+                  rh: "RH",
                 };
                 toast.success(`Rôle changé : ${roleLabels[newRole]}`);
               }}
               className="w-full px-3 py-2 text-sm font-semibold bg-white border-2 border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 cursor-pointer"
             >
               <option value="agent">Agent</option>
+              <option value="rh">RH</option>
               <option value="admin">Administrateur</option>
               <option value="chef_service">Chef de service</option>
             </select>
@@ -2793,7 +2827,7 @@ export default function App() {
                           <Icon
                             className={`h-5 w-5 ${isActive ? "text-white" : item.color}`}
                           />
-                          <span>{item.label}</span>
+                          <span className="min-w-0 text-left leading-tight">{item.label}</span>
                         </button>
                       );
                     })}
@@ -2815,7 +2849,15 @@ export default function App() {
                   {user?.name}
                 </p>
                 <p className="text-xs text-purple-600 font-medium">
-                  {user?.role}
+                  {user?.role === "admin"
+                    ? "Administrateur"
+                    : user?.role === "chef_service"
+                      ? "Chef de service"
+                      : user?.role === "rh"
+                        ? "RH"
+                        : user?.role === "prestataire"
+                          ? "Prestataire"
+                          : "Agent"}
                 </p>
               </div>
             </div>
@@ -2841,7 +2883,8 @@ export default function App() {
       {/* Main Content */}
       <main
         id="main-content"
-        className="flex min-w-0 flex-1 flex-col overflow-auto"
+        ref={mainScrollRef}
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-gradient-to-br from-slate-50 via-sky-50 to-indigo-50"
         tabIndex={-1}
       >
         {/* Header */}
@@ -2888,7 +2931,9 @@ export default function App() {
                         ? "bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200 text-purple-700"
                         : user?.role === "chef_service"
                           ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 text-amber-700"
-                          : "bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200 text-gray-700"
+                          : user?.role === "rh"
+                            ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 text-amber-800"
+                            : "bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200 text-gray-700"
                     }`}
                   >
                     <UserCog className="h-3 w-3 mr-1" />
@@ -2896,7 +2941,9 @@ export default function App() {
                       ? "Administrateur"
                       : user?.role === "chef_service"
                         ? "Chef de service"
-                        : "Agent"}
+                        : user?.role === "rh"
+                          ? "RH"
+                          : "Agent"}
                   </Badge>
                 </div>
               </div>
@@ -2911,7 +2958,11 @@ export default function App() {
                   <Menu className="h-4 w-4" />
                 </Button>
                 <NotificationBell
-                  notifications={notifications}
+                  notifications={notifications.filter(
+                    (item) =>
+                      !item.recipientEmail ||
+                      item.recipientEmail.toLowerCase() === (user?.email || "").toLowerCase(),
+                  )}
                   onMarkAsRead={(id) => {
                     setNotifications(
                       notifications.map((n) =>
@@ -2922,11 +2973,13 @@ export default function App() {
                     );
                   }}
                   onMarkAllAsRead={() => {
+                    const email = (user?.email || "").toLowerCase();
                     setNotifications(
-                      notifications.map((n) => ({
-                        ...n,
-                        isRead: true,
-                      })),
+                      notifications.map((n) =>
+                        !n.recipientEmail || n.recipientEmail.toLowerCase() === email
+                          ? { ...n, isRead: true }
+                          : n,
+                      ),
                     );
                   }}
                   onNavigateToActualites={() =>
@@ -2961,7 +3014,7 @@ export default function App() {
           className={
             isFullBleedModule
               ? "flex min-h-0 min-w-0 w-full flex-1 flex-col"
-              : "p-8"
+              : "w-full p-4 sm:p-6 lg:p-8"
           }
         >
           {/* Dashboard View */}
@@ -2969,12 +3022,19 @@ export default function App() {
             <DashboardView
               risks={visibleRisks}
               accidents={accidents}
+              actions={manualActions}
+              teamSize={adminUsers.length}
+              awarenessCount={riskAwarenessRecords.length}
+              securitySheetCount={securitySheets.length}
+              pendingReturns={actionReturns.filter((item) => item.status === "pending").length}
+              accessToken={accessToken}
               onNavigateToRisk={(risk) => {
-                setSelectedRisk(risk);
+                const fullRisk = visibleRisks.find((item) => item.id === risk.id);
+                if (!fullRisk) return;
+                setSelectedRisk(fullRisk);
                 goToView("risks");
               }}
-              getCategoryIcon={getCategoryIcon}
-              getCategoryColor={getCategoryColor}
+              onOpenModule={(viewId) => goToView(viewId)}
               getRiskLevelColor={getRiskLevelColor}
               getRiskLevelLabel={getRiskLevelLabel}
             />
@@ -2992,8 +3052,10 @@ export default function App() {
           {activeView === "access-management" && (
             <AccessManagementView
               users={adminUsers}
+              roles={adminRoles}
               profiles={accessProfiles}
               onProfilesChange={setAccessProfiles}
+              accessToken={accessToken}
             />
           )}
 
@@ -4215,6 +4277,21 @@ export default function App() {
               adminDisplayName={user?.name}
               rolesData={adminRoles}
               setRolesData={setAdminRoles}
+              onApplyRoleAccess={(role) => {
+                if (!role.modulePermissions) return;
+                setAccessProfiles((prev) => {
+                  const next = { ...prev };
+                  adminUsers
+                    .filter((adminUser) => adminUser.role === role.code)
+                    .forEach((adminUser) => {
+                      next[adminUser.id] = {
+                        employeeId: adminUser.id,
+                        modulePermissions: role.modulePermissions!,
+                      };
+                    });
+                  return next;
+                });
+              }}
             />
           )}
 
@@ -4250,6 +4327,7 @@ export default function App() {
               accessToken={accessToken}
               userId={user?.id}
               userEmail={user?.email}
+              userName={user?.name}
             />
           )}
 
@@ -4291,6 +4369,36 @@ export default function App() {
             <ArriveesDepartsView
               userRole={user?.role || "agent"}
               accessToken={accessToken}
+            />
+          )}
+
+          {activeView === "transport-coverage" && (
+            <TransportCoverageView
+              accessToken={accessToken}
+              currentUserId={user?.id || ""}
+              currentUserName={user?.name || ""}
+              currentUserEmail={user?.email || ""}
+              currentUserRole={user?.role || "agent"}
+              directory={adminUsers.map((person) => ({
+                id: person.id,
+                email: person.email,
+                firstName: person.firstName,
+                lastName: person.lastName,
+              }))}
+              onNotify={(notice) => {
+                setNotifications((prev) => [
+                  {
+                    id: crypto.randomUUID(),
+                    titre: notice.titre,
+                    contenu: notice.contenu,
+                    type: "info",
+                    dateCreation: new Date().toISOString(),
+                    isRead: false,
+                    recipientEmail: notice.recipientEmail,
+                  },
+                  ...prev,
+                ]);
+              }}
             />
           )}
 

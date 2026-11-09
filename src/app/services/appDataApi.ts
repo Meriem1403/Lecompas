@@ -32,9 +32,23 @@ export const APP_DATA_KEYS = {
   asbestosSitesDta: "asbestosSitesDta",
   accidentSuiviIndicateurs: "accidentSuiviIndicateurs",
   papripactProgram: "papripactProgram",
+  transportCoverageRequests: "transportCoverageRequests",
+  workflowAssignments: "workflowAssignments",
+  agentProfiles: "agentProfiles",
 } as const;
 
 export type AppDataKey = (typeof APP_DATA_KEYS)[keyof typeof APP_DATA_KEYS];
+
+/** Documents écrits par le smoke test intranet : ne pas les afficher. */
+export function isSmokePayload(value: unknown): boolean {
+  if (value == null) return false;
+  try {
+    return JSON.stringify(value).includes("__smokeMarker")
+      || JSON.stringify(value).includes("smoke-risk-");
+  } catch {
+    return false;
+  }
+}
 
 export async function fetchAppData<T>(
   key: AppDataKey,

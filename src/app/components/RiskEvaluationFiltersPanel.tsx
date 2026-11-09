@@ -140,7 +140,9 @@ export function RiskEvaluationFiltersPanel({
             onChange={(responsables) => patch({ responsables })}
             options={uniqueSorted(
               visibleRisks.flatMap((r) =>
-                r.responsable.split(",").map((name) => name.trim()),
+                String(r.responsable || "")
+                  .split(",")
+                  .map((name) => name.trim()),
               ),
             ).map((value) => ({ value, label: value }))}
           />

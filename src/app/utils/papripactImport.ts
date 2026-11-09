@@ -83,6 +83,10 @@ export function parsePapripactWorkbook(
         services: parseServices(units),
         site: "",
         papripactYear: defaultYear,
+        papripactUnits: units.trim(),
+        papripactIndicators: (row["Indicateurs"] || "").trim(),
+        papripactComments: (row["Commentaires"] || "").trim(),
+        papripactCost: (row["Coût de la mesure"] || row["Cout de la mesure"] || "").trim(),
       };
     })
     .filter((action): action is Action => Boolean(action));

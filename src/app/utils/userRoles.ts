@@ -5,7 +5,7 @@ export const ROLE_CHEF = "ROLE_CHEF";
 export const ROLE_AGENT = "ROLE_AGENT";
 export const ROLE_PRESTATAIRE = "ROLE_PRESTATAIRE";
 
-export type SessionRole = "admin" | "chef_service" | "agent" | "prestataire";
+export type SessionRole = "admin" | "chef_service" | "agent" | "prestataire" | "rh";
 
 export function isPrestataireUser(user: AppUser): boolean {
   return user.role === ROLE_PRESTATAIRE;

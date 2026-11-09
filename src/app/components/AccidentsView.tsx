@@ -728,19 +728,19 @@ export function AccidentsView({
             <h3 className="text-2xl font-bold text-gray-900">Liste des accidents</h3>
             <p className="text-gray-600">Gérez les déclarations d'accidents du travail</p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row lg:w-auto">
             <Button
               type="button"
               variant="outline"
               onClick={handleExportListPdf}
-              className="w-full sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
+              className="h-auto w-full min-w-0 whitespace-normal py-2 sm:w-auto border-red-600 text-red-600 hover:bg-red-50"
             >
               <Download className="h-4 w-4 mr-2" />
               Exporter PDF
             </Button>
             <Button
               onClick={handleAdd}
-              className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
+              className="h-auto w-full min-w-0 whitespace-normal py-2 sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
             >
               <PlusCircle className="h-4 w-4 mr-2" />
               Déclarer un accident
@@ -748,56 +748,23 @@ export function AccidentsView({
           </div>
         </div>
 
-        <Tabs
-          value={suiviTab}
-          onValueChange={(v) =>
-            setSuiviTab(v as 'indicateurs' | 'declaratif' | 'fiches')
-          }
-        >
-          <TabsList className="mb-4">
-            <TabsTrigger value="indicateurs">Indicateurs / an</TabsTrigger>
-            <TabsTrigger value="declaratif">Déclaratif (tableau)</TabsTrigger>
-            <TabsTrigger value="fiches">Fiches détaillées</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="indicateurs">
-            <AccidentSuiviIndicateursPanel accessToken={accessToken} />
-          </TabsContent>
-
-          <TabsContent value="declaratif">
-            <AccidentDeclaratifTable
-              accidents={paginatedAccidents}
-              onSelect={(id) => {
-                const acc = accidents.find((a) => a.id === id);
-                if (acc) setViewingAccident(acc);
-              }}
-            />
-            <ListPaginationBar
-              className="mt-4"
-              currentPage={listPage}
-              totalPages={listTotalPages}
-              totalItems={filteredAccidents.length}
-              onPageChange={setListPage}
-              itemLabel="ligne(s)"
-            />
-          </TabsContent>
-
-          <TabsContent value="fiches">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher par titre, victime, catégorie ou lieu"
+            aria-label="Rechercher un accident"
             className="bg-white"
           />
           <Input
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
+            aria-label="Filtrer par date"
             className="bg-white"
           />
           <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as 'all' | Accident['type'])}>
-            <SelectTrigger className="bg-white">
+            <SelectTrigger className="bg-white" aria-label="Filtrer par type">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -808,7 +775,7 @@ export function AccidentsView({
             </SelectContent>
           </Select>
           <Select value={severityFilter} onValueChange={(value) => setSeverityFilter(value as 'all' | Accident['severity'])}>
-            <SelectTrigger className="bg-white">
+            <SelectTrigger className="bg-white" aria-label="Filtrer par gravité">
               <SelectValue placeholder="Gravité" />
             </SelectTrigger>
             <SelectContent>
@@ -821,7 +788,47 @@ export function AccidentsView({
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <Tabs
+          value={suiviTab}
+          onValueChange={(v) =>
+            setSuiviTab(v as 'indicateurs' | 'declaratif' | 'fiches')
+          }
+        >
+          <TabsList className="mb-4 grid h-auto w-full min-w-0 grid-cols-3 gap-1 p-1">
+            <TabsTrigger value="declaratif" className="h-auto min-w-0 whitespace-normal px-1 py-2 text-center text-xs sm:text-sm">Liste</TabsTrigger>
+            <TabsTrigger value="fiches" className="h-auto min-w-0 whitespace-normal px-1 py-2 text-center text-xs sm:text-sm">Fiches</TabsTrigger>
+            <TabsTrigger value="indicateurs" className="h-auto min-w-0 whitespace-normal px-1 py-2 text-center text-xs sm:text-sm">Suivi</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="indicateurs">
+            <AccidentSuiviIndicateursPanel accessToken={accessToken} />
+          </TabsContent>
+
+          <TabsContent value="declaratif">
+            <AccidentDeclaratifTable
+              accidents={paginatedAccidents}
+              onView={(id) => {
+                const acc = accidents.find((a) => a.id === id);
+                if (acc) setViewingAccident(acc);
+              }}
+              onEdit={(id) => {
+                const acc = accidents.find((a) => a.id === id);
+                if (acc) handleEdit(acc);
+              }}
+              onDelete={handleDeleteClick}
+            />
+            <ListPaginationBar
+              className="mt-4"
+              currentPage={listPage}
+              totalPages={listTotalPages}
+              totalItems={filteredAccidents.length}
+              onPageChange={setListPage}
+              itemLabel="accident(s)"
+            />
+          </TabsContent>
+
+          <TabsContent value="fiches">
+        <div className="grid grid-cols-1 gap-4">
           {filteredAccidents.length === 0 ? (
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
               <CardContent className="pt-12 pb-12 text-center">
@@ -877,7 +884,7 @@ export function AccidentsView({
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="grid grid-cols-2 gap-2 sm:flex">
                           <Button 
                             size="sm" 
                             onClick={(e) => {

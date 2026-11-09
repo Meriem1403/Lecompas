@@ -53,12 +53,18 @@ async function api(pathSuffix, { method = "GET", token, body } = {}) {
 }
 
 async function login() {
-  const { res, json } = await api("/auth/login", {
+  const { res, json } = await api("/login", {
     method: "POST",
     body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
   });
-  if (!res.ok) throw new Error(`Login échoué: ${res.status} ${JSON.stringify(json)}`);
-  return json.token;
+  if (!res.ok) {
+    throw new Error(
+      `Login échoué (${ADMIN_EMAIL}): ${res.status} ${JSON.stringify(json)}. Vérifiez INTRANET_ADMIN_PASSWORD.`,
+    );
+  }
+  const token = json?.access_token || json?.token;
+  if (!token) throw new Error("Login sans jeton");
+  return token;
 }
 
 async function getAppData(key, token) {
@@ -118,18 +124,36 @@ async function seedAppData(token, { keysFilter = null } = {}) {
 
 async function seedRisks(token) {
   const risks = readJson("duerp-risks.json");
+  const importedIds = new Set(risks.map((risk) => String(risk.id)));
   const { json: listJson } = await api("/risks", { token });
-  const existing = listJson?.risks?.length ?? 0;
-  if (existing > 50 && !force) {
-    console.log(`⏭  /risks: ${existing} déjà en base (--force pour réimporter)`);
+  const existing = Array.isArray(listJson?.risks) ? listJson.risks : [];
+  const alreadyImported =
+    existing.length === risks.length &&
+    existing.every((risk) => importedIds.has(String(risk.id)));
+  if (alreadyImported && !force) {
+    console.log(`⏭  /risks: base DUERP déjà en place (${existing.length})`);
     return;
   }
+
   let ok = 0;
   for (const risk of risks) {
-    const { res } = await api("/risks", { method: "POST", token, body: risk });
+    const { res, json } = await api("/risks", { method: "POST", token, body: risk });
     if (res.ok) ok += 1;
+    else console.error(`  échec risque ${risk.id}: ${res.status} ${JSON.stringify(json)}`);
   }
-  console.log(`✓ /risks: ${ok}/${risks.length} créés`);
+
+  let removed = 0;
+  for (const risk of existing) {
+    if (!risk?.id || importedIds.has(String(risk.id))) continue;
+    const { res } = await api(`/risks/${encodeURIComponent(risk.id)}`, {
+      method: "DELETE",
+      token,
+    });
+    if (res.ok) removed += 1;
+  }
+  console.log(
+    `✓ /risks: ${ok}/${risks.length} enregistrés, ${removed} ancien(s) hors base retiré(s)`,
+  );
 }
 
 async function seedAccidents(token) {
@@ -187,7 +211,6 @@ async function main() {
     await seedAppData(token, { keysFilter: ["papripactProgram"] });
     await seedPapripactActions(token);
   } else if (all) {
-    await seedAppData(token);
     await seedPapripactActions(token);
   }
   if (all || args.has("--risks-only")) await seedRisks(token);

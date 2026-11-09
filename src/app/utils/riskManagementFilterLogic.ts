@@ -138,7 +138,7 @@ export function buildColumnFilterOptions(
   });
   return [...seen.entries()]
     .map(([value, label]) => ({ value, label }))
-    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+    .sort((a, b) => String(a.label ?? "").localeCompare(String(b.label ?? ""), "fr"));
 }
 
 export function matchesRiskManagementColumnFilters(

@@ -15,14 +15,24 @@ export class ApiError extends Error {
 const TOKEN_KEY = "duerp_token";
 
 export function getStoredAccessToken(): string | null {
-  if (typeof localStorage === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  if (typeof window === "undefined") return null;
+  return (
+    window.sessionStorage.getItem(TOKEN_KEY) ||
+    window.localStorage.getItem(TOKEN_KEY)
+  );
 }
 
 export function setStoredAccessToken(token: string | null): void {
-  if (typeof localStorage === "undefined") return;
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  if (typeof window === "undefined") return;
+  if (!token) {
+    window.sessionStorage.removeItem(TOKEN_KEY);
+    window.localStorage.removeItem(TOKEN_KEY);
+    return;
+  }
+  const storage = window.sessionStorage.getItem(TOKEN_KEY)
+    ? window.sessionStorage
+    : window.localStorage;
+  storage.setItem(TOKEN_KEY, token);
 }
 
 export function isApiAccessToken(token: string): boolean {

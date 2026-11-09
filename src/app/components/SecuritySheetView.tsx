@@ -346,9 +346,10 @@ export function SecuritySheetView({
   );
 
   const filtered = useMemo(() => {
+    const rows = Array.isArray(records) ? records : [];
     const q = query.trim().toLowerCase();
-    if (!q) return records;
-    return records.filter((r) => {
+    if (!q) return rows;
+    return rows.filter((r) => {
       const pack = [
         r.duerpTitre,
         r.titreFiche,

@@ -5,7 +5,8 @@ import {
   ClipboardList, 
   Users,
   ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  Bus,
 } from "lucide-react";
 
 interface Module {
@@ -48,6 +49,14 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
       color: "text-teal-600",
       gradient: "from-teal-600 via-cyan-500 to-blue-500",
     },
+    {
+      id: "transport-coverage",
+      title: "Transports",
+      description: "Demande de prise en charge partielle des titres d'abonnement domicile-travail",
+      icon: Bus,
+      color: "text-sky-700",
+      gradient: "from-sky-700 via-blue-600 to-cyan-500",
+    },
   ];
 
   return (
@@ -68,7 +77,7 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
                   Ressources humaines
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Visites médicales, registre SST, arrivées et départs
+                  Visites médicales, registre SST, arrivées et départs, transports
                 </p>
               </div>
             </div>

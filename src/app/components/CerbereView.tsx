@@ -1092,7 +1092,7 @@ export function CerbereView({
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                        {request.agentConcerne.split(' ').map((n) => n[0]).join('')}
+                        {String(request.agentConcerne || "?").split(' ').map((n) => n[0]).join('')}
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 break-words">{request.agentConcerne}</p>

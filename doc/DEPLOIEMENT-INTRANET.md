@@ -183,9 +183,11 @@ npm run import:excel
 export INTRANET_API_BASE=http://VOTRE_IP:8000/make-server-cfb78916
 export INTRANET_ADMIN_EMAIL=admin@dirm-med.gouv.fr
 export INTRANET_ADMIN_PASSWORD=...
-npm run seed:imported
+npm run seed:imported -- --risks-only
 # Options : --force | --app-data-only | --risks-only | --accidents-only | --papripact-only
 ```
+
+Le NAS n’affiche que les risques **déjà dans PostgreSQL**. Une base courte (démo, environ 46 lignes) n’est pas le fichier Excel. `seed:imported` se connecte sur `POST /login` et **remplace** cette liste par `duerp-risks.json` (478 lignes). Le mot de passe doit être celui du compte admin du NAS (`INTRANET_ADMIN_PASSWORD`). Un compte qui n’est pas admin ne voit ensuite que les risques de son service.
 
 - **DUERP** (`MAJ DUERP.xlsx`) → collection `/risks` (478 lignes).
 - **Amiante** (`tableau suivi amiante Tim (1).xlsx` feuille 1 + matériaux + `Nouveau tableau de suivi.xlsx`) → app-data + PJ par ligne dans l’UI.

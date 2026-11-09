@@ -16,6 +16,10 @@ export interface Action {
   services?: string[];
   site?: string;
   papripactYear?: number | null;
+  papripactUnits?: string;
+  papripactIndicators?: string;
+  papripactComments?: string;
+  papripactCost?: string;
 }
 
 export interface DuerpActionRisk {

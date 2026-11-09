@@ -6,16 +6,13 @@ import { AlertCircle, Calendar, Clock, ChevronRight, Bell } from 'lucide-react';
 
 interface Risk {
   id: string;
-  numeroRisque: string;
   title: string;
-  service: string;
-  plannedMeasures: Array<{
+  plannedMeasures?: Array<{
     description: string;
     responsible: string;
     deadline: string;
     status: 'pending' | 'in_progress' | 'completed';
   }>;
-  echeance: string;
 }
 
 interface DeadlineAlertsCardProps {
@@ -36,7 +33,7 @@ export function DeadlineAlertsCard({ risks, onNavigateToRisk }: DeadlineAlertsCa
   }> = [];
 
   risks.forEach(risk => {
-    risk.plannedMeasures
+    (risk.plannedMeasures ?? [])
       .filter(m => m.status !== 'completed')
       .forEach(measure => {
         const deadline = new Date(measure.deadline);

@@ -45,8 +45,9 @@ import {
   User
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AgentProfilePanel } from './transport/AgentProfilePanel';
 
-type SettingsSection = 'organization' | 'notifications' | 'security' | 'appearance' | 'data' | 'documents';
+type SettingsSection = 'profil' | 'organization' | 'notifications' | 'security' | 'appearance' | 'data' | 'documents';
 
 function buildDefaultNotificationPreferences(
   userId: string,
@@ -83,12 +84,14 @@ interface SettingsViewProps {
   accessToken?: string;
   userId?: string;
   userEmail?: string;
+  userName?: string;
 }
 
 export function SettingsView({
   accessToken = '',
   userId = 'local',
   userEmail = '',
+  userName = '',
 }: SettingsViewProps) {
   const [notificationPreferencesByUser, setNotificationPreferencesByUser] =
     useAppDataDocumentStore<Record<string, NotificationPreference>>(
@@ -326,6 +329,7 @@ export function SettingsView({
   };
 
   const sections = [
+    { id: 'profil' as const, label: 'Fiche profil', icon: User, color: 'from-sky-500 to-indigo-600' },
     { id: 'organization' as const, label: 'Organisation', icon: Building2, color: 'from-blue-500 to-cyan-500' },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, color: 'from-purple-500 to-indigo-500' },
     { id: 'security' as const, label: 'Sécurité', icon: Shield, color: 'from-red-500 to-rose-500' },
@@ -341,9 +345,8 @@ export function SettingsView({
           <h3 className="text-2xl font-bold text-gray-900">Paramètres</h3>
           <p className="text-gray-600">Gérez les paramètres de votre application DUERP</p>
           <p className="text-sm text-slate-600 mt-2 max-w-2xl">
-            Les préférences de la section <strong>Notifications</strong> sont enregistrées
-            sur le serveur (par utilisateur). Les autres sections restent locales au
-            navigateur tant qu&apos;elles ne sont pas branchées à l&apos;API.
+            La <strong>fiche profil</strong> et les <strong>notifications</strong> sont enregistrées
+            sur le serveur. Les autres sections restent locales au navigateur.
           </p>
         </div>
         <Button 
@@ -386,6 +389,9 @@ export function SettingsView({
 
         {/* Contenu des paramètres */}
         <div className="lg:col-span-3 space-y-6">
+          {activeSection === 'profil' && (
+            <AgentProfilePanel accessToken={accessToken} userEmail={userEmail} userName={userName} />
+          )}
           {/* Organisation */}
           {activeSection === 'organization' && (
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">

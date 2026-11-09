@@ -44,7 +44,7 @@ export async function fetchProfile(
 
 export function mapApiRoleToSessionRole(
   role: string,
-): "admin" | "chef_service" | "agent" | "prestataire" {
+): "admin" | "chef_service" | "agent" | "prestataire" | "rh" {
   switch (role) {
     case "admin":
       return "admin";

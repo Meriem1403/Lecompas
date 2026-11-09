@@ -19,6 +19,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isDemoLoginAllowed } from '@/app/config/dataBackend';
 
 interface LoginPageProps {
   onLogin: (email: string, password: string, rememberMe: boolean) => Promise<boolean>;
@@ -82,7 +83,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      const success = await onLogin(demoEmail, demoPassword, true);
+      const success = await onLogin(demoEmail, demoPassword, rememberMe);
       if (!success) {
         setError("Compte ou mot de passe non reconnu.");
         toast.error("Échec de la connexion");
@@ -238,28 +239,33 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="remember"
-                      checked={rememberMe}
-                      onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                      disabled={isLoading}
-                    />
-                    <Label
-                      htmlFor="remember"
-                      className="text-sm text-gray-600 cursor-pointer font-normal"
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="remember"
+                        checked={rememberMe}
+                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                        disabled={isLoading}
+                      />
+                      <Label
+                        htmlFor="remember"
+                        className="text-sm text-gray-600 cursor-pointer font-normal"
+                      >
+                        Se souvenir de moi
+                      </Label>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                      onClick={() => toast.info('Contactez votre administrateur pour réinitialiser votre mot de passe')}
                     >
-                      Se souvenir de moi
-                    </Label>
+                      Mot de passe oublié ?
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                    onClick={() => toast.info('Contactez votre administrateur pour réinitialiser votre mot de passe')}
-                  >
-                    Mot de passe oublié ?
-                  </button>
+                  <p className="text-xs text-gray-500">
+                    La session se ferme après 30 minutes d'inactivité, et au plus tard au bout de 8 heures.
+                  </p>
                 </div>
 
                 <Button
@@ -281,7 +287,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </Button>
               </form>
 
-              {/* Divider */}
+              {isDemoLoginAllowed() ? (
+              <>
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300"></div>
@@ -291,7 +298,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </div>
               </div>
 
-              {/* Demo accounts */}
               <div className="space-y-3">
                 {demoAccounts.map((account) => (
                   <button
@@ -314,6 +320,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   </button>
                 ))}
               </div>
+              </>
+              ) : null}
 
               {/* Footer */}
               <div className="pt-4 border-t border-gray-200">

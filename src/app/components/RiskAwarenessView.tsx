@@ -102,20 +102,21 @@ export function RiskAwarenessView({
   const pageSize = 6;
 
   const visibleRecords = useMemo(() => {
+    const source = Array.isArray(records) ? records : [];
     const base =
       userRole === "admin"
-        ? records
-        : records.filter((record) => exposedRiskKeys.includes(record.riskKey));
+        ? source
+        : source.filter((record) => exposedRiskKeys.includes(record.riskKey));
 
     return base.filter((record) => {
       if (statusFilter !== "all" && record.status !== statusFilter) return false;
       if (!query.trim()) return true;
       const lower = query.trim().toLowerCase();
       return (
-        record.riskNumber.toLowerCase().includes(lower) ||
-        record.riskTitle.toLowerCase().includes(lower) ||
-        record.summary.toLowerCase().includes(lower) ||
-        record.content.toLowerCase().includes(lower)
+        String(record.riskNumber || "").toLowerCase().includes(lower) ||
+        String(record.riskTitle || "").toLowerCase().includes(lower) ||
+        String(record.summary || "").toLowerCase().includes(lower) ||
+        String(record.content || "").toLowerCase().includes(lower)
       );
     });
   }, [exposedRiskKeys, query, records, statusFilter, userRole]);
@@ -173,7 +174,7 @@ export function RiskAwarenessView({
       location: record.location || "",
       summary: record.summary,
       content: record.content,
-      linksText: record.links.join("\n"),
+      linksText: (record.links || []).join("\n"),
       documents: normalizeDocuments(record.documents),
     });
     setLinkDraft("");
@@ -972,7 +973,7 @@ export function RiskAwarenessView({
 
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-2">
-                  <span className="font-semibold text-amber-900">Liens :</span> {record.links.length}
+                  <span className="font-semibold text-amber-900">Liens :</span> {record.links?.length ?? 0}
                 </div>
                 <div className="rounded-lg bg-stone-100 border border-stone-200 p-2">
                   <span className="font-semibold text-stone-700">Documents :</span> {record.documents.length}

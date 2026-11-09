@@ -127,7 +127,7 @@ export function CerbereRequestDetail({
                 </div>
                 <div className="flex items-center space-x-3 mt-2">
                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                    {request.agentConcerne.split(' ').map((n) => n[0]).join('')}
+                    {String(request.agentConcerne || "?").split(' ').map((n) => n[0]).join('')}
                   </div>
                   <p className="text-lg font-medium text-gray-900 break-words">{request.agentConcerne}</p>
                 </div>

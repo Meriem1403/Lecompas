@@ -119,7 +119,7 @@ export function matchesRiskEvaluationFilters(
   if (!includesAny(filters.frequencies, String(risk.probability))) return false;
 
   if (filters.responsables.length > 0) {
-    const responsibles = risk.responsable
+    const responsibles = String(risk.responsable || "")
       .split(",")
       .map((name) => name.trim())
       .filter(Boolean);

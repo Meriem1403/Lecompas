@@ -17,21 +17,42 @@ import {
 import { PlusCircle, Edit, Trash2, Eye, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { AccessPermissionRow } from '@/app/components/access-management/AccessPermissionRow';
+import { ACCESS_MODULES, CRUD_LABELS } from '@/app/components/access-management/constants';
+import {
+  accessExtentSummary,
+  normalizeModulePermissions,
+  permissionsForPreset,
+  presetForRoleCode,
+  type ModulePermissions,
+} from '@/app/components/access-management/roleAccess';
+import { blankActions, seatLabel, workflowActionsFor } from '@/app/components/access-management/workflowActions';
 
 export interface Role {
   id: number;
   code: string;
   displayName: string;
+  /** Même matrice que Gestion des accès : visibilité, CRUD et actions de circuit. */
+  modulePermissions?: ModulePermissions;
 }
 
 interface RoleManagementViewProps {
   roles: Role[];
   setRoles: React.Dispatch<React.SetStateAction<Role[]>>;
+  /** Recopie la matrice du rôle sur les agents qui portent ce code. */
+  onApplyRoleAccess?: (role: Role) => void;
+}
+
+function withAccess(role: Role): Role & { modulePermissions: ModulePermissions } {
+  return {
+    ...role,
+    modulePermissions: normalizeModulePermissions(role.code, role.modulePermissions),
+  };
 }
 
 type ViewMode = 'list' | 'view' | 'edit' | 'create';
 
-export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps) {
+export function RoleManagementView({ roles, setRoles, onApplyRoleAccess }: RoleManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -48,6 +69,20 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
   }, [listPage, listTotalPages, roles.length]);
+
+  useEffect(() => {
+    const incomplete = roles.some(
+      (role) =>
+        !role.modulePermissions ||
+        ACCESS_MODULES.some((moduleItem) => {
+          const permission = role.modulePermissions?.[moduleItem.id];
+          if (!permission) return true;
+          return workflowActionsFor(moduleItem.id).some((action) => permission.actions?.[action.id] == null);
+        }),
+    );
+    if (!incomplete) return;
+    setRoles(roles.map((role) => withAccess(role)));
+  }, [roles, setRoles]);
 
   const handleView = (role: Role) => {
     setSelectedRole(role);
@@ -84,18 +119,21 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
   };
 
   const handleSave = (roleData: Partial<Role>) => {
+    const code = roleData.code || selectedRole?.code || '';
+    const saved: Role = withAccess({
+      id: selectedRole?.id ?? Math.max(...roles.map((role) => role.id), 0) + 1,
+      code,
+      displayName: roleData.displayName || selectedRole?.displayName || '',
+      modulePermissions: roleData.modulePermissions,
+    });
     if (viewMode === 'create') {
-      const newRole: Role = {
-        id: Math.max(...roles.map(r => r.id), 0) + 1,
-        code: roleData.code || '',
-        displayName: roleData.displayName || ''
-      };
-      setRoles([...roles, newRole]);
-      toast.success('Rôle créé avec succès');
+      setRoles([...roles, saved]);
+      toast.success('Rôle créé. Ses droits sont ceux de la gestion des accès.');
     } else if (viewMode === 'edit' && selectedRole) {
-      setRoles(roles.map(r => r.id === selectedRole.id ? { ...r, ...roleData } : r));
-      toast.success('Rôle modifié avec succès');
+      setRoles(roles.map((role) => (role.id === selectedRole.id ? saved : role)));
+      toast.success('Rôle enregistré. Les agents qui ont ce rôle reprennent ces droits.');
     }
+    onApplyRoleAccess?.(saved);
     handleBack();
   };
 
@@ -107,7 +145,9 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <h3 className="text-2xl font-bold text-gray-900">Gestion des rôles</h3>
-              <p className="text-gray-600">Gérez les rôles et permissions</p>
+              <p className="text-gray-600">
+                Chaque rôle porte la matrice de Gestion des accès : visibilité, CRUD et actions de circuit. Les personnes désignées se choisissent dans Gestion des accès.
+              </p>
             </div>
             <Button 
               onClick={handleCreate} 
@@ -127,6 +167,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">ID</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Code</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Nom affiché</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Étendue des accès</th>
                       <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -138,6 +179,9 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
                           <Badge className="font-mono bg-gray-100 text-gray-800 border-0">{role.code}</Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">{role.displayName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-violet-800 font-medium">
+                          {accessExtentSummary(withAccess(role).modulePermissions)}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <div className="flex gap-2">
                             <Button 
@@ -231,7 +275,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
         </div>
 
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardContent className="p-8">
+          <CardContent className="p-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <p className="text-sm font-semibold text-gray-500 mb-2">ID</p>
@@ -248,6 +292,7 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
                 <p className="text-2xl font-bold text-gray-900">{selectedRole.displayName}</p>
               </div>
             </div>
+            <RoleAccessSummary role={withAccess(selectedRole)} />
           </CardContent>
         </Card>
       </div>
@@ -268,6 +313,63 @@ export function RoleManagementView({ roles, setRoles }: RoleManagementViewProps)
 }
 
 // Formulaire d'édition/création
+function RoleAccessSummary({ role }: { role: Role & { modulePermissions: ModulePermissions } }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-gray-500">Étendue des accès</p>
+        <p className="text-base font-semibold text-violet-800">
+          {accessExtentSummary(role.modulePermissions)}
+        </p>
+        <p className="text-sm text-gray-500">
+          Ces cases sont la source de Gestion des accès pour les agents qui ont le rôle {role.displayName}.
+        </p>
+      </div>
+      <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+        {ACCESS_MODULES.map((moduleItem) => {
+          const permission = role.modulePermissions[moduleItem.id];
+          const crudOn = (Object.keys(CRUD_LABELS) as Array<keyof typeof CRUD_LABELS>).filter(
+            (action) => permission?.crud?.[action],
+          );
+          const circuitOn = workflowActionsFor(moduleItem.id).filter(
+            (action) => permission?.actions?.[action.id],
+          );
+          return (
+            <div key={moduleItem.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-violet-700">{moduleItem.section}</p>
+                  <p className="text-sm font-semibold text-slate-900">{moduleItem.label}</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge className={permission?.canView ? "bg-emerald-100 text-emerald-800 border-0" : "bg-slate-100 text-slate-600 border-0"}>
+                    {permission?.canView ? "Visible" : "Masqué"}
+                  </Badge>
+                  {crudOn.length > 0 ? (
+                    crudOn.map((action) => (
+                      <Badge key={action} className="bg-violet-100 text-violet-800 border-0">
+                        {CRUD_LABELS[action]}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge className="bg-slate-100 text-slate-600 border-0">Aucun droit CRUD</Badge>
+                  )}
+                  {circuitOn.map((action) => (
+                    <Badge key={action.id} className="bg-amber-100 text-amber-900 border-0">
+                      {action.label}
+                      {action.seats > 0 ? ` · ${seatLabel(action.seats)}` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function RoleFormView({ 
   role, 
   onSave, 
@@ -279,7 +381,15 @@ function RoleFormView({
   onCancel: () => void;
   isEdit: boolean;
 }) {
-  const [formData, setFormData] = useState<Partial<Role>>(role || {});
+  const [formData, setFormData] = useState<Partial<Role>>(() => {
+    if (role) return withAccess(role);
+    return {
+      code: "",
+      displayName: "",
+      modulePermissions: permissionsForPreset("agent"),
+    };
+  });
+  const permissions = formData.modulePermissions || permissionsForPreset(presetForRoleCode(formData.code || ""));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,7 +408,9 @@ function RoleFormView({
             {isEdit ? 'Modifier le rôle' : 'Nouveau rôle'}
           </h3>
           <p className="text-gray-600">
-            {isEdit ? 'Modifiez les informations du rôle' : 'Remplissez les informations du nouveau rôle'}
+            {isEdit
+              ? 'Le nom et la matrice de modules sont ceux repris dans Gestion des accès.'
+              : 'Définissez le nom et l’étendue des modules, identique à Gestion des accès.'}
           </p>
         </div>
       </div>
@@ -330,7 +442,103 @@ function RoleFormView({
                   onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
                   required
                 />
-                <p className="text-sm text-gray-500">Nom qui sera affiché dans l'interface</p>
+                <p className="text-sm text-gray-500">Nom qui sera affiché dans l'interface et dans Gestion des accès</p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <Label>Étendue des accès</Label>
+                  <p className="text-sm text-gray-500">
+                    Même liste que Gestion des accès. Les pastilles ambre sont les actions hors CRUD. Le nombre indique combien de personnes pourront être désignées.
+                  </p>
+                </div>
+                {ACCESS_MODULES.map((moduleItem) => {
+                  const permission = permissions[moduleItem.id];
+                  return (
+                    <AccessPermissionRow
+                      key={moduleItem.id}
+                      moduleLabel={moduleItem.label}
+                      moduleDescription={moduleItem.description}
+                      moduleSection={moduleItem.section}
+                      canView={permission?.canView ?? false}
+                      crud={
+                        permission?.crud ?? {
+                          create: false,
+                          read: false,
+                          update: false,
+                          delete: false,
+                        }
+                      }
+                      workflowActions={workflowActionsFor(moduleItem.id).map((action) => ({
+                        id: action.id,
+                        label: action.seats > 0 ? `${action.label} · ${seatLabel(action.seats)}` : action.label,
+                        active: Boolean(permission?.actions?.[action.id]),
+                      }))}
+                      onToggleWorkflow={(actionId) =>
+                        setFormData((current) => {
+                          const next = current.modulePermissions || permissions;
+                          const currentPermission = next[moduleItem.id];
+                          return {
+                            ...current,
+                            modulePermissions: {
+                              ...next,
+                              [moduleItem.id]: {
+                                ...currentPermission,
+                                canView: true,
+                                actions: {
+                                  ...(currentPermission.actions ?? blankActions(moduleItem.id)),
+                                  [actionId]: !currentPermission.actions?.[actionId],
+                                },
+                              },
+                            },
+                          };
+                        })
+                      }
+                      onToggleView={(checked) =>
+                        setFormData((current) => {
+                          const next = current.modulePermissions || permissions;
+                          const currentPermission = next[moduleItem.id];
+                          return {
+                            ...current,
+                            modulePermissions: {
+                              ...next,
+                              [moduleItem.id]: {
+                                ...currentPermission,
+                                canView: checked,
+                                crud: checked
+                                  ? currentPermission.crud
+                                  : { create: false, read: false, update: false, delete: false },
+                                actions: checked
+                                  ? currentPermission.actions ?? blankActions(moduleItem.id)
+                                  : blankActions(moduleItem.id),
+                              },
+                            },
+                          };
+                        })
+                      }
+                      onToggleCrud={(action) =>
+                        setFormData((current) => {
+                          const next = current.modulePermissions || permissions;
+                          const currentPermission = next[moduleItem.id];
+                          return {
+                            ...current,
+                            modulePermissions: {
+                              ...next,
+                              [moduleItem.id]: {
+                                ...currentPermission,
+                                canView: true,
+                                crud: {
+                                  ...currentPermission.crud,
+                                  [action]: !currentPermission.crud[action],
+                                },
+                              },
+                            },
+                          };
+                        })
+                      }
+                    />
+                  );
+                })}
               </div>
             </div>
 

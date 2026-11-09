@@ -1,35 +1,43 @@
-import { getPriorityBandFromGfm } from '@/app/services/riskPriority';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
-import { DeadlineAlertsCard } from './DeadlineAlertsCard';
-import { PageHeader } from './PageHeader';
-import { 
-  Shield, 
-  AlertCircle, 
-  Activity, 
+import { useEffect, useState } from "react";
+import { getPriorityBandFromGfm } from "@/app/services/riskPriority";
+import {
+  APP_DATA_KEYS,
+  fetchAppData,
+  isSmokePayload,
+  type AppDataKey,
+} from "@/app/services/appDataApi";
+import { isBackendApiEnabled } from "@/app/config/dataBackend";
+import { isApiAccessToken } from "@/lib/apiClient";
+import type { Action } from "@/app/types/action";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { DeadlineAlertsCard } from "./DeadlineAlertsCard";
+import {
+  Shield,
+  AlertCircle,
+  Activity,
   AlertTriangle,
-  TrendingUp,
   Calendar,
   User,
   ChevronRight,
-  Check,
-  Flame,
-  Target,
   BarChart3,
   PieChart,
-  TrendingDown,
   Clock,
   CheckCircle2,
-  XCircle,
-  LayoutDashboard
-} from 'lucide-react';
+  Stethoscope,
+  Bus,
+  ClipboardList,
+  Users,
+  FileText,
+  Droplets,
+  CalendarClock,
+  FileWarning,
+  Brain,
+  FolderOpen,
+} from "lucide-react";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart as RechartsPieChart,
   Pie,
   Cell,
@@ -37,261 +45,325 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   Area,
   AreaChart,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar
-} from 'recharts';
+} from "recharts";
 
 interface Risk {
   id: string;
-  numeroRisque: string;
   title: string;
-  unite: string;
   service: string;
-  site: string;
   situation: string;
-  associatedRisk: string;
   category: string;
-  responsable: string;
-  severity: number;
-  probability: number;
   riskLevel: number;
-  existingMeasures: string[];
-  moyenMaitrise: string;
-  calculPriorite: number;
-  prioriteFinale: number;
-  plannedMeasures: Array<{
+  plannedMeasures?: Array<{
     description: string;
     responsible: string;
     deadline: string;
-    status: 'pending' | 'in_progress' | 'completed';
-    completedDate?: string;
-    effectiveness?: string;
+    status: "pending" | "in_progress" | "completed";
   }>;
-  status: 'a_traiter' | 'en_traitement' | 'maitrise' | 'supprime';
-  echeance: string;
-  retourAction: string;
-  observation: string;
+  status: "a_traiter" | "en_traitement" | "maitrise" | "supprime";
   createdAt: string;
-  updatedAt: string;
 }
 
 interface Accident {
   id: string;
   date: string;
   title: string;
-  description: string;
-  severity: 'bénin' | 'modéré' | 'grave' | 'très_grave';
-  type: 'travail' | 'trajet' | 'maladie_pro';
+  severity: "bénin" | "modéré" | "grave" | "très_grave";
   victim: string;
-  location: string;
-  witnesses: string[];
-  measures: string;
-  createdAt: string;
 }
 
 interface DashboardViewProps {
   risks: Risk[];
   accidents: Accident[];
-  onNavigateToRisk: (risk: Risk) => void;
-  getCategoryIcon: (category: string) => any;
-  getCategoryColor: (category: string) => string;
+  actions: Action[];
+  teamSize: number;
+  awarenessCount: number;
+  securitySheetCount: number;
+  pendingReturns: number;
+  accessToken?: string;
+  onNavigateToRisk: (risk: { id: string }) => void;
+  onOpenModule: (viewId: string) => void;
   getRiskLevelColor: (level: number) => string;
   getRiskLevelLabel: (level: number) => string;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  chimique: "Chimique",
+  électrique: "Électrique",
+  electrique: "Électrique",
+  incendie: "Incendie",
+  mécanique: "Mécanique",
+  mecanique: "Mécanique",
+  ergonomique: "Ergonomique",
+  psychosocial: "Psychosocial",
+  physique: "Physique",
+  routier: "Routier",
+  biologique: "Biologique",
+  noyade: "Noyade",
+  asphyxie: "Asphyxie",
+  risque: "Autres",
+};
+
+const WORKFLOW_LABELS: Record<Risk["status"], string> = {
+  a_traiter: "À traiter",
+  en_traitement: "En traitement",
+  maitrise: "Maîtrisé",
+  supprime: "Supprimé",
+};
+
+const EXTRA_COUNTS: Array<{ viewId: string; key: AppDataKey }> = [
+  { viewId: "medical-visits", key: APP_DATA_KEYS.medicalVisits },
+  { viewId: "asbestos", key: APP_DATA_KEYS.asbestosSuiviRegister },
+  { viewId: "transport-coverage", key: APP_DATA_KEYS.transportCoverageRequests },
+  { viewId: "mercury", key: APP_DATA_KEYS.mercuryCampaigns },
+  { viewId: "arrivees-departs", key: APP_DATA_KEYS.rhArriveesDepartsDemandes },
+  { viewId: "reservations", key: APP_DATA_KEYS.resourceReservations },
+  { viewId: "prevention-plan", key: APP_DATA_KEYS.preventionPlans },
+  { viewId: "safety-protocols", key: APP_DATA_KEYS.safetyProtocols },
+];
+
+function formatCategory(category: string) {
+  const key = String(category || "").trim().toLowerCase();
+  if (!key) return "Non renseignée";
+  return (
+    CATEGORY_LABELS[key] ??
+    key.charAt(0).toUpperCase() + key.slice(1)
+  );
+}
+
+function parseDate(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function countRecords(value: unknown) {
+  if (value == null || isSmokePayload(value)) return null;
+  return Array.isArray(value) ? value.length : null;
+}
+
+function lastMonths(count: number) {
+  const now = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (count - 1 - index), 1);
+    return {
+      label: date.toLocaleDateString("fr-FR", { month: "short" }).replace(".", ""),
+      year: date.getFullYear(),
+      month: date.getMonth(),
+    };
+  });
+}
+
+const chartTooltip = {
+  backgroundColor: "rgba(255, 255, 255, 0.96)",
+  border: "1px solid #e5e7eb",
+  borderRadius: "8px",
+};
+
 export function DashboardView({
   risks,
   accidents,
+  actions,
+  teamSize,
+  awarenessCount,
+  securitySheetCount,
+  pendingReturns,
+  accessToken = "",
   onNavigateToRisk,
-  getCategoryIcon,
-  getCategoryColor,
+  onOpenModule,
   getRiskLevelColor,
-  getRiskLevelLabel
+  getRiskLevelLabel,
 }: DashboardViewProps) {
-  const showEmptyScopeHint = risks.length === 0;
+  const [extraCounts, setExtraCounts] = useState<Record<string, number | null>>({});
 
-  // Statistiques
-  const stats = [
-    { 
-      title: 'Risques Identifiés', 
-      value: risks.length, 
-      icon: Shield, 
-      gradient: 'from-blue-500 to-cyan-500',
-      bgGradient: 'from-blue-50 to-cyan-50',
-      change: '+12%',
-      changeType: 'up'
-    },
-    {
-      title: 'Risques P1',
-      value: risks.filter(r => r.riskLevel > 9).length,
-      icon: AlertCircle, 
-      gradient: 'from-red-500 to-pink-500',
-      bgGradient: 'from-red-50 to-pink-50',
-      change: '-8%',
-      changeType: 'down'
-    },
-    { 
-      title: 'Actions en cours', 
-      value: risks.reduce((acc, r) => acc + r.plannedMeasures.filter(m => m.status === 'in_progress').length, 0),
-      icon: Activity, 
-      gradient: 'from-orange-500 to-yellow-500',
-      bgGradient: 'from-orange-50 to-yellow-50',
-      change: '+24%',
-      changeType: 'up'
-    },
-    { 
-      title: 'Accidents ce mois', 
-      value: accidents.length, 
-      icon: AlertTriangle, 
-      gradient: 'from-purple-500 to-indigo-500',
-      bgGradient: 'from-purple-50 to-indigo-50',
-      change: '-15%',
-      changeType: 'down'
+  useEffect(() => {
+    if (!isBackendApiEnabled() || !accessToken || !isApiAccessToken(accessToken)) {
+      return;
     }
-  ];
+    let cancelled = false;
+    void (async () => {
+      const entries = await Promise.all(
+        EXTRA_COUNTS.map(async (item) => {
+          try {
+            const value = await fetchAppData<unknown>(item.key, accessToken);
+            return [item.viewId, countRecords(value)] as const;
+          } catch {
+            return [item.viewId, null] as const;
+          }
+        }),
+      );
+      if (!cancelled) setExtraCounts(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
-  const CATEGORY_LABELS: Record<string, string> = {
-    chimique: 'Chimique',
-    électrique: 'Électrique',
-    incendie: 'Incendie',
-    mécanique: 'Mécanique',
-    ergonomique: 'Ergonomique',
-    psychosocial: 'Psychosocial',
-    physique: 'Physique',
-    routier: 'Routier',
-    biologique: 'Biologique',
-    noyade: 'Noyade',
-    asphyxie: 'Asphyxie',
-    risque: 'Autres',
+  const priorityCounts = { P1: 0, P2: 0, P3: 0 };
+  const workflowCounts: Record<Risk["status"], number> = {
+    a_traiter: 0,
+    en_traitement: 0,
+    maitrise: 0,
+    supprime: 0,
   };
+  const categoryCounts = new Map<string, number>();
+  const serviceCounts = new Map<string, number>();
 
-  const formatCategoryLabel = (category: string) =>
-    CATEGORY_LABELS[category] ??
-    category.charAt(0).toUpperCase() + category.slice(1);
+  risks.forEach((risk) => {
+    priorityCounts[getPriorityBandFromGfm(Number(risk.riskLevel) || 0)] += 1;
+    if (workflowCounts[risk.status] != null) workflowCounts[risk.status] += 1;
+    const category = formatCategory(risk.category);
+    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    const service = String(risk.service || "").trim();
+    if (service) serviceCounts.set(service, (serviceCounts.get(service) || 0) + 1);
+  });
 
-  const aggregateByPriority = () => {
-    const bands: Record<'P1' | 'P2' | 'P3', number> = { P1: 0, P2: 0, P3: 0 };
-    risks.forEach((risk) => {
-      const band = getPriorityBandFromGfm(risk.riskLevel);
-      bands[band] += 1;
-    });
-    return (['P1', 'P2', 'P3'] as const).map((band, index) => ({
-      id: `prio-${band}`,
-      category: band,
-      name: band,
-      total: bands[band],
-      critique: band === 'P1' ? bands[band] : 0,
-      value: bands[band],
-      color: index === 0 ? '#ef4444' : index === 1 ? '#f97316' : '#22c55e',
-    }));
-  };
+  const now = new Date();
+  const accidentsThisMonth = accidents.filter((accident) => {
+    const date = parseDate(accident.date);
+    return date?.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }).length;
+  const accidentsThisYear = accidents.filter((accident) => {
+    const date = parseDate(accident.date);
+    return date?.getFullYear() === now.getFullYear();
+  }).length;
 
-  const categoryChartData = aggregateByPriority();
-  const radarData = categoryChartData.slice(0, 8);
+  const openActions = actions.filter((action) => action.status !== "Terminée");
+  const overdueActions = actions.filter((action) => {
+    if (action.status === "Terminée") return false;
+    if (action.status === "En retard") return true;
+    const deadline = parseDate(action.deadline);
+    return deadline != null && deadline.getTime() < now.getTime();
+  });
 
-  // Donnees pour graphique par catégorie de risque
-  const riskData = categoryChartData.slice(0, 10);
+  const months = lastMonths(6);
+  const monthlyData = months.map((month) => ({
+    mois: month.label,
+    risques: risks.filter((risk) => {
+      const date = parseDate(risk.createdAt);
+      return date?.getFullYear() === month.year && date.getMonth() === month.month;
+    }).length,
+    accidents: accidents.filter((accident) => {
+      const date = parseDate(accident.date);
+      return date?.getFullYear() === month.year && date.getMonth() === month.month;
+    }).length,
+    actions: actions.filter((action) => {
+      const date = parseDate(action.createdAt);
+      return date?.getFullYear() === month.year && date.getMonth() === month.month;
+    }).length,
+  }));
 
-  const CATEGORY_COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
+  const categoryData = [...categoryCounts.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 
-  // Données pour graphique de criticité
+  const serviceData = [...serviceCounts.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   const criticalityData = [
-    { id: 'crit-p1', name: 'P1', value: risks.filter(r => r.riskLevel > 9).length, color: '#ef4444' },
-    { id: 'crit-p2', name: 'P2', value: risks.filter(r => r.riskLevel >= 4 && r.riskLevel <= 9).length, color: '#f97316' },
-    { id: 'crit-p3', name: 'P3', value: risks.filter(r => r.riskLevel < 4).length, color: '#22c55e' }
+    { name: "P1", value: priorityCounts.P1, color: "#ef4444" },
+    { name: "P2", value: priorityCounts.P2, color: "#f97316" },
+    { name: "P3", value: priorityCounts.P3, color: "#22c55e" },
+  ];
+  const priorityTotal = priorityCounts.P1 + priorityCounts.P2 + priorityCounts.P3;
+
+  const actionStatus = [
+    { name: "À faire", value: actions.filter((action) => action.status === "À faire").length, color: "#94a3b8" },
+    { name: "En cours", value: actions.filter((action) => action.status === "En cours").length, color: "#f59e0b" },
+    { name: "En retard", value: actions.filter((action) => action.status === "En retard").length, color: "#ef4444" },
+    { name: "Terminées", value: actions.filter((action) => action.status === "Terminée").length, color: "#22c55e" },
+  ];
+  const actionTotal = actionStatus.reduce((sum, item) => sum + item.value, 0);
+
+  const workflowData = (Object.keys(WORKFLOW_LABELS) as Array<Risk["status"]>).map((status) => ({
+    name: WORKFLOW_LABELS[status],
+    value: workflowCounts[status],
+  }));
+
+  const modules = [
+    { id: "risks", label: "Évaluation des risques", hint: "DUERP du périmètre", value: risks.length, icon: Shield },
+    { id: "actions", label: "Plan d'action", hint: `${overdueActions.length} en retard`, value: actions.length, icon: Activity },
+    { id: "accidents", label: "Accidentologie", hint: `${accidentsThisYear} cette année`, value: accidents.length, icon: AlertTriangle },
+    { id: "risk-awareness", label: "Sensibilisation", hint: "Registre des sensibilisations", value: awarenessCount, icon: Brain },
+    { id: "safety-sheets", label: "Fiches de sécurité", hint: "Fiches publiées", value: securitySheetCount, icon: FileWarning },
+    { id: "prevention-plan", label: "Plans de prévention", hint: "Entreprises extérieures", value: extraCounts["prevention-plan"] ?? null, icon: ClipboardList },
+    { id: "safety-protocols", label: "Protocoles de sécurité", hint: "Chargement et déchargement", value: extraCounts["safety-protocols"] ?? null, icon: FolderOpen },
+    { id: "medical-visits", label: "Visites médicales", hint: "Suivi des agents", value: extraCounts["medical-visits"] ?? null, icon: Stethoscope },
+    { id: "arrivees-departs", label: "Arrivées et départs", hint: "Demandes RH", value: extraCounts["arrivees-departs"] ?? null, icon: Users },
+    { id: "transport-coverage", label: "Transports", hint: "Prises en charge", value: extraCounts["transport-coverage"] ?? null, icon: Bus },
+    { id: "asbestos", label: "Amiante", hint: "Interventions suivies", value: extraCounts.asbestos ?? null, icon: FileText },
+    { id: "mercury", label: "Campagnes mercure", hint: "Prélèvements", value: extraCounts.mercury ?? null, icon: Droplets },
+    { id: "reservations", label: "Réservations", hint: "Salles et véhicules", value: extraCounts.reservations ?? null, icon: CalendarClock },
+    { id: "team", label: "Équipe", hint: "Annuaire des agents", value: teamSize, icon: Users },
   ];
 
-  // Données pour évolution mensuelle (simulation)
-  const monthlyData = [
-    { id: 'month-aout', mois: 'Août', risques: 3, accidents: 2, actions: 5 },
-    { id: 'month-sept', mois: 'Sept', risques: 4, accidents: 1, actions: 8 },
-    { id: 'month-oct', mois: 'Oct', risques: 5, accidents: 3, actions: 12 },
-    { id: 'month-nov', mois: 'Nov', risques: 4, accidents: 2, actions: 15 },
-    { id: 'month-dec', mois: 'Déc', risques: 6, accidents: 3, actions: 18 },
-    { id: 'month-janv', mois: 'Janv', risques: 5, accidents: 4, actions: 22 },
-    { id: 'month-fevr', mois: 'Févr', risques: 6, accidents: 4, actions: 25 }
-  ];
+  const priorityRisks = [...risks]
+    .filter((risk) => getPriorityBandFromGfm(Number(risk.riskLevel) || 0) === "P1")
+    .sort((a, b) => (Number(b.riskLevel) || 0) - (Number(a.riskLevel) || 0))
+    .slice(0, 5);
 
-  // Données pour répartition par service
-  const serviceData = Object.entries(
-    risks.reduce((acc, risk) => {
-      if (risk.service && risk.service.trim()) {
-        const service = risk.service;
-        acc[service] = (acc[service] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>)
-  ).map(([name, value], index) => ({ id: `srv-${name}-${value}-${index}`, name, value })).slice(0, 5);
+  const recentAccidents = [...accidents]
+    .sort((a, b) => (parseDate(b.date)?.getTime() || 0) - (parseDate(a.date)?.getTime() || 0))
+    .slice(0, 5);
 
-  // Données pour statut des actions
-  const actionsStatus = [
+  const kpis = [
     {
-      id: 'act-completed',
-      name: 'Terminées',
-      value: risks.reduce((acc, r) => acc + (r.plannedMeasures?.filter(m => m.status === 'completed').length || 0), 0),
-      color: '#22c55e'
+      title: "Risques du périmètre",
+      value: risks.length,
+      detail: `${workflowCounts.a_traiter} à traiter`,
+      icon: Shield,
+      tone: "bg-sky-50 text-sky-700",
     },
     {
-      id: 'act-progress',
-      name: 'En cours',
-      value: risks.reduce((acc, r) => acc + (r.plannedMeasures?.filter(m => m.status === 'in_progress').length || 0), 0),
-      color: '#f59e0b'
+      title: "Priorité P1",
+      value: priorityCounts.P1,
+      detail: priorityTotal > 0 ? `${Math.round((priorityCounts.P1 / priorityTotal) * 100)} % du stock` : "Aucun risque",
+      icon: AlertCircle,
+      tone: "bg-red-50 text-red-700",
     },
     {
-      id: 'act-pending',
-      name: 'En attente',
-      value: risks.reduce((acc, r) => acc + (r.plannedMeasures?.filter(m => m.status === 'pending').length || 0), 0),
-      color: '#94a3b8'
-    }
+      title: "Actions ouvertes",
+      value: openActions.length,
+      detail: `${overdueActions.length} échues`,
+      icon: Activity,
+      tone: "bg-amber-50 text-amber-800",
+    },
+    {
+      title: "Accidents ce mois",
+      value: accidentsThisMonth,
+      detail: `${accidentsThisYear} en ${now.getFullYear()}`,
+      icon: AlertTriangle,
+      tone: "bg-violet-50 text-violet-700",
+    },
   ];
-
-  // Donnees radar par catégorie (top 8)
 
   return (
     <div className="space-y-6">
-      {showEmptyScopeHint && (
-        <div
-          className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          role="status"
-        >
-          Aucun risque dans votre périmètre (service, domaine, lieu). Les indicateurs
-          du tableau de bord reflètent uniquement les risques auxquels vous avez accès.
+      {risks.length === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status">
+          Aucun risque dans votre périmètre. Les indicateurs de risques restent vides tant qu'aucun risque ne vous est accessible.
         </div>
       )}
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((kpi) => {
+          const Icon = kpi.icon;
           return (
-            <Card key={index} className="border-0 shadow-xl hover:shadow-2xl transition-all hover:scale-105 bg-white/80 backdrop-blur overflow-hidden group">
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgGradient} opacity-50 group-hover:opacity-70 transition-opacity`}></div>
-              <CardContent className="pt-6 relative">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-600">{stat.title}</p>
-                    <p className="text-4xl font-bold mt-2 bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                      {stat.value}
-                    </p>
-                    <div className="flex items-center mt-2">
-                      {stat.changeType === 'up' ? (
-                        <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
-                      ) : (
-                        <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
-                      )}
-                      <span className="text-xs font-bold text-green-600">{stat.change}</span>
-                      <span className="text-xs text-gray-500 ml-1">vs mois dernier</span>
-                    </div>
-                  </div>
-                  <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${stat.gradient} flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform`}>
-                    <Icon className="h-8 w-8 text-white" />
-                  </div>
+            <Card key={kpi.title} className="border border-slate-200 bg-white shadow-sm">
+              <CardContent className="flex items-start justify-between gap-3 pt-6">
+                <div>
+                  <p className="text-sm font-medium text-slate-600">{kpi.title}</p>
+                  <p className="mt-1 text-3xl font-semibold text-slate-900">{kpi.value}</p>
+                  <p className="mt-1 text-xs text-slate-500">{kpi.detail}</p>
+                </div>
+                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${kpi.tone}`}>
+                  <Icon className="h-5 w-5" />
                 </div>
               </CardContent>
             </Card>
@@ -299,381 +371,301 @@ export function DashboardView({
         })}
       </div>
 
-      {/* Graphiques principaux */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Graphique en barres - Répartition par catégorie */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <BarChart3 className="h-6 w-6 mr-2 text-purple-500" />
-              Répartition par catégorie
-            </CardTitle>
-            <CardDescription>Nombre de risques par famille</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={riskData} id="category-chart" layout="vertical" margin={{ left: 8, right: 16 }}>
-                <defs>
-                  <linearGradient id="categoryBarGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.7}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#6b7280" style={{ fontSize: '12px' }} allowDecimals={false} />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  stroke="#6b7280"
-                  width={110}
-                  tick={{ fontSize: 11 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Bar key="category-bar" dataKey="value" fill="url(#categoryBarGradient)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Graphique en camembert - Criticité */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <PieChart className="h-6 w-6 mr-2 text-orange-500" />
-              Matrice de Criticité
-            </CardTitle>
-            <CardDescription>Distribution des niveaux de risque</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <ResponsiveContainer width="100%" height={220}>
-                <RechartsPieChart id="criticality-pie-chart">
-                  <Pie
-                    key="criticality-pie"
-                    data={criticalityData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                      const RADIAN = Math.PI / 180;
-                      const radius = outerRadius + 25;
-                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-                      return (
-                        <text
-                          x={x}
-                          y={y}
-                          fill="#374151"
-                          textAnchor={x > cx ? 'start' : 'end'}
-                          dominantBaseline="central"
-                          className="font-bold text-sm"
-                        >
-                          {`${(percent * 100).toFixed(1)}%`}
-                        </text>
-                      );
-                    }}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {criticalityData.map((entry, index) => (
-                      <Cell key={`cell-${entry.id}-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-              
-              {/* Légende personnalisée avec pourcentages */}
-              <div className="grid grid-cols-2 gap-3">
-                {criticalityData.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-2 p-3 rounded-lg bg-gray-50">
-                    <div 
-                      className="h-4 w-4 rounded-full flex-shrink-0" 
-                      style={{ backgroundColor: item.color }}
-                    ></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-700">{item.name}</p>
-                      <p className="text-lg font-bold" style={{ color: item.color }}>{item.value}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Graphique d'évolution et radar */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Graphique en aires - Évolution temporelle */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <TrendingUp className="h-6 w-6 mr-2 text-blue-500" />
-              Évolution sur 7 mois
-            </CardTitle>
-            <CardDescription>Tendances des risques, accidents et actions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={monthlyData} id="monthly-area-chart">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="mois" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Legend />
-                <Area key="area-risques" type="monotone" dataKey="risques" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name="Risques" />
-                <Area key="area-accidents" type="monotone" dataKey="accidents" stackId="2" stroke="#ef4444" fill="#ef4444" fillOpacity={0.6} name="Accidents" />
-                <Area key="area-actions" type="monotone" dataKey="actions" stackId="3" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Actions" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Graphique radar - Vue d'ensemble */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <Target className="h-6 w-6 mr-2 text-indigo-500" />
-              Vue d'ensemble par catégorie
-            </CardTitle>
-            <CardDescription>Total vs critiques (8 principales catégories)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={360}>
-              <RadarChart
-                data={radarData}
-                id="radar-overview-chart"
-                cx="50%"
-                cy="50%"
-                outerRadius="68%"
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Modules de l'application
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {modules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <button
+                key={module.id}
+                type="button"
+                onClick={() => onOpenModule(module.id)}
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50"
               >
-                <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: '#4b5563' }}
-                />
-                <PolarRadiusAxis stroke="#6b7280" allowDecimals={false} />
-                <Radar key="radar-total" name="Total" dataKey="total" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
-                <Radar key="radar-critique" name="Critiques" dataKey="critique" stroke="#ef4444" fill="#ef4444" fillOpacity={0.5} />
-                <Legend wrapperStyle={{ paddingTop: 12 }} />
-                <Tooltip
-                  formatter={(value: number, name: string) => [value, name]}
-                  labelFormatter={(label) => `Catégorie : ${label}`}
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-            {categoryChartData.length > 8 && (
-              <p className="mt-2 text-xs text-center text-gray-500">
-                Radar limité aux 8 catégories les plus représentées ({categoryChartData.length} au total).
-              </p>
+                <Icon className="h-5 w-5 shrink-0 text-sky-700" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-slate-900">{module.label}</span>
+                  <span className="block truncate text-xs text-slate-500">{module.hint}</span>
+                </span>
+                <span className="text-lg font-semibold text-slate-800">
+                  {module.value == null ? "—" : module.value}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="border border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg">
+              <BarChart3 className="mr-2 h-5 w-5 text-violet-600" />
+              Risques par famille
+            </CardTitle>
+            <CardDescription>Les huit familles les plus présentes dans votre périmètre</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {categoryData.length === 0 ? (
+              <p className="py-16 text-center text-sm text-slate-500">Aucune famille de risque à afficher.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={categoryData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" allowDecimals={false} stroke="#6b7280" fontSize={12} />
+                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} stroke="#6b7280" />
+                  <Tooltip contentStyle={chartTooltip} />
+                  <Bar dataKey="value" name="Risques" fill="#7c3aed" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg">
+              <PieChart className="mr-2 h-5 w-5 text-orange-500" />
+              Priorités résiduelles
+            </CardTitle>
+            <CardDescription>P1 au-dessus de 9, P2 de 4 à 9, P3 en dessous de 4</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {priorityTotal === 0 ? (
+              <p className="py-16 text-center text-sm text-slate-500">Aucune priorité à répartir.</p>
+            ) : (
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[220px_1fr]">
+                <ResponsiveContainer width="100%" height={220}>
+                  <RechartsPieChart>
+                    <Pie data={criticalityData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={80}>
+                      {criticalityData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={chartTooltip} />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+                <div className="space-y-3">
+                  {criticalityData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                      <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        {item.name}
+                      </span>
+                      <span className="font-semibold text-slate-900">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Graphique des actions et services */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Statut des actions */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <CheckCircle2 className="h-6 w-6 mr-2 text-green-500" />
-              Statut des Actions
-            </CardTitle>
-            <CardDescription>Avancement du plan d'actions</CardDescription>
+            <CardTitle className="text-lg">Créations sur 6 mois</CardTitle>
+            <CardDescription>Risques, accidents et actions datés dans le périmètre</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {actionsStatus.map((status) => {
-                const total = actionsStatus.reduce((sum, s) => sum + s.value, 0);
-                const percentage = total > 0 ? (status.value / total) * 100 : 0;
-                return (
-                  <div key={status.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        {status.name === 'Terminées' && <CheckCircle2 className="h-5 w-5 text-green-500" />}
-                        {status.name === 'En cours' && <Clock className="h-5 w-5 text-orange-500" />}
-                        {status.name === 'En attente' && <XCircle className="h-5 w-5 text-gray-400" />}
-                        <span className="text-sm font-bold text-gray-700">{status.name}</span>
-                      </div>
-                      <Badge style={{ backgroundColor: status.color }} className="text-white border-0 shadow-md">
-                        {status.value} actions
-                      </Badge>
-                    </div>
-                    <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 shadow-md"
-                        style={{ width: `${percentage}%`, backgroundColor: status.color }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>{percentage.toFixed(1)}% du total</span>
-                      <span>{status.value} / {total}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="mois" stroke="#6b7280" fontSize={12} />
+                <YAxis allowDecimals={false} stroke="#6b7280" fontSize={12} />
+                <Tooltip contentStyle={chartTooltip} />
+                <Area type="monotone" dataKey="risques" name="Risques" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="accidents" name="Accidents" stroke="#ef4444" fill="#ef4444" fillOpacity={0.15} />
+                <Area type="monotone" dataKey="actions" name="Actions" stroke="#0f766e" fill="#0f766e" fillOpacity={0.15} />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Top services */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center text-xl">
-              <Activity className="h-6 w-6 mr-2 text-cyan-500" />
-              Top 5 Services à Risque
-            </CardTitle>
-            <CardDescription>Services avec le plus de risques identifiés</CardDescription>
+            <CardTitle className="text-lg">Avancement des risques</CardTitle>
+            <CardDescription>Statut de traitement dans l'évaluation</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={serviceData} layout="vertical" id="service-bar-chart">
-                <defs>
-                  <linearGradient id="serviceBarGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.7}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <YAxis dataKey="name" type="category" stroke="#6b7280" style={{ fontSize: '11px' }} width={150} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                  }}
-                />
-                <Bar key="service-bar" dataKey="value" fill="url(#serviceBarGradient)" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="space-y-4">
+            {workflowData.map((item) => {
+              const share = risks.length > 0 ? (item.value / risks.length) * 100 : 0;
+              return (
+                <div key={item.name}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">{item.name}</span>
+                    <span className="text-slate-500">{item.value}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-sky-600" style={{ width: `${share}%` }} />
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       </div>
 
-      {/* Alertes échéances */}
-      <DeadlineAlertsCard risks={risks} onNavigateToRisk={onNavigateToRisk} />
-
-      {/* Listes récentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Risques critiques */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50">
-            <CardTitle className="flex items-center text-xl">
-              <AlertCircle className="h-6 w-6 mr-2 text-red-500" />
-              Risques Critiques à Traiter
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="border border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg">
+              <CheckCircle2 className="mr-2 h-5 w-5 text-emerald-600" />
+              Plan d'action
             </CardTitle>
+            <CardDescription>
+              {pendingReturns > 0
+                ? `${pendingReturns} retour${pendingReturns > 1 ? "s" : ""} d'action en attente de revue`
+                : "Aucun retour d'action en attente"}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-3">
-              {risks
-                .filter(r => r.riskLevel >= 12)
-                .slice(0, 5)
-                .map((risk) => {
-                  const band = getPriorityBandFromGfm(risk.riskLevel);
-                  const gradient =
-                    band === 'P1'
-                      ? 'from-red-500 to-rose-600'
-                      : band === 'P2'
-                        ? 'from-orange-500 to-amber-600'
-                        : 'from-green-500 to-emerald-600';
-                  return (
-                    <div 
-                      key={risk.id}
-                      className="flex items-start space-x-3 p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white hover:shadow-xl cursor-pointer transition-all hover:scale-[1.02] border border-gray-100"
-                      onClick={() => onNavigateToRisk(risk)}
-                    >
-                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradient} flex flex-col items-center justify-center flex-shrink-0 shadow-lg`}>
-                        <span className="text-sm font-extrabold text-white">{band}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-gray-800">{risk.title}</p>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{risk.situation}</p>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <Badge className={`bg-gradient-to-r ${getRiskLevelColor(risk.riskLevel)} text-white border-0 shadow-md`}>
-                            {getRiskLevelLabel(risk.riskLevel)}
-                          </Badge>
-                          <span className="text-xs font-bold text-gray-500">Niveau: {risk.riskLevel}</span>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-purple-400 flex-shrink-0" />
-                    </div>
-                  );
-                })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Accidents récents */}
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
-            <CardTitle className="flex items-center text-xl">
-              <AlertTriangle className="h-6 w-6 mr-2 text-purple-500" />
-              Accidents Récents
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-3">
-              {accidents.slice(0, 5).map((accident) => {
-                const severityColor = 
-                  accident.severity === 'très_grave' ? 'from-red-500 to-rose-600' :
-                  accident.severity === 'grave' ? 'from-orange-500 to-red-500' :
-                  accident.severity === 'modéré' ? 'from-yellow-400 to-orange-400' : 'from-green-400 to-emerald-500';
-                
+          <CardContent className="space-y-4">
+            {actionTotal === 0 ? (
+              <p className="text-sm text-slate-500">Le plan d'action ne contient encore aucune action.</p>
+            ) : (
+              actionStatus.map((status) => {
+                const share = (status.value / actionTotal) * 100;
                 return (
-                  <div key={accident.id} className="p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-100 hover:shadow-lg transition-all">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm text-gray-800">{accident.title}</span>
-                      <Badge className={`bg-gradient-to-r ${severityColor} text-white border-0 shadow-md capitalize`}>
-                        {accident.severity}
+                  <div key={status.name}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2 font-medium text-slate-700">
+                        {status.name === "En retard" ? <Clock className="h-4 w-4 text-red-500" /> : null}
+                        {status.name}
+                      </span>
+                      <Badge style={{ backgroundColor: status.color }} className="border-0 text-white">
+                        {status.value}
                       </Badge>
                     </div>
-                    <div className="flex items-center space-x-4 text-xs text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-3 w-3 text-purple-500" />
-                        <span className="font-medium">{new Date(accident.date).toLocaleDateString('fr-FR')}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <User className="h-3 w-3 text-indigo-500" />
-                        <span className="font-medium">{accident.victim}</span>
-                      </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full" style={{ width: `${share}%`, backgroundColor: status.color }} />
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              })
+            )}
+            {overdueActions.slice(0, 3).map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                onClick={() => onOpenModule("actions")}
+                className="flex w-full items-center justify-between gap-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-slate-900">{action.title}</span>
+                  <span className="text-xs text-slate-500">{action.responsable || "Responsable non renseigné"}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="border border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Services les plus exposés</CardTitle>
+            <CardDescription>Cinq services avec le plus de risques identifiés</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {serviceData.length === 0 ? (
+              <p className="py-16 text-center text-sm text-slate-500">Aucun service renseigné sur les risques.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={serviceData} layout="vertical" margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis type="number" allowDecimals={false} stroke="#6b7280" fontSize={12} />
+                  <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 11 }} stroke="#6b7280" />
+                  <Tooltip contentStyle={chartTooltip} />
+                  <Bar dataKey="value" name="Risques" fill="#0284c7" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <DeadlineAlertsCard risks={risks} onNavigateToRisk={onNavigateToRisk} />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="border border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg">
+              <AlertCircle className="mr-2 h-5 w-5 text-red-500" />
+              Risques P1 à traiter
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {priorityRisks.length === 0 ? (
+              <p className="text-sm text-slate-500">Aucun risque en priorité P1.</p>
+            ) : (
+              priorityRisks.map((risk) => (
+                <button
+                  key={risk.id}
+                  type="button"
+                  onClick={() => onNavigateToRisk(risk)}
+                  className="flex w-full items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left hover:border-red-200"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-600 text-xs font-bold text-white">
+                    P1
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-slate-900">{risk.title}</span>
+                    <span className="mt-1 block line-clamp-2 text-xs text-slate-600">{risk.situation}</span>
+                    <Badge className={`mt-2 border-0 bg-gradient-to-r text-white ${getRiskLevelColor(risk.riskLevel)}`}>
+                      {getRiskLevelLabel(risk.riskLevel)}
+                    </Badge>
+                  </span>
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border border-slate-200 bg-white shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center text-lg">
+              <AlertTriangle className="mr-2 h-5 w-5 text-violet-600" />
+              Derniers accidents
+            </CardTitle>
+            <button type="button" className="text-sm font-medium text-sky-700" onClick={() => onOpenModule("accidents")}>
+              Ouvrir
+            </button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recentAccidents.length === 0 ? (
+              <p className="text-sm text-slate-500">Aucun accident enregistré.</p>
+            ) : (
+              recentAccidents.map((accident) => {
+                const date = parseDate(accident.date);
+                return (
+                  <button
+                    key={accident.id}
+                    type="button"
+                    onClick={() => onOpenModule("accidents")}
+                    className="w-full rounded-xl border border-slate-100 bg-slate-50 p-3 text-left hover:border-violet-200"
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="truncate text-sm font-semibold text-slate-900">{accident.title}</span>
+                      <Badge variant="outline" className="shrink-0 capitalize">{accident.severity}</Badge>
+                    </span>
+                    <span className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {date ? date.toLocaleDateString("fr-FR") : "Date inconnue"}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {accident.victim || "Victime non renseignée"}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>

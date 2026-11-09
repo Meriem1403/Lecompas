@@ -20,6 +20,11 @@ import {
   DollarSign
 } from 'lucide-react';
 import type { Action } from '@/app/types/action';
+import {
+  PapripactActionFields,
+  PapripactYearField,
+  papripactPayload,
+} from '@/app/components/PapripactActionFields';
 
 export interface Risk {
   id: string;
@@ -71,7 +76,7 @@ export function ActionEditView({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    onSave(formData.papripactYear ? { ...formData, ...papripactPayload(formData) } : formData);
   };
 
   const getPriorityGradient = (priority: Action['priority']) => {
@@ -101,6 +106,43 @@ export function ActionEditView({
   const StatusIcon = getStatusConfig(formData.status).icon;
   const statusGradient = getStatusConfig(formData.status).gradient;
   const priorityGradient = getPriorityGradient(formData.priority);
+
+  if (formData.papripactYear) {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Button type="button" variant="ghost" onClick={onCancel} className="hover:bg-purple-50">
+            ← Annuler et retour
+          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+              <X className="h-4 w-4 mr-2" />
+              Annuler
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-violet-700 text-white">
+              <Save className="h-4 w-4 mr-2" />
+              Enregistrer
+            </Button>
+          </div>
+        </div>
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
+          <CardHeader>
+            <CardTitle>Modifier l'action PAPRIPACT {formData.papripactYear}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <PapripactYearField
+              year={formData.papripactYear}
+              onChange={(year) => setFormData({ ...formData, papripactYear: year })}
+            />
+            <PapripactActionFields
+              value={formData}
+              onChange={(partial) => setFormData({ ...formData, ...partial })}
+            />
+          </CardContent>
+        </Card>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

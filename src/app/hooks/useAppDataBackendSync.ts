@@ -3,6 +3,7 @@ import { isBackendApiEnabled } from "@/app/config/dataBackend";
 import { isApiAccessToken } from "@/lib/apiClient";
 import {
   fetchAppData,
+  isSmokePayload,
   saveAppData,
   type AppDataKey,
 } from "@/app/services/appDataApi";
@@ -27,7 +28,7 @@ export async function hydrateAppDataValue<T>({
   skipRef.current[key] = true;
   try {
     const fromApi = await fetchAppData<T>(key, token);
-    if (fromApi !== null && fromApi !== undefined) {
+    if (fromApi !== null && fromApi !== undefined && !isSmokePayload(fromApi)) {
       setValue(fromApi);
       return;
     }

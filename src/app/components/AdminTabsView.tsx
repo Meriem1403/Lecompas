@@ -6,12 +6,13 @@ import { SimpleEntityManagementView } from '@/app/components/admin/SimpleEntityM
 import { LocationManagementView } from '@/app/components/admin/LocationManagementView';
 import { Layers, MapPin, Tag } from 'lucide-react';
 import { PERSONNEL_USER_FIXTURES } from '@/app/fixtures/personnelUserFixtures';
+import { permissionsForPreset } from '@/app/components/access-management/roleAccess';
 export const FAKE_USERS: AppUser[] = [...PERSONNEL_USER_FIXTURES];
 
 export const DEFAULT_ADMIN_ROLES: Role[] = [
-  { id: 1, code: 'ROLE_ADMIN', displayName: 'Administrateur' },
-  { id: 2, code: 'ROLE_AGENT', displayName: 'Agent' },
-  { id: 3, code: 'ROLE_CHEF', displayName: 'Chef de service' },
+  { id: 1, code: 'ROLE_ADMIN', displayName: 'Administrateur', modulePermissions: permissionsForPreset('admin') },
+  { id: 2, code: 'ROLE_AGENT', displayName: 'Agent', modulePermissions: permissionsForPreset('agent') },
+  { id: 3, code: 'ROLE_CHEF', displayName: 'Chef de service', modulePermissions: permissionsForPreset('chef') },
 ];
 
 export const FAKE_SERVICES: Service[] = [
@@ -182,6 +183,7 @@ interface AdminTabsViewProps {
   >;
   rolesData?: Role[];
   setRolesData?: React.Dispatch<React.SetStateAction<Role[]>>;
+  onApplyRoleAccess?: (role: Role) => void;
   adminDisplayName?: string;
 }
 
@@ -199,6 +201,7 @@ export function AdminTabsView({
   setCategoriesData,
   rolesData,
   setRolesData,
+  onApplyRoleAccess,
   adminDisplayName,
 }: AdminTabsViewProps) {
   const [internalUsers, setInternalUsers] = useState<AppUser[]>(FAKE_USERS);
@@ -243,6 +246,7 @@ export function AdminTabsView({
       <RoleManagementView
         roles={roles}
         setRoles={setRoles}
+        onApplyRoleAccess={onApplyRoleAccess}
       />
     );
   }

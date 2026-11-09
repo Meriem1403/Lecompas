@@ -1,6 +1,7 @@
 import type { AppUser } from "@/app/components/admin/UserManagementView";
 import type { EmployeeAccessProfile } from "@/app/components/access-management/types";
 import { ACCESS_MODULES } from "@/app/components/access-management/constants";
+import { workflowActionsFor } from "@/app/components/access-management/workflowActions";
 
 export function buildDefaultAccessProfiles(
   users: AppUser[],
@@ -22,6 +23,9 @@ export function buildDefaultAccessProfiles(
             {
               canView: true,
               crud: defaultCrud,
+              actions: Object.fromEntries(
+                workflowActionsFor(moduleItem.id).map((action) => [action.id, true]),
+              ),
             },
           ]),
         ),

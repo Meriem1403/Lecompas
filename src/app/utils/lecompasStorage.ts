@@ -57,6 +57,8 @@ export interface AppNotification {
   dateCreation: string;
   isRead: boolean;
   actionReturnId?: string;
+  /** Si renseigné, seule cette personne voit la notification. */
+  recipientEmail?: string;
 }
 
 function readJson<T>(key: string): T | null {

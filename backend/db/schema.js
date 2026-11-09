@@ -8,6 +8,10 @@ export async function ensureUserSchema(pool) {
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT ''`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS inm DOUBLE PRECISION`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+    `ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
+    `ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`,
+    `UPDATE auth_tokens SET expires_at = created_at + INTERVAL '8 hours' WHERE expires_at IS NULL`,
+    `UPDATE auth_tokens SET last_seen_at = created_at WHERE last_seen_at IS NULL`,
   ];
   for (const sql of statements) {
     await pool.query(sql);

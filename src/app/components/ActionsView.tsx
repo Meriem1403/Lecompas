@@ -159,7 +159,7 @@ function buildDuerpActionId(riskId: string, measureIndex: number) {
 function matchesResponsible(action: Action, currentUserName: string) {
   const normalizedUser = currentUserName.trim().toLowerCase();
   if (!normalizedUser) return false;
-  return action.responsable
+  return String(action.responsable || "")
     .split(',')
     .map((name) => name.trim().toLowerCase())
     .includes(normalizedUser);
@@ -532,7 +532,7 @@ export function ActionsView({
                     <div className="flex items-center space-x-2">
                       <Shield className="h-4 w-4 text-purple-500 shrink-0" />
                       <div>
-                        <p className="text-xs text-gray-500">Risque associé</p>
+                        <p className="text-xs text-gray-500">{action.papripactYear ? "Catégorie" : "Risque associé"}</p>
                         <p className="text-sm font-semibold text-gray-800">{action.riskTitle}</p>
                       </div>
                     </div>

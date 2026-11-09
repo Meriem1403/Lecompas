@@ -3,6 +3,7 @@ import { isBackendApiEnabled } from "@/app/config/dataBackend";
 import { isApiAccessToken } from "@/lib/apiClient";
 import {
   fetchAppData,
+  isSmokePayload,
   saveAppData,
   type AppDataKey,
 } from "@/app/services/appDataApi";
@@ -40,7 +41,7 @@ export function useAppDataDocumentStore<T>(
     void (async () => {
       try {
         const fromApi = await fetchAppData<T>(dataKey, accessToken);
-        if (fromApi !== null && fromApi !== undefined) {
+        if (fromApi !== null && fromApi !== undefined && !isSmokePayload(fromApi)) {
           setValue(fromApi);
           return;
         }
@@ -49,7 +50,6 @@ export function useAppDataDocumentStore<T>(
         setValue(initial);
         skipRef.current = false;
         await saveAppData(dataKey, initial, accessToken);
-        skipRef.current = true;
       } catch (error) {
         console.warn(`[Lecompas] chargement ${dataKey}`, error);
       }

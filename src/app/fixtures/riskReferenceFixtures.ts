@@ -1,10 +1,58 @@
 import type { RiskReference } from "../components/admin/RiskReferencesManagementView";
 
 /**
- * Référentiel des risques — source :
- * doc/Data/intégration circulaire et actualisation DUERP GYPTIS.xlsx (Feuil4)
+ * Dossiers INRS vérifiés sur https://www.inrs.fr/risques.html.
+ * Les numéros sans dossier dédié restent sans lien : il se renseigne sur la fiche.
  */
-export const RISK_REFERENCE_FIXTURES: RiskReference[] = [
+export const INRS_FICHE_BY_NUMERO: Record<string, string> = {
+  "1": "https://www.inrs.fr/risques/amiante.html",
+  "2": "https://www.inrs.fr/risques/biologiques.html",
+  "3": "https://www.inrs.fr/risques/chimiques.html",
+  "4": "https://www.inrs.fr/risques/cmr-agents-chimiques.html",
+  "5": "https://www.inrs.fr/risques/chaleur.html",
+  "6": "https://www.inrs.fr/risques/electriques.html",
+  "7": "https://www.inrs.fr/risques/explosion.html",
+  "8": "https://www.inrs.fr/risques/incendie-lieu-travail.html",
+  "9": "https://www.inrs.fr/risques/rayonnements-optiques.html",
+  "10": "https://www.inrs.fr/risques/explosion.html",
+  "11": "https://www.inrs.fr/risques/mecaniques.html",
+  "12": "https://www.inrs.fr/risques/machines.html",
+  "14": "https://www.inrs.fr/risques/tms-troubles-musculosquelettiques.html",
+  "15": "https://www.inrs.fr/risques/activite-physique.html",
+  "16": "https://www.inrs.fr/risques/rayonnements-ionisants.html",
+  "17": "https://www.inrs.fr/risques/activite-physique.html",
+  "18": "https://www.inrs.fr/risques/machines.html",
+  "19": "https://www.inrs.fr/risques/mecaniques.html",
+  "20": "https://www.inrs.fr/risques/espaces-confines.html",
+  "22": "https://www.inrs.fr/risques/chutes-de-plain-pied.html",
+  "23": "https://www.inrs.fr/risques/chutes-hauteur.html",
+  "24": "https://www.inrs.fr/risques/chaleur.html",
+  "26": "https://www.inrs.fr/risques/air-interieur.html",
+  "27": "https://www.inrs.fr/risques/bruit.html",
+  "28": "https://www.inrs.fr/risques/travail-ecran.html",
+  "29": "https://www.inrs.fr/risques/travail-horaires-atypiques.html",
+  "30": "https://www.inrs.fr/risques/deplacements.html",
+  "31": "https://www.inrs.fr/risques/travail-isole.html",
+  "32": "https://www.inrs.fr/risques/vibration-corps-entier.html",
+  "33": "https://www.inrs.fr/risques/psychosociaux.html",
+  "34": "https://www.inrs.fr/risques/agressions-violences-externes.html",
+  "35": "https://www.inrs.fr/risques/addictions.html",
+  "36": "https://www.inrs.fr/risques/entreprises-exterieures.html",
+  "37": "https://www.inrs.fr/risques/zoonoses.html",
+  "38": "https://www.inrs.fr/risques/routiers.html",
+  "39": "https://www.inrs.fr/risques/biologiques.html",
+  "41": "https://www.inrs.fr/risques/teletravail.html",
+};
+
+export function resolveRiskReferenceFicheUrl(reference: {
+  numeroRisque: string;
+  ficheUrl?: string;
+}): string {
+  if (reference.ficheUrl !== undefined) return reference.ficheUrl.trim();
+  return INRS_FICHE_BY_NUMERO[reference.numeroRisque.trim()] ?? "";
+}
+
+const RISK_REFERENCE_TITLES: Array<Pick<RiskReference, "id" | "numeroRisque" | "title">> = [
   { id: "gyptis-ref-1", numeroRisque: "1", title: "Risque Amiante" },
   { id: "gyptis-ref-2", numeroRisque: "2", title: "Biologique" },
   { id: "gyptis-ref-3", numeroRisque: "3", title: "Risque Chimique" },
@@ -51,3 +99,16 @@ export const RISK_REFERENCE_FIXTURES: RiskReference[] = [
   { id: "gyptis-ref-44", numeroRisque: "44", title: "Risque migrant" },
   { id: "gyptis-ref-45", numeroRisque: "45", title: "Risque port d'arme" },
 ];
+
+/**
+ * Référentiel des risques — source :
+ * doc/Data/intégration circulaire et actualisation DUERP GYPTIS.xlsx (Feuil4)
+ */
+export const RISK_REFERENCE_FIXTURES: RiskReference[] = RISK_REFERENCE_TITLES.map((item) => ({
+  ...item,
+  ficheUrl: INRS_FICHE_BY_NUMERO[item.numeroRisque] ?? "",
+  description: "",
+  situations: "",
+  dommages: "",
+  prevention: "",
+}));

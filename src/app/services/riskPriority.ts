@@ -91,7 +91,7 @@ export function computeRiskWorkflowStatus(
   return "a_traiter";
 }
 
-export function getRiskWorkflowStatusLabel(status: RiskWorkflowStatus): string {
+export function getRiskWorkflowStatusLabel(status: RiskWorkflowStatus | string | undefined): string {
   switch (status) {
     case "a_traiter":
       return "A traiter";
@@ -101,5 +101,12 @@ export function getRiskWorkflowStatusLabel(status: RiskWorkflowStatus): string {
       return "Maitrise";
     case "supprime":
       return "Supprime";
+    case "en_cours":
+      return "En cours";
+    case "identifié":
+    case "identifie":
+      return "Identifié";
+    default:
+      return status ? String(status) : "(vide)";
   }
 }

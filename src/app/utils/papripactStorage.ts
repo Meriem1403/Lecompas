@@ -45,11 +45,45 @@ export function markPapripactFixtureLoaded() {
   localStorage.setItem(PAPRIPACT_IMPORTED_KEY, "1");
 }
 
+const PAPRIPACT_DETAIL_KEYS = [
+  "papripactIndicators",
+  "papripactComments",
+  "papripactCost",
+  "papripactUnits",
+] as const;
+
+/** Complète les colonnes du tableau quand une action importée a été enregistrée sans elles. */
+export function completePapripactFromFixtures(
+  actions: Action[],
+  fixtureActions: Action[],
+): Action[] {
+  const byId = new Map(fixtureActions.map((action) => [action.id, action]));
+  let changed = false;
+  const next = actions.map((action) => {
+    const fixture = byId.get(action.id);
+    if (!fixture) return action;
+    const patch: Partial<Action> = {};
+    for (const key of PAPRIPACT_DETAIL_KEYS) {
+      const current = action[key];
+      const incoming = fixture[key];
+      if ((current === undefined || current === "") && incoming) {
+        patch[key] = incoming;
+      }
+    }
+    if (Object.keys(patch).length === 0) return action;
+    changed = true;
+    return { ...action, ...patch };
+  });
+  return changed ? next : actions;
+}
+
 export function mergeInitialManualActions(
   stored: Action[] | null,
   fixtureActions: Action[],
 ): Action[] {
-  if (stored && stored.length > 0) return stored;
+  if (stored && stored.length > 0) {
+    return completePapripactFromFixtures(stored, fixtureActions);
+  }
   if (isPapripactFixtureLoaded()) return stored ?? [];
   markPapripactFixtureLoaded();
   return fixtureActions;

@@ -29,6 +29,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   "medical-visits": "/visites-medicales",
   "sst-registry": "/registre-sst",
   "arrivees-departs": "/arrivees-departs",
+  "transport-coverage": "/prise-en-charge-transports",
   accidents: "/accidentologie",
   registre: "/registre-accidents",
   archives: "/archives",

@@ -1,11 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AppUser } from "./admin/UserManagementView";
+import { Role } from "./admin/RoleManagementView";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { ArrowLeft, ChevronRight, Layers, MapPin, Save, Search, Shield, UserCheck } from "lucide-react";
 import { AccessPermissionRow } from "./access-management/AccessPermissionRow";
 import { ACCESS_MODULES } from "./access-management/constants";
 import { AccessEmployee, CrudAction, EmployeeAccessProfile } from "./access-management/types";
+import { profileFromRoleCode, profileHasAnyGrant } from "./access-management/roleAccess";
+import {
+  blankActions,
+  EMPTY_WORKFLOW_ASSIGNMENTS,
+  workflowActionsFor,
+  type WorkflowAssignments,
+} from "./access-management/workflowActions";
+import { useAppDataDocumentStore } from "@/app/hooks/useAppDataDocumentStore";
+import { APP_DATA_KEYS } from "@/app/services/appDataApi";
 import {
   AppShell,
   InfoChip,
@@ -21,10 +31,12 @@ import { Input } from "./ui/input";
 
 interface AccessManagementViewProps {
   users: AppUser[];
+  roles: Role[];
   profiles: Record<string, EmployeeAccessProfile>;
   onProfilesChange: React.Dispatch<
     React.SetStateAction<Record<string, EmployeeAccessProfile>>
   >;
+  accessToken?: string;
 }
 
 const buildDefaultProfile = (employeeId: string): EmployeeAccessProfile => ({
@@ -35,6 +47,7 @@ const buildDefaultProfile = (employeeId: string): EmployeeAccessProfile => ({
       {
         canView: false,
         crud: { create: false, read: false, update: false, delete: false },
+        actions: blankActions(moduleItem.id),
       },
     ]),
   ),
@@ -51,7 +64,7 @@ const mapEmployee = (user: AppUser): AccessEmployee => ({
   email: user.email,
 });
 
-const roleLabel = (role: string) =>
+const fallbackRoleLabel = (role: string) =>
   role === "ROLE_ADMIN" ? "Administrateur" : role === "ROLE_CHEF" ? "Chef de service" : "Agent";
 
 const crudLabel = (action: CrudAction) => {
@@ -63,9 +76,16 @@ const crudLabel = (action: CrudAction) => {
 
 export function AccessManagementView({
   users,
+  roles,
   profiles,
   onProfilesChange,
+  accessToken = "",
 }: AccessManagementViewProps) {
+  const [assignments, setAssignments] = useAppDataDocumentStore<WorkflowAssignments>(
+    APP_DATA_KEYS.workflowAssignments,
+    accessToken,
+    { seed: EMPTY_WORKFLOW_ASSIGNMENTS },
+  );
   const employees = useMemo(() => users.map(mapEmployee), [users]);
 
   const [accessStep, setAccessStep] = useState<"perimetre" | "configuration">("perimetre");
@@ -143,9 +163,27 @@ export function AccessManagementView({
     employees.find((employee) => employee.id === selectedEmployeeId) ||
     null;
 
-  const currentProfile = selectedEmployee
-    ? profiles[selectedEmployee.id] || buildDefaultProfile(selectedEmployee.id)
+  const roleTemplate = selectedEmployee
+    ? profileFromRoleCode(selectedEmployee.id, selectedEmployee.role, roles)
     : null;
+
+  const storedProfile = selectedEmployee ? profiles[selectedEmployee.id] : null;
+  const currentProfile = selectedEmployee
+    ? (profileHasAnyGrant(storedProfile) ? storedProfile : roleTemplate) ||
+      buildDefaultProfile(selectedEmployee.id)
+    : null;
+
+  const roleDisplayName = (roleCode: string) =>
+    roles.find((role) => role.code === roleCode)?.displayName || fallbackRoleLabel(roleCode);
+
+  const applyRoleTemplate = () => {
+    if (!selectedEmployee || !roleTemplate) return;
+    onProfilesChange((prev) => ({
+      ...prev,
+      [selectedEmployee.id]: roleTemplate,
+    }));
+    toast.success(`Droits du rôle ${roleDisplayName(selectedEmployee.role)} appliqués à ${selectedEmployee.fullName}.`);
+  };
 
   const visibleModulesCount = useMemo(
     () =>
@@ -199,14 +237,22 @@ export function AccessManagementView({
   ) => {
     if (!selectedEmployee) return;
     onProfilesChange((prev) => {
-      const profile = prev[selectedEmployee.id] || buildDefaultProfile(selectedEmployee.id);
+      const profile =
+        prev[selectedEmployee.id] ||
+        profileFromRoleCode(selectedEmployee.id, selectedEmployee.role, roles);
+      const current =
+        profile.modulePermissions[moduleId] ?? {
+          canView: false,
+          crud: { create: false, read: false, update: false, delete: false },
+          actions: blankActions(moduleId),
+        };
       return {
         ...prev,
         [selectedEmployee.id]: {
           ...profile,
           modulePermissions: {
             ...profile.modulePermissions,
-            [moduleId]: updater(profile.modulePermissions[moduleId]),
+            [moduleId]: updater(current),
           },
         },
       };
@@ -218,7 +264,24 @@ export function AccessManagementView({
       ...permission,
       canView: checked,
       crud: checked ? permission.crud : { create: false, read: false, update: false, delete: false },
+      actions: checked ? permission.actions ?? blankActions(moduleId) : blankActions(moduleId),
     }));
+    if (!checked && selectedEmployee) {
+      const employeeId = selectedEmployee.id;
+      setAssignments((current) => {
+        const moduleMap = current[moduleId];
+        if (!moduleMap) return current;
+        return {
+          ...current,
+          [moduleId]: Object.fromEntries(
+            Object.entries(moduleMap).map(([actionId, ids]) => [
+              actionId,
+              ids.filter((id) => id !== employeeId),
+            ]),
+          ),
+        };
+      });
+    }
   };
 
   const handleToggleCrud = (moduleId: string, action: CrudAction) => {
@@ -227,6 +290,62 @@ export function AccessManagementView({
       canView: true,
       crud: { ...permission.crud, [action]: !permission.crud[action] },
     }));
+  };
+
+  const handleToggleWorkflow = (moduleId: string, actionId: string) => {
+    updatePermission(moduleId, (permission) => ({
+      ...permission,
+      canView: true,
+      actions: {
+        ...(permission.actions ?? blankActions(moduleId)),
+        [actionId]: !permission.actions?.[actionId],
+      },
+    }));
+  };
+
+  const handleToggleHolder = (moduleId: string, actionId: string, employeeId: string) => {
+    const definition = workflowActionsFor(moduleId).find((action) => action.id === actionId);
+    if (!definition) return;
+    const holders = assignments[moduleId]?.[actionId] ?? [];
+    const selected = holders.includes(employeeId);
+    if (!selected && holders.length >= definition.seats) {
+      toast.error(
+        `« ${definition.label} » est limité à ${definition.seats} responsable${definition.seats > 1 ? "s" : ""}. Retirez quelqu’un pour en désigner un autre.`,
+      );
+      return;
+    }
+    const nextHolders = selected ? holders.filter((id) => id !== employeeId) : [...holders, employeeId];
+    setAssignments((current) => ({
+      ...current,
+      [moduleId]: { ...(current[moduleId] || {}), [actionId]: nextHolders },
+    }));
+    const employee = employees.find((item) => item.id === employeeId);
+    if (!employee) return;
+    onProfilesChange((prev) => {
+      const profile = prev[employeeId] || profileFromRoleCode(employeeId, employee.role, roles);
+      const permission = profile.modulePermissions[moduleId] ?? {
+        canView: true,
+        crud: { create: false, read: false, update: false, delete: false },
+        actions: blankActions(moduleId),
+      };
+      return {
+        ...prev,
+        [employeeId]: {
+          ...profile,
+          modulePermissions: {
+            ...profile.modulePermissions,
+            [moduleId]: {
+              ...permission,
+              canView: selected ? permission.canView : true,
+              actions: {
+                ...(permission.actions ?? blankActions(moduleId)),
+                [actionId]: !selected,
+              },
+            },
+          },
+        },
+      };
+    });
   };
 
   const scopeLabel = (value: string, allLabel: string) =>
@@ -255,7 +374,9 @@ export function AccessManagementView({
   };
 
   const isScopeReady =
-    serviceFilter !== "all" && domainFilter !== "all" && locationFilter !== "all";
+    serviceFilter !== "all" &&
+    (domains.length === 0 || domainFilter !== "all") &&
+    (domainFilter === "all" || locations.length === 0 || locationFilter !== "all");
 
   if (accessStep === "perimetre") {
     return (
@@ -306,7 +427,14 @@ export function AccessManagementView({
 
         {serviceFilter !== "all" ? (
           <div className="space-y-4">
-            <SectionHeader title="Domaine" subtitle="Choisissez un domaine du service sélectionné." />
+            <SectionHeader
+              title="Domaine"
+              subtitle={
+                domains.length === 0
+                  ? "Aucun domaine n’est renseigné pour ce service. Vous pouvez continuer."
+                  : "Choisissez un domaine du service sélectionné."
+              }
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {domains.map((domain) => (
                 <Card
@@ -484,7 +612,7 @@ export function AccessManagementView({
                   onClick={() => setSelectedEmployeeId(employee.id)}
                   badge={
                     <StatusBadge tone={employee.role === "ROLE_ADMIN" ? "violet" : "orange"}>
-                      {roleLabel(employee.role)}
+                      {roleDisplayName(employee.role)}
                     </StatusBadge>
                   }
                   footer={
@@ -510,7 +638,7 @@ export function AccessManagementView({
                     <p className="text-sm text-slate-600 break-all">{selectedEmployee.email}</p>
                   </div>
                   <StatusBadge tone={selectedEmployee.role === "ROLE_ADMIN" ? "violet" : "orange"}>
-                    {roleLabel(selectedEmployee.role)}
+                    {roleDisplayName(selectedEmployee.role)}
                   </StatusBadge>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -592,7 +720,7 @@ export function AccessManagementView({
         <div className="space-y-4 min-w-0">
           <SectionHeader
             title="Autorisations"
-            subtitle="Activez la visibilité des onglets et les actions CRUD pour l'agent sélectionné."
+            subtitle="Ces modules sont ceux du rôle. Un réglage ici reste personnel jusqu’au prochain enregistrement du rôle, qui réapplique la matrice."
             right={
               <Button
                 type="button"
@@ -604,6 +732,25 @@ export function AccessManagementView({
               </Button>
             }
           />
+
+          {selectedEmployee ? (
+            <Card className="rounded-2xl border border-violet-200 bg-violet-50/70">
+              <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-violet-950">
+                  Rôle lié : <span className="font-semibold">{roleDisplayName(selectedEmployee.role)}</span>.
+                  Les actions hors CRUD se désignent ici, avec un responsable différent par étape.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={applyRoleTemplate}
+                  className="shrink-0 border-violet-300 bg-white text-violet-800 hover:bg-violet-100"
+                >
+                  Reprendre les droits du rôle
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <Card className="rounded-3xl border border-slate-200 shadow-sm bg-white">
             <CardContent className="p-4 sm:p-5 space-y-3">
@@ -623,6 +770,29 @@ export function AccessManagementView({
                         update: false,
                         delete: false,
                       }
+                    }
+                    workflowActions={workflowActionsFor(moduleItem.id)
+                      .filter((action) => action.seats === 0)
+                      .map((action) => ({
+                        id: action.id,
+                        label: action.label,
+                        active: Boolean(permission?.actions?.[action.id]),
+                      }))}
+                    onToggleWorkflow={(actionId) => handleToggleWorkflow(moduleItem.id, actionId)}
+                    holders={workflowActionsFor(moduleItem.id)
+                      .filter((action) => action.seats > 0)
+                      .map((action) => ({
+                        actionId: action.id,
+                        label: action.label,
+                        seats: action.seats,
+                        people: employees.map((employee) => ({
+                          id: employee.id,
+                          fullName: employee.fullName,
+                          selected: (assignments[moduleItem.id]?.[action.id] ?? []).includes(employee.id),
+                        })),
+                      }))}
+                    onToggleHolder={(actionId, employeeId) =>
+                      handleToggleHolder(moduleItem.id, actionId, employeeId)
                     }
                     onToggleView={(checked) => handleToggleView(moduleItem.id, checked)}
                     onToggleCrud={(action) => handleToggleCrud(moduleItem.id, action)}

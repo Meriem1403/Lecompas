@@ -1,5 +1,5 @@
 import React from "react";
-import { AsbestosSuiviSpreadsheetView } from "./asbestos/AsbestosSuiviSpreadsheetView";
+import { AsbestosSuiviManagementView } from "./asbestos/AsbestosSuiviManagementView";
 
 /** @deprecated conservé pour imports legacy — voir types/importedRegisters */
 export interface AsbestosIntervention {
@@ -36,5 +36,5 @@ interface AsbestosViewProps {
 }
 
 export function AsbestosView({ accessToken = "" }: AsbestosViewProps) {
-  return <AsbestosSuiviSpreadsheetView accessToken={accessToken} />;
+  return <AsbestosSuiviManagementView accessToken={accessToken} />;
 }

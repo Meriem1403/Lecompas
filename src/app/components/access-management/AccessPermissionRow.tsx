@@ -6,6 +6,19 @@ import { CRUD_LABELS } from "./constants";
 import { CrudAction } from "./types";
 import { Eye, EyeOff } from "lucide-react";
 
+export interface WorkflowToggle {
+  id: string;
+  label: string;
+  active: boolean;
+}
+
+export interface WorkflowHolderGroup {
+  actionId: string;
+  label: string;
+  seats: number;
+  people: Array<{ id: string; fullName: string; selected: boolean }>;
+}
+
 interface AccessPermissionRowProps {
   moduleLabel: string;
   moduleDescription: string;
@@ -14,6 +27,10 @@ interface AccessPermissionRowProps {
   crud: Record<CrudAction, boolean>;
   onToggleView: (checked: boolean) => void;
   onToggleCrud: (action: CrudAction) => void;
+  workflowActions?: WorkflowToggle[];
+  onToggleWorkflow?: (actionId: string) => void;
+  holders?: WorkflowHolderGroup[];
+  onToggleHolder?: (actionId: string, employeeId: string) => void;
 }
 
 export function AccessPermissionRow({
@@ -24,8 +41,16 @@ export function AccessPermissionRow({
   crud,
   onToggleView,
   onToggleCrud,
+  workflowActions = [],
+  onToggleWorkflow,
+  holders = [],
+  onToggleHolder,
 }: AccessPermissionRowProps) {
   const enabledCrudCount = Object.values(crud).filter(Boolean).length;
+  const circuitCount =
+    workflowActions.filter((action) => action.active).length +
+    holders.filter((group) => group.people.some((person) => person.selected)).length;
+  const circuitTotal = workflowActions.length + holders.length;
 
   return (
     <div className="group rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
@@ -49,7 +74,8 @@ export function AccessPermissionRow({
               variant="outline"
               className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 text-blue-700 font-medium"
             >
-              {enabledCrudCount}/4 actions
+              CRUD {enabledCrudCount}/4
+              {circuitTotal > 0 ? ` · circuit ${circuitCount}/${circuitTotal}` : ""}
             </Badge>
             <div className="inline-flex items-center rounded-xl border border-violet-200 bg-violet-50/50 p-1 transition-all duration-200 group-hover:border-violet-300">
               <Button
@@ -94,6 +120,53 @@ export function AccessPermissionRow({
             />
           ))}
         </div>
+
+        {workflowActions.length > 0 || holders.length > 0 ? (
+          <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+              Actions hors CRUD
+            </p>
+            {workflowActions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {workflowActions.map((action) => (
+                  <AccessCrudPill
+                    key={action.id}
+                    label={action.label}
+                    active={action.active}
+                    onToggle={() => onToggleWorkflow?.(action.id)}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {holders.map((group) => {
+              const filled = group.people.filter((person) => person.selected).length;
+              const names = group.people.filter((person) => person.selected).map((person) => person.fullName);
+              return (
+                <div key={group.actionId} className="space-y-2">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {group.label}
+                    <span className="ml-2 font-medium text-amber-800">
+                      {filled}/{group.seats}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {names.length > 0 ? names.join(", ") : "Aucun responsable désigné"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.people.map((person) => (
+                      <AccessCrudPill
+                        key={person.id}
+                        label={person.fullName}
+                        active={person.selected}
+                        onToggle={() => onToggleHolder?.(group.actionId, person.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
     </div>
   );

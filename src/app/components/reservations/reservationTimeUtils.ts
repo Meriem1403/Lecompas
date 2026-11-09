@@ -6,7 +6,7 @@ import {
 import type { ResourceReservation } from "./types";
 
 export function parseTimeToMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number);
+  const [h, m] = String(time || "0:0").split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
