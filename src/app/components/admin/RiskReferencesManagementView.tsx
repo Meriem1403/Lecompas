@@ -13,12 +13,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/app/components/ui/alert-dialog";
-import { PlusCircle, Edit, Trash2, ArrowLeft, Search, X, Paperclip, Download, Upload, ExternalLink, Eye, FileText } from "lucide-react";
+import { PlusCircle, Edit, Trash2, ArrowLeft, Search, X, Paperclip, Download, Upload, ExternalLink, Eye, FileText, Shield, AlertTriangle, HeartPulse, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "@/app/components/ui/list-pagination-bar";
 import { Textarea } from "@/app/components/ui/textarea";
 import type { RegisterAttachment } from "@/app/types/importedRegisters";
 import { resolveRiskReferenceFicheUrl } from "@/app/fixtures/riskReferenceFixtures";
+import { attachmentPreviewKind, displayRiskSheet } from "@/app/fixtures/riskReferenceSheets";
 import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from "@/app/services/externalLinkGuard";
 import {
   Select,
@@ -125,6 +126,41 @@ function downloadAttachment(attachment: RegisterAttachment) {
 interface RiskReferencesManagementViewProps {
   references: RiskReference[];
   setReferences: React.Dispatch<React.SetStateAction<RiskReference[]>>;
+  canManage?: boolean;
+}
+
+function AttachmentPreview({ attachment }: { attachment: RegisterAttachment }) {
+  const kind = attachmentPreviewKind(attachment.fileName, attachment.mimeType);
+  if (!attachment.dataUrl) {
+    return (
+      <p className="mt-3 text-sm text-slate-500">
+        Le fichier est enregistré sans contenu lisible. Téléchargez-le pour le consulter.
+      </p>
+    );
+  }
+  if (kind === "pdf") {
+    return (
+      <iframe
+        title={`Aperçu de ${attachment.fileName}`}
+        src={attachment.dataUrl}
+        className="mt-3 h-[70vh] w-full rounded-xl border border-slate-200 bg-white"
+      />
+    );
+  }
+  if (kind === "image") {
+    return (
+      <img
+        src={attachment.dataUrl}
+        alt={attachment.fileName}
+        className="mt-3 max-h-[70vh] w-full rounded-xl border border-slate-200 bg-slate-50 object-contain"
+      />
+    );
+  }
+  return (
+    <p className="mt-3 text-sm text-slate-500">
+      Aperçu indisponible pour ce format. Téléchargez la pièce pour la lire.
+    </p>
+  );
 }
 
 type ViewMode = "list" | "consult" | "create" | "edit";
@@ -140,6 +176,7 @@ function compareNumero(a: string, b: string): number {
 export function RiskReferencesManagementView({
   references,
   setReferences,
+  canManage = true,
 }: RiskReferencesManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedReference, setSelectedReference] =
@@ -151,6 +188,7 @@ export function RiskReferencesManagementView({
 
   const [formData, setFormData] = useState<RiskReferenceForm>(EMPTY_FORM);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [previewAttachmentId, setPreviewAttachmentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [listPage, setListPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
@@ -230,6 +268,7 @@ export function RiskReferencesManagementView({
 
   const handleConsult = (reference: RiskReference) => {
     setSelectedReference(reference);
+    setPreviewAttachmentId(reference.attachments?.[0]?.id ?? null);
     setViewMode("consult");
   };
 
@@ -354,6 +393,7 @@ export function RiskReferencesManagementView({
                 — lien INRS, contenu et pièces jointes
               </p>
             </div>
+            {canManage ? (
             <Button
               onClick={handleCreate}
               className="w-full lg:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
@@ -361,6 +401,7 @@ export function RiskReferencesManagementView({
               <PlusCircle className="h-4 w-4 mr-2" />
               Nouvelle référence
             </Button>
+            ) : null}
           </div>
 
           <Card className="border-2 border-slate-200 shadow-lg bg-gradient-to-r from-slate-50 to-slate-100">
@@ -492,6 +533,7 @@ export function RiskReferencesManagementView({
                               <Eye className="h-3.5 w-3.5 mr-1" />
                               Consulter
                             </Button>
+                            {canManage ? (
                             <Button
                               size="sm"
                               onClick={() => handleEdit(reference)}
@@ -500,6 +542,8 @@ export function RiskReferencesManagementView({
                               <Edit className="h-3.5 w-3.5 mr-1" />
                               Modifier
                             </Button>
+                            ) : null}
+                            {canManage ? (
                             <Button
                               size="sm"
                               onClick={() =>
@@ -510,6 +554,7 @@ export function RiskReferencesManagementView({
                               <Trash2 className="h-3.5 w-3.5 mr-1" />
                               Supprimer
                             </Button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -574,17 +619,41 @@ export function RiskReferencesManagementView({
       references.find((item) => item.id === selectedReference.id) ?? selectedReference;
     const ficheUrl = resolveRiskReferenceFicheUrl(reference);
     const ficheAllowed = Boolean(ficheUrl) && isAllowedExternalUrl(ficheUrl);
-    const sections = [
-      { label: "Description", value: reference.description?.trim() ?? "" },
-      { label: "Situations dangereuses", value: reference.situations?.trim() ?? "" },
-      { label: "Dommages possibles", value: reference.dommages?.trim() ?? "" },
-      { label: "Mesures de prévention", value: reference.prevention?.trim() ?? "" },
+    const sheet = displayRiskSheet(reference);
+    const cards = [
+      {
+        label: "De quoi s'agit-il",
+        value: sheet.description,
+        icon: Sparkles,
+        className: "border-orange-100 bg-orange-50/70",
+        iconClass: "bg-orange-500",
+      },
+      {
+        label: "Où ça se présente",
+        value: sheet.situations,
+        icon: AlertTriangle,
+        className: "border-amber-100 bg-amber-50/80",
+        iconClass: "bg-amber-500",
+      },
+      {
+        label: "Ce qui peut arriver",
+        value: sheet.dommages,
+        icon: HeartPulse,
+        className: "border-rose-100 bg-rose-50/70",
+        iconClass: "bg-rose-500",
+      },
+      {
+        label: "Comment s'en protéger",
+        value: sheet.prevention,
+        icon: Shield,
+        className: "border-emerald-100 bg-emerald-50/80",
+        iconClass: "bg-emerald-600",
+      },
     ];
-    const filledSections = sections.filter((section) => section.value).length;
-    const hasLink = ficheAllowed;
-    const attachmentCount = reference.attachments?.length ?? 0;
-    const readyCount = filledSections + (hasLink ? 1 : 0) + (attachmentCount > 0 ? 1 : 0);
-    const readyTotal = sections.length + 2;
+    const attachments = reference.attachments ?? [];
+    const attachmentCount = attachments.length;
+    const preview =
+      attachments.find((item) => item.id === previewAttachmentId) ?? attachments[0] ?? null;
 
     return (
       <div className="space-y-5">
@@ -593,6 +662,7 @@ export function RiskReferencesManagementView({
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour à la liste
           </Button>
+          {canManage ? (
           <Button
             onClick={() => handleEdit(reference)}
             className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 sm:w-auto"
@@ -600,6 +670,7 @@ export function RiskReferencesManagementView({
             <Edit className="mr-2 h-4 w-4" />
             Modifier
           </Button>
+          ) : null}
         </div>
 
         <section className="overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-md">
@@ -613,56 +684,25 @@ export function RiskReferencesManagementView({
               </span>
               <h3 className="text-2xl font-bold leading-tight">{reference.title}</h3>
             </div>
-            <p className="mt-3 text-sm text-orange-50">
-              {readyCount} élément{readyCount > 1 ? "s" : ""} renseigné{readyCount > 1 ? "s" : ""} sur {readyTotal}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 px-5 py-4 sm:px-8">
-            {sections.map((section) => (
-              <span
-                key={section.label}
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  section.value
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "bg-slate-100 text-slate-500"
-                }`}
-              >
-                {section.label}
-                {section.value ? "" : " · à compléter"}
-              </span>
-            ))}
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                hasLink ? "bg-sky-50 text-sky-800" : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              {hasLink ? "Fiche INRS" : "Fiche INRS · à compléter"}
-            </span>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                attachmentCount > 0 ? "bg-amber-50 text-amber-800" : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              {attachmentCount > 0
-                ? `${attachmentCount} pièce${attachmentCount > 1 ? "s" : ""} jointe${attachmentCount > 1 ? "s" : ""}`
-                : "Pièce jointe · à compléter"}
-            </span>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-orange-50">{sheet.description}</p>
           </div>
         </section>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          {sections.map((section) => (
-            <article key={section.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                {section.label}
-              </h4>
-              {section.value ? (
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{section.value}</p>
-              ) : (
-                <p className="mt-3 text-sm text-slate-400">Non renseigné.</p>
-              )}
-            </article>
-          ))}
+        <div className="grid gap-4 md:grid-cols-2">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <article key={card.label} className={`rounded-2xl border p-5 shadow-sm ${card.className}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-white ${card.iconClass}`}>
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <h4 className="text-base font-semibold text-slate-900">{card.label}</h4>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-800">{card.value}</p>
+              </article>
+            );
+          })}
         </div>
 
         <section className="rounded-2xl border border-sky-100 bg-sky-50/60 p-5 shadow-sm">
@@ -699,46 +739,55 @@ export function RiskReferencesManagementView({
             Pièces jointes
           </h4>
           {attachmentCount === 0 ? (
-            <p className="mt-3 text-sm text-slate-400">Aucune pièce jointe.</p>
+            <p className="mt-3 text-sm text-slate-400">Aucune pièce jointe pour cette fiche.</p>
           ) : (
-            <ul className="mt-4 space-y-3">
-              {reference.attachments!.map((attachment) => {
-                const isImage = attachment.mimeType.startsWith("image/");
-                return (
-                  <li key={attachment.id} className="rounded-xl border border-slate-200 p-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <FileText className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900">{attachment.fileName}</p>
-                          <p className="text-xs text-slate-500">
-                            {attachment.uploadedAt
-                              ? new Date(attachment.uploadedAt).toLocaleDateString("fr-FR")
-                              : "Date inconnue"}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadAttachment(attachment)}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Télécharger
-                      </Button>
+            <div className="mt-4 space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {attachments.map((attachment) => {
+                  const selected = preview?.id === attachment.id;
+                  return (
+                    <button
+                      key={attachment.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setPreviewAttachmentId(attachment.id)}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-left text-sm ${
+                        selected
+                          ? "border-sky-600 bg-sky-50 font-medium text-sky-900"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-sky-300"
+                      }`}
+                    >
+                      <FileText className="h-4 w-4 shrink-0" aria-hidden />
+                      <span className="max-w-[16rem] truncate">{attachment.fileName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {preview ? (
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900">{preview.fileName}</p>
+                      <p className="text-xs text-slate-500">
+                        {preview.uploadedAt
+                          ? new Date(preview.uploadedAt).toLocaleDateString("fr-FR")
+                          : "Date inconnue"}
+                      </p>
                     </div>
-                    {isImage ? (
-                      <img
-                        src={attachment.dataUrl}
-                        alt={attachment.fileName}
-                        className="mt-3 max-h-64 w-full rounded-lg border border-slate-100 object-contain bg-slate-50"
-                      />
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => downloadAttachment(preview)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Télécharger
+                    </Button>
+                  </div>
+                  <AttachmentPreview attachment={preview} />
+                </div>
+              ) : null}
+            </div>
           )}
         </section>
       </div>
@@ -890,7 +939,7 @@ export function RiskReferencesManagementView({
               ref={fileInputRef}
               type="file"
               multiple
-              className="sr-only"
+              className="hidden"
               onChange={(event) => {
                 void addAttachments(event.target.files);
                 event.target.value = "";
@@ -937,8 +986,9 @@ export function RiskReferencesManagementView({
                 {formData.attachments.map((attachment) => (
                   <li
                     key={attachment.id}
-                    className="flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                    className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2"
                   >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span className="flex min-w-0 items-center gap-2 text-sm text-slate-800">
                       <Paperclip className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
                       <span className="truncate">{attachment.fileName}</span>
@@ -971,6 +1021,8 @@ export function RiskReferencesManagementView({
                         Retirer
                       </Button>
                     </span>
+                    </div>
+                    <AttachmentPreview attachment={attachment} />
                   </li>
                 ))}
               </ul>

@@ -306,7 +306,7 @@ export function TransportCoverageView({
     accessToken,
     { seed: EMPTY_AGENT_PROFILES },
   );
-  const [assignments] = useAppDataDocumentStore<WorkflowAssignments>(
+  const [assignments, setAssignments] = useAppDataDocumentStore<WorkflowAssignments>(
     APP_DATA_KEYS.workflowAssignments,
     accessToken,
     { seed: EMPTY_WORKFLOW_ASSIGNMENTS },
@@ -319,6 +319,7 @@ export function TransportCoverageView({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const certifierIds = assignments["transport-coverage"]?.certifier ?? [];
   const canCertify = currentUserRole === "rh" || certifierIds.includes(currentUserId);
+  const canDesignateRh = currentUserRole === "admin";
   const currentProfile = profiles[profileKey(currentUserEmail)];
   const attachmentsStripped = useRef(false);
 
@@ -556,38 +557,84 @@ export function TransportCoverageView({
           </div>
         </div> : null}
 
-        {(step === "list" || step === "form") && <label
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${
-            dropping ? "border-indigo-500 bg-indigo-50" : "border-sky-300 bg-white/80"
-          }`}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDropping(true);
-          }}
-          onDragLeave={() => setDropping(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setDropping(false);
-            const file = event.dataTransfer.files[0];
-            if (file) void importSheet(file);
-          }}
-        >
-          <Upload className="h-6 w-6 text-sky-700" />
-          <span className="text-sm font-medium text-slate-800">
-            {readingSheet ? "Lecture de la feuille…" : "Glissez la feuille de transport (PDF)"}
-          </span>
-          <span className="text-xs text-slate-500">Titre d'abonnement ou formulaire officiel. Le fichier n'est pas conservé, seul son nom est indiqué.</span>
-          <input
-            type="file"
-            accept="application/pdf,.pdf"
-            className="sr-only"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void importSheet(file);
-              event.target.value = "";
+        {(step === "list" || step === "form") && (
+          <div
+            className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${
+              dropping ? "border-indigo-500 bg-indigo-50" : "border-sky-300 bg-white/80"
+            }`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDropping(true);
             }}
-          />
-        </label>}
+            onDragLeave={() => setDropping(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setDropping(false);
+              const file = event.dataTransfer.files[0];
+              if (file) void importSheet(file);
+            }}
+          >
+            <Upload className="h-6 w-6 text-sky-700" />
+            <span className="text-sm font-medium text-slate-800">
+              {readingSheet ? "Lecture de la feuille…" : "Glissez la feuille de transport (PDF)"}
+            </span>
+            <span className="text-xs text-slate-500">Titre d'abonnement ou formulaire officiel. Le fichier n'est pas conservé, seul son nom est indiqué.</span>
+            <button
+              type="button"
+              className="mt-1 rounded-full bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+              onClick={() => document.getElementById("transport-sheet-input")?.click()}
+            >
+              Choisir un PDF
+            </button>
+            <input
+              id="transport-sheet-input"
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void importSheet(file);
+                event.target.value = "";
+              }}
+            />
+          </div>
+        )}
+
+        {step === "list" && canDesignateRh ? (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <Label htmlFor="transport-rh">Responsable DRH</Label>
+            <p className="mt-1 text-sm text-amber-950">
+              Choisissez la personne des utilisateurs qui reçoit les demandes et complète le cadre réservé.
+            </p>
+            <select
+              id="transport-rh"
+              className="mt-3 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-sm text-slate-900"
+              value={certifierIds[0] ?? ""}
+              onChange={(event) => {
+                const id = event.target.value;
+                setAssignments((current) => ({
+                  ...current,
+                  "transport-coverage": {
+                    ...(current["transport-coverage"] || {}),
+                    certifier: id ? [id] : [],
+                  },
+                }));
+                const person = directory.find((item) => item.id === id);
+                toast.success(person ? `${person.firstName} ${person.lastName} est le responsable DRH.` : "Aucun responsable DRH.");
+              }}
+            >
+              <option value="">Aucune personne désignée</option>
+              {directory.map((person) => (
+                <option key={person.id} value={person.id}>
+                  {`${person.firstName} ${person.lastName}`.trim()} — {person.email}
+                </option>
+              ))}
+            </select>
+            {directory.length === 0 ? (
+              <p className="mt-2 text-sm text-amber-900">Aucun utilisateur n'est disponible. Ajoutez-les dans Utilisateurs.</p>
+            ) : null}
+          </section>
+        ) : null}
 
         {step === "list" ? (
           <div className="flex flex-col gap-3">
@@ -736,6 +783,16 @@ export function TransportCoverageView({
                 <ChoiceField id="annee-fin" label="Année de fin" value={draft.periodeAnneeFin} options={ANNEES} onChange={(value) => patch({ periodeAnneeFin: value })} />
                 <DateField id="semaine-du" label="Semaine du" value={draft.semaineDu} onChange={(value) => patch({ semaineDu: value })} />
                 <DateField id="semaine-au" label="Semaine au" value={draft.semaineAu} onChange={(value) => patch({ semaineAu: value })} />
+                <Field
+                  id="montant-mensuel"
+                  label="Montant mensuel du titre (€)"
+                  value={draft.montantTotalMensuel}
+                  placeholder="Ex. : 38,90"
+                  onChange={(value) => {
+                    const amount = value.replace(/[^\d,.]/g, "").slice(0, 12);
+                    patch({ montantTotalMensuel: amount, montantHorsIleDeFrance: amount });
+                  }}
+                />
               </div>
               <div>
                 <Label>Justificatifs d'achat</Label>
@@ -744,8 +801,8 @@ export function TransportCoverageView({
                     La pièce « {draft.feuilleJointeNom} » est déjà jointe depuis le dépôt du haut.
                   </p>
                 ) : (
-                  <label
-                    className="mt-2 flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 px-4 py-6 text-center"
+                  <div
+                    className="mt-2 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/40 px-4 py-6 text-center"
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => {
                       event.preventDefault();
@@ -753,9 +810,17 @@ export function TransportCoverageView({
                     }}
                   >
                     <Upload className="h-5 w-5 text-indigo-700" />
-                    <span className="text-sm text-slate-700">Glissez un justificatif, ou cliquez pour le choisir</span>
+                    <span className="text-sm text-slate-700">Glissez un justificatif</span>
+                    <button
+                      type="button"
+                      className="rounded-full bg-indigo-700 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-800"
+                      onClick={() => document.getElementById("transport-proof-input")?.click()}
+                    >
+                      Choisir une pièce jointe
+                    </button>
                     <input
-                      className="sr-only"
+                      id="transport-proof-input"
+                      className="hidden"
                       type="file"
                       multiple
                       onChange={(event) => {
@@ -763,7 +828,7 @@ export function TransportCoverageView({
                         event.target.value = "";
                       }}
                     />
-                  </label>
+                  </div>
                 )}
                 <ul className="mt-2 flex flex-col gap-1 text-sm">
                   {draft.justificatifs

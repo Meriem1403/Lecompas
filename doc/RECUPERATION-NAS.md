@@ -12,9 +12,26 @@ Un `git pull` seul ne change pas le site. Les conteneurs continuent de servir l�
 
 Les navigateurs qui avaient encore l’ancienne session voient la page de connexion au prochain chargement. Il suffit de se reconnecter avec son compte.
 
+## Risques : 49 lignes, c’est la base de démonstration
+
+Le classeur DUERP contient **478** risques (`duerp-import-…`). Une cinquantaine de lignes, c’est l’ancienne base de démonstration, stockée dans PostgreSQL. Un `git pull` et une reconstruction des images ne la changent pas.
+
+Après cette version, une connexion **administrateur** remplace cette base courte par les 478 lignes du classeur. Le PAPRIPACT, les accidents et les autres données ne sont pas touchés. Tant que le classeur n’est pas en place, ne pas laisser l’ancienne page ouverte : elle peut réécrire les 49 lignes par-dessus le serveur.
+
+Pour le faire tout de suite depuis un PC du réseau, sans attendre le déploiement :
+
+```bash
+export INTRANET_API_BASE=http://ADRESSE_IP_DU_NAS:8000/make-server-cfb78916
+export INTRANET_ADMIN_EMAIL=admin@dirm-med.gouv.fr
+export INTRANET_ADMIN_PASSWORD='le mot de passe administrateur du NAS'
+npm run seed:imported -- --risks-only
+```
+
+`--risks-only` est obligatoire. Sans ce drapeau, la commande remplace aussi le PAPRIPACT.
+
 ## À ne pas faire
 
-- Ne pas lancer `npm run seed:imported`. Cette commande remplace les risques et les actions PAPRIPACT déjà en base.
+- Ne pas lancer `npm run seed:imported` sans `--risks-only`.
 - Ne pas lancer `docker compose -f docker-compose.prod.yml up -d --build` sur le NAS. Le build du frontend sature une machine d’environ 1 Go de RAM.
 - Ne pas copier le `.env` du poste de développement. Le `.env` du NAS reste sur le NAS.
 
@@ -61,4 +78,4 @@ Copier `lecompas-frontend.tar.gz` sur le NAS, puis :
 1. Fenêtre privée sur l’adresse IP : page de connexion, pas de session déjà ouverte.
 2. Connexion avec un compte personnel, pas avec un bouton de démonstration.
 3. Après 30 minutes sans clic, la session demande de se reconnecter.
-4. Les risques et le PAPRIPACT déjà saisis sont toujours là. Aucun import n’est nécessaire pour cette mise à jour.
+4. Connecté en administrateur, l’onglet Risques affiche les 478 lignes du classeur, pas la cinquantaine de la démonstration. Le PAPRIPACT déjà saisi reste en place.

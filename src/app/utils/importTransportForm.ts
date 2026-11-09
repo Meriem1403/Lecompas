@@ -152,18 +152,23 @@ export function parseSubscriptionLines(lines: string[]): Partial<TransportCovera
   return result;
 }
 
-export async function readTransportForm(data: ArrayBuffer): Promise<Partial<TransportCoverageRequest>> {
+async function openPdf(data: ArrayBuffer) {
+  // Le module worker s'enregistre sur la page. Évite un fichier .mjs à part,
+  // que le serveur refuse souvent de charger (et la lecture échoue alors).
+  await import("pdfjs-dist/build/pdf.worker.min.mjs");
   const pdfjs = await import("pdfjs-dist");
-  const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  return pdfjs.getDocument({ data: new Uint8Array(data.slice(0)), isEvalSupported: false }).promise;
+}
 
-  const doc = await pdfjs.getDocument({ data: data.slice(0) }).promise;
+export async function readTransportForm(data: ArrayBuffer): Promise<Partial<TransportCoverageRequest>> {
+  const doc = await openPdf(data);
   const page = await doc.getPage(1);
   const content = await page.getTextContent();
   const pieces: TextPiece[] = [];
   for (const item of content.items) {
-    if (!("str" in item) || !item.str.trim()) continue;
+    if (!("str" in item) || !item.str.trim() || !item.transform) continue;
     const [, , , , x, y] = item.transform;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     const form = formPoint(x, y);
     pieces.push({ text: item.str.trim(), x: form.x, y: form.y });
   }

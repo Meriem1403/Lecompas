@@ -101,8 +101,8 @@ export const ACCESS_MODULES: AccessModule[] = [
   {
     id: "risk-references",
     label: "Référentiel des risques",
-    section: "Administration",
-    description: "Parametrage des references de risques.",
+    section: "Prevention",
+    description: "Consultation des fiches de risques. La modification reste aux profils autorisés.",
   },
   {
     id: "action-returns",

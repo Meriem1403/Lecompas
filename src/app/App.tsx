@@ -135,7 +135,7 @@ import {
   SecuritySheetView,
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
-import { profileFromRoleCode, profileHasAnyGrant } from "./components/access-management/roleAccess";
+import { profileFromRoleCode, profileHasAnyGrant, roleCodeFromUserRole } from "./components/access-management/roleAccess";
 import { loadAdminUsers, saveAdminUsers } from "./utils/adminUserRecord";
 import {
   appUserDisplayName,
@@ -240,6 +240,7 @@ import {
   mapApiRoleToSessionRole,
 } from "./services/authApi";
 import { fetchRisksFromApi, syncRisksToApi } from "./services/risksApi";
+import { ensureOfficialDuerpRiskBase } from "./utils/duerpRiskBase";
 import {
   fetchAdminUsers,
   syncAdminUsersToApi,
@@ -564,6 +565,7 @@ export default function App() {
     [navigate],
   );
   const risksSkipSyncRef = React.useRef(false);
+  const risksReadyRef = React.useRef(!isBackendApiEnabled());
   const adminUsersSkipSyncRef = React.useRef(false);
   const actionsSkipSyncRef = React.useRef(false);
   const accidentsSkipSyncRef = React.useRef(false);
@@ -856,23 +858,29 @@ export default function App() {
   }, [riskReferences]);
 
   const hydrateRisksFromApi = React.useCallback(
-    async (token: string) => {
-      risksSkipSyncRef.current = true;
-      const fromApi = await fetchRisksFromApi(token);
-      if (fromApi.length > 0) {
-        setRisks(fromApi);
-        return;
-      }
-      const local = loadPersistedRisks();
-      if (local && local.length > 0) {
-        setRisks(local);
-        risksSkipSyncRef.current = false;
-        await syncRisksToApi(local, token);
+    async (token: string, installOfficialBase: boolean) => {
+      try {
+        let fromApi = await fetchRisksFromApi(token);
+        if (installOfficialBase) {
+          try {
+            const wrote = await ensureOfficialDuerpRiskBase(fromApi, token);
+            if (wrote) {
+              fromApi = await fetchRisksFromApi(token);
+              toast.success(
+                `Base des risques du classeur chargée (${fromApi.length} risques).`,
+              );
+            }
+          } catch (error) {
+            console.error("[Lecompas] import base risques", error);
+            toast.error(
+              "Le remplacement de la base des risques a échoué. Les données affichées sont inchangées.",
+            );
+          }
+        }
         risksSkipSyncRef.current = true;
-        return;
-      }
-      if (!isBackendApiEnabled()) {
-        setRisks(FAKE_RISKS);
+        setRisks(fromApi);
+      } finally {
+        risksReadyRef.current = true;
       }
     },
     [],
@@ -1177,9 +1185,10 @@ export default function App() {
       !accessToken ||
       !isApiAccessToken(accessToken)
     ) {
-      savePersistedRisks(risks);
+      if (!isBackendApiEnabled()) savePersistedRisks(risks);
       return;
     }
+    if (!risksReadyRef.current) return;
     if (risksSkipSyncRef.current) {
       risksSkipSyncRef.current = false;
       return;
@@ -1514,7 +1523,7 @@ export default function App() {
 
         persistSessionUser(resolvedUser, access_token, rememberMe);
         await Promise.all([
-          hydrateRisksFromApi(access_token),
+          hydrateRisksFromApi(access_token, resolvedUser.role === "admin"),
           hydrateAdminUsersFromApi(
             access_token,
             resolvedUser.role === "admin",
@@ -1602,7 +1611,7 @@ export default function App() {
           });
           const restoredRole = mapApiRoleToSessionRole(profile.role);
           await Promise.all([
-            hydrateRisksFromApi(savedToken),
+            hydrateRisksFromApi(savedToken, restoredRole === "admin"),
             hydrateAdminUsersFromApi(savedToken, restoredRole === "admin"),
             hydrateActionsFromApi(savedToken),
             hydrateAccidentsFromApi(savedToken),
@@ -2326,12 +2335,6 @@ export default function App() {
           color: "text-red-600",
         },
         {
-          id: "risk-references",
-          label: "Référentiel des risques",
-          icon: FileText,
-          color: "text-amber-600",
-        },
-        {
           id: "action-returns",
           label: "Retours d'action",
           icon: MessageSquare,
@@ -2429,6 +2432,12 @@ export default function App() {
           label: "Sensibilisation aux risques",
           icon: Info,
           color: "text-orange-600",
+        },
+        {
+          id: "risk-references",
+          label: "Référentiel des risques",
+          icon: FileText,
+          color: "text-amber-600",
         },
         {
           id: "prevention-plan",
@@ -2555,6 +2564,7 @@ export default function App() {
   const hasViewAccess = (viewId: string) => {
     if (!user) return false;
     if (user.role === "admin") return true;
+    if (viewId === "risk-references") return true;
 
     const moduleExists = ACCESS_MODULES.some(
       (moduleItem) => moduleItem.id === viewId,
@@ -2573,6 +2583,22 @@ export default function App() {
       currentAdminUser.role,
       adminRoles,
     ).modulePermissions[viewId]?.canView ?? false;
+  };
+
+  const canManageModule = (viewId: string) => {
+    if (!user) return false;
+    if (user.role === "agent" || user.role === "prestataire" || user.role === "rh") return false;
+    if (user.role === "admin") return true;
+    const sameRole =
+      currentAdminUser &&
+      roleCodeFromUserRole(user.role) === roleCodeFromUserRole(currentAdminUser.role);
+    const profile = sameRole
+      ? (profileHasAnyGrant(accessProfiles[currentAdminUser.id])
+          ? accessProfiles[currentAdminUser.id]
+          : profileFromRoleCode(currentAdminUser.id, user.role, adminRoles))
+      : profileFromRoleCode(user.id, user.role, adminRoles);
+    const crud = profile.modulePermissions[viewId]?.crud;
+    return Boolean(crud?.create || crud?.update || crud?.delete);
   };
 
   const filteredSidebarItems = sidebarItems
@@ -4051,6 +4077,7 @@ export default function App() {
             <RiskReferencesManagementView
               references={riskReferences}
               setReferences={setRiskReferences}
+              canManage={canManageModule("risk-references")}
             />
           )}
 

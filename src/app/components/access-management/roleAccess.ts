@@ -28,6 +28,7 @@ const AGENT_VISIBLE = new Set([
   "registre",
   "asbestos",
   "asbestos-attestations",
+  "risk-references",
 ]);
 
 export type RoleAccessPreset = "admin" | "chef" | "agent";
