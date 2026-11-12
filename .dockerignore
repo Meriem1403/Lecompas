@@ -1,5 +1,5 @@
 node_modules
-dist
+# dist reste visible : Dockerfile.prod.static le copie dans l'image nginx du NAS.
 .git
 .gitignore
 .DS_Store

@@ -51,9 +51,9 @@ Le push sur `main` lance `.github/workflows/deploy-intranet.yml` :
 
 1. Les tests passent.
 2. Le frontend est compilé hors du NAS, avec l’API activée et la connexion démo désactivée.
-3. Le runner reconstruit l’API et charge l’image frontend déjà compilée.
+3. Le runner reconstruit l’API et charge l’image frontend déjà compilée. Cette image contient le dossier `dist`. S’il est exclu du contexte Docker, l’action échoue et le NAS continue d’afficher les anciens onglets.
 
-Vérifier ensuite que l’action « Deploy intranet » est verte, puis ouvrir l’adresse IP dans une fenêtre privée : la page de connexion doit s’afficher.
+Vérifier ensuite que l’action « Deploy intranet » est verte, puis ouvrir l’adresse IP dans une fenêtre privée : la page de connexion doit s’afficher. Un simple rafraîchissement d’un onglet déjà ouvert peut encore montrer l’ancienne interface.
 
 ## Si le runner ne tourne pas
 
