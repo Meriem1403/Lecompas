@@ -287,10 +287,10 @@ export function DashboardView({
   }));
 
   const modules = [
-    { id: "risks", label: "Évaluation des risques", hint: "DUERP du périmètre", value: risks.length, icon: Shield },
+    { id: "risks", label: "Consultation des risques", hint: "Vue de lecture du registre", value: risks.length, icon: Shield },
     { id: "actions", label: "Plan d'action", hint: `${overdueActions.length} en retard`, value: actions.length, icon: Activity },
     { id: "accidents", label: "Accidentologie", hint: `${accidentsThisYear} cette année`, value: accidents.length, icon: AlertTriangle },
-    { id: "risk-awareness", label: "Sensibilisation", hint: "Registre des sensibilisations", value: awarenessCount, icon: Brain },
+    { id: "risk-references", label: "Référentiel des risques", hint: "Catalogue et fiches à partager", value: awarenessCount, icon: Brain },
     { id: "safety-sheets", label: "Fiches de sécurité", hint: "Fiches publiées", value: securitySheetCount, icon: FileWarning },
     { id: "prevention-plan", label: "Plans de prévention", hint: "Entreprises extérieures", value: extraCounts["prevention-plan"] ?? null, icon: ClipboardList },
     { id: "safety-protocols", label: "Protocoles de sécurité", hint: "Chargement et déchargement", value: extraCounts["safety-protocols"] ?? null, icon: FolderOpen },

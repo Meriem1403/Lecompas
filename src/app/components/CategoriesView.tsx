@@ -74,7 +74,7 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
     {
       id: "duerp",
       title: "Prévention",
-      description: "Évaluation des risques, sensibilisation, plans, protocoles, fiches, accidentologie, DUERP",
+      description: "Consultation des risques, sensibilisation, plans, protocoles, fiches, accidentologie, DUERP",
       icon: Shield,
       gradient: "from-blue-500 via-cyan-500 to-teal-500",
       moduleCount: 10,
@@ -205,7 +205,7 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <div className="min-w-0 flex-1 text-left">
-                  <p className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">Évaluation des risques</p>
+                  <p className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">Consultation des risques</p>
                   <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Accès direct au module</p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-teal-500 shrink-0" aria-hidden />

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -36,6 +37,7 @@ export function SSTRegistryForm({
   onSave,
   onCancel,
 }: SSTRegistryFormProps) {
+  const requestLeave = useLeaveGuard();
   const [service, setService] = useState(remark?.service || '');
   const [otherService, setOtherService] = useState('');
   const [geographicSites, setGeographicSites] = useState<GeographicSite[]>(remark?.geographicSites || []);
@@ -217,8 +219,7 @@ export function SSTRegistryForm({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Button variant="ghost" size="sm" onClick={onCancel} className="mb-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />
+          <Button variant="ghost" size="sm" onClick={() => requestLeave(onCancel)} className="mb-2">
             Retour
           </Button>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">

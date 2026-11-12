@@ -1,521 +1,616 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import html2canvas from "html2canvas";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
-import { Separator } from "@/app/components/ui/separator";
+import type { PlanProtocolFields, PlanRecord, PlanStatus, RiskInput } from "@/app/types/preventionPlan";
 
-import type { PlanCoIntervenantRow, PlanProtocolFields, PlanRecord, PlanStatus, RiskInput } from "@/app/types/preventionPlan";
+const PAGE_W = 595.28;
+const PAGE_H = 841.89;
+const MARGIN = 42;
+const HEADER = 78;
+const FOOTER = 36;
+const CONTENT_W = PAGE_W - MARGIN * 2;
 
-function normalizeDocTitle(raw: string | undefined, fallback: string): string {
-  if (!raw?.trim()) return fallback;
-  const t = raw.trim().replace(/\s+/g, " ");
-  if (/^protocole\s+de\s+s[ée]curit[ée]$/i.test(t)) return fallback;
-  if (/^protocole\s+de\s+securite$/i.test(t)) return fallback;
-  if (/^PROTOCOLE\s+DE\s+SECURITE$/i.test(t)) return fallback;
-  return raw.trim();
-}
+const NAVY = rgb(0, 0, 0.569);
+const INK = rgb(0.12, 0.14, 0.18);
+const MUTED = rgb(0.35, 0.38, 0.42);
+const RULE = rgb(0.78, 0.8, 0.84);
+const RED = rgb(0.882, 0.063, 0.184);
+const WHITE = rgb(1, 1, 1);
+const PALE_STONE = rgb(0.965, 0.96, 0.95);
+const PALE_SAND = rgb(0.975, 0.96, 0.93);
+const PALE_SAGE = rgb(0.945, 0.96, 0.945);
+const PALE_BLUSH = rgb(0.975, 0.95, 0.945);
+const PALE_MIST = rgb(0.95, 0.955, 0.965);
+const EDGE_STONE = rgb(0.62, 0.6, 0.56);
+const EDGE_SAND = rgb(0.66, 0.58, 0.46);
+const EDGE_SAGE = rgb(0.5, 0.58, 0.52);
+const EDGE_BLUSH = rgb(0.66, 0.54, 0.52);
+const EDGE_MIST = rgb(0.55, 0.6, 0.66);
+const SAUGE = rgb(0.4, 0.5, 0.45);
+const DUST = rgb(0.58, 0.44, 0.44);
+
+type Paint = ReturnType<typeof rgb>;
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
-  a_lancer: "A lancer",
+  a_lancer: "À lancer",
   en_cours: "En cours",
-  termine: "Termine",
+  termine: "Terminé",
 };
 
-const STATUS_BADGE: Record<PlanStatus, string> = {
-  a_lancer: "rounded-md border px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-900 border-amber-400",
-  en_cours: "rounded-md border px-2 py-1 text-xs font-semibold bg-teal-100 text-teal-900 border-teal-400",
-  termine: "rounded-md border px-2 py-1 text-xs font-semibold bg-emerald-100 text-emerald-900 border-emerald-400",
-};
+const PRIORITY_LABEL = { haute: "Haute", moyenne: "Moyenne", basse: "Basse" } as const;
 
-function rowCoHas(r: PlanCoIntervenantRow): boolean {
-  return [r.qualite, r.denomination, r.adresse, r.contactNom, r.contactEmail, r.complements].some((x) => x.trim().length > 0);
+const MONTHS = [
+  "janvier", "février", "mars", "avril", "mai", "juin",
+  "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+];
+
+function pdfSafe(value: string | undefined | null): string {
+  return (value ?? "")
+    .replace(/\u00a0/g, " ")
+    .replace(/[’‘]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[•▪►]/g, "- ")
+    .replace(/œ/g, "oe")
+    .replace(/Œ/g, "OE")
+    .replace(/[^\u0000-\u00ff]/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
-function annexFmt(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
-  if (bytes < 1024) return `${Math.round(bytes)} o`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+function shown(value: string | undefined | null): string {
+  const text = pdfSafe(value);
+  return text || "Non renseigné";
 }
 
-/** Rendu statique proche de la fiche « Consulter », optimisé capture html2canvas → PDF multi-pages. */
-export function PreventionPlanVisualDocument({
-  plan,
-  protocol,
-  risks,
-}: {
-  plan: PlanRecord;
-  protocol: PlanProtocolFields;
-  risks: RiskInput[];
-}) {
-  const orgs = protocol.coIntervenantRows.filter(rowCoHas);
-
-  return (
-    <div className="prevention-plan-visual-pdf space-y-5 text-slate-900" style={{ WebkitFontSmoothing: "antialiased" }}>
-      <div className="rounded-xl overflow-hidden border border-emerald-900/30 bg-emerald-950 text-white px-5 py-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-200/90 mb-1">Plan de prévention</p>
-            <h1 className="text-xl font-bold leading-snug break-words">
-              {plan.riskNumber} — {plan.riskTitle}
-            </h1>
-            <p className="text-sm text-emerald-100 mt-2 leading-snug">{protocol.codeTravailReference}</p>
-            <p className="text-xs text-emerald-50/90 mt-3 border-t border-white/10 pt-3">{protocol.operationType}</p>
-          </div>
-          <span className={STATUS_BADGE[plan.status]}>{STATUS_LABEL[plan.status]}</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-          <p className="text-[10px] font-bold uppercase text-indigo-700">Service</p>
-          <p className="text-sm font-semibold text-indigo-950 mt-1">{plan.service}</p>
-        </div>
-        <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
-          <p className="text-[10px] font-bold uppercase text-teal-700">Domaine</p>
-          <p className="text-sm font-semibold text-teal-950 mt-1">{plan.domain}</p>
-        </div>
-        <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-3">
-          <p className="text-[10px] font-bold uppercase text-cyan-700">Lieu</p>
-          <p className="text-sm font-semibold text-cyan-950 mt-1">{plan.location}</p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-[10px] font-bold uppercase text-emerald-700">Responsable</p>
-          <p className="text-sm font-semibold text-emerald-950 mt-1 break-words">{plan.owner}</p>
-        </div>
-      </div>
-
-      <Card className="border border-slate-200 shadow-sm bg-white">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">{normalizeDocTitle(protocol.protocoleTitle, "PLAN DE PREVENTION")}</CardTitle>
-          <CardDescription className="text-xs">Objectif · actions</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>
-            <p className="text-[10px] font-bold uppercase text-slate-500">Objectif</p>
-            <p className="text-slate-800 whitespace-pre-wrap mt-1">{plan.objective || "—"}</p>
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold uppercase text-slate-500">Actions</p>
-            {plan.actions.length === 0 ? (
-              <p className="text-slate-500">—</p>
-            ) : (
-              plan.actions.map((action, index) => (
-                <div key={`${action}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                  <span className="font-semibold text-slate-900">Action {index + 1} : </span>
-                  <span className="text-slate-700 whitespace-pre-wrap">{action}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border border-indigo-200 bg-white shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base text-indigo-950">1) Co-intervenants</CardTitle>
-          <CardDescription className="text-xs">Entreprises, administrations, organismes</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {orgs.length === 0 ? (
-            <p className="text-sm text-slate-600">Aucune structure renseignée.</p>
-          ) : (
-            orgs.map((row, idx) => (
-              <div key={row.id} className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4 text-sm space-y-2">
-                <p className="text-xs font-bold uppercase text-indigo-800">Structure {idx + 1}</p>
-                {row.qualite.trim() ? (
-                  <p>
-                    <span className="text-[10px] font-semibold uppercase text-slate-500">Qualité / rôle </span>
-                    <span className="text-slate-900 whitespace-pre-wrap">{row.qualite}</span>
-                  </p>
-                ) : null}
-                <p>
-                  <span className="text-[10px] font-semibold uppercase text-slate-500">Dénomination </span>
-                  <span className="text-slate-900">{row.denomination.trim() ? row.denomination : "—"}</span>
-                </p>
-                <p>
-                  <span className="text-[10px] font-semibold uppercase text-slate-500">Adresse </span>
-                  <span className="text-slate-900 whitespace-pre-wrap">{row.adresse.trim() ? row.adresse : "—"}</span>
-                </p>
-                {(row.contactNom.trim() || row.contactEmail.trim()) ? (
-                  <p>
-                    <span className="text-[10px] font-semibold uppercase text-slate-500">Contact </span>
-                    <span className="text-slate-900">
-                      {[row.contactNom.trim(), row.contactEmail.trim()].filter(Boolean).join(" · ") || "—"}
-                    </span>
-                  </p>
-                ) : null}
-                {row.complements.trim() ? (
-                  <p>
-                    <span className="text-[10px] font-semibold uppercase text-slate-500">Précisions </span>
-                    <span className="text-slate-900 whitespace-pre-wrap">{row.complements}</span>
-                  </p>
-                ) : null}
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="border border-slate-200 bg-white shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">2) Nature de la prestation</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm whitespace-pre-wrap">{protocol.prestationNature || "—"}</p>
-        </CardContent>
-      </Card>
-
-      <Card className="border border-slate-200 bg-white shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">3) Organisation chargement / déchargement</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-500">Lieu de livraison ou prise en charge</p>
-            <p className="text-slate-800 mt-1 whitespace-pre-wrap">{protocol.lieuLivraison || "—"}</p>
-          </div>
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-500">Matériel(s) spécifique(s)</p>
-            <p className="text-slate-800 mt-1 whitespace-pre-wrap">{protocol.materielsSpecifiques || "—"}</p>
-          </div>
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-            <p className="text-[10px] font-bold uppercase text-amber-800">Consignes sécurité site</p>
-            <p className="text-slate-800 mt-1 whitespace-pre-wrap">{protocol.consignesSite || "—"}</p>
-          </div>
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-            <p className="text-[10px] font-bold uppercase text-amber-800">Consignes opération</p>
-            <p className="text-slate-800 mt-1 whitespace-pre-wrap">{protocol.consignesOperation || "—"}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">4) Évaluation des risques (CT R4515-5)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
-            <table className="min-w-full text-[11px] leading-snug">
-              <thead className="bg-slate-100">
-                <tr>
-                  <th className="text-left p-2 font-bold uppercase text-slate-700 border-b border-slate-200 w-[26%]">
-                    Situation dangereuse
-                  </th>
-                  <th className="text-left p-2 font-bold uppercase text-slate-700 border-b border-l border-slate-200 w-[32%]">
-                    Dommages associés
-                  </th>
-                  <th className="text-left p-2 font-bold uppercase text-slate-700 border-b border-l border-slate-200 w-[42%]">
-                    Mesures de prévention
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {protocol.riskEvaluationRows.map((row) => {
-                  const evalRisk = row.linkedEvaluationRiskId
-                    ? risks.find((r) => r.id === row.linkedEvaluationRiskId)
-                    : undefined;
-                  return (
-                    <tr key={row.id} className="border-t border-slate-200 align-top bg-white">
-                      <td className="p-2 whitespace-pre-wrap text-slate-800 border-slate-100">
-                        {evalRisk ? (
-                          <span className="inline-block mb-1 rounded border border-violet-400 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-900">
-                            Réf. {evalRisk.numeroRisque}
-                          </span>
-                        ) : (row.evaluationRiskFreeText ?? "").trim() ? (
-                          <span className="inline-block mb-1 rounded border border-slate-400 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-800">
-                            Mention hors référentiel
-                          </span>
-                        ) : null}
-                        {!evalRisk && (row.evaluationRiskFreeText ?? "").trim() ? (
-                          <p className="text-[10px] text-slate-600 mb-1 whitespace-pre-wrap">{(row.evaluationRiskFreeText ?? "").trim()}</p>
-                        ) : null}
-                        {row.domaine.trim() ? row.domaine : "—"}
-                      </td>
-                      <td className="p-2 border-l border-slate-200 whitespace-pre-wrap text-slate-800">
-                        {row.natureRisques.trim() ? row.natureRisques : "—"}
-                      </td>
-                      <td className="p-2 border-l border-slate-200 whitespace-pre-wrap text-slate-800">
-                        {row.mesuresPrevention.trim() ? row.mesuresPrevention : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-500">Complément libre</p>
-            <p className="text-sm whitespace-pre-wrap mt-1">{protocol.evaluationRisques || "—"}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card className="border border-emerald-200 bg-white shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-emerald-900">5) Premiers secours</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="rounded-lg bg-emerald-50 p-3 border border-emerald-100">
-              <p className="text-[10px] font-bold uppercase text-emerald-800">Personnes à prévenir</p>
-              <p className="text-slate-800 mt-1 whitespace-pre-wrap">{protocol.personnesAPrevenir || "—"}</p>
-            </div>
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-              <p className="text-[10px] font-bold uppercase text-red-800">Accident / incendie</p>
-              <p className="text-slate-800 mt-1 whitespace-pre-wrap">{protocol.mesuresUrgence || "—"}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border border-orange-200 bg-white shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-orange-950">6) Plan transmis · 7) Observations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
-              <p className="text-[10px] font-bold uppercase text-orange-900">Transmis à</p>
-              <p className="text-slate-900 mt-1 whitespace-pre-wrap">{protocol.planTransmis || "—"}</p>
-            </div>
-            <div className="rounded-lg border border-slate-200 overflow-auto">
-              <table className="min-w-full text-[11px]">
-                <thead className="bg-slate-100">
-                  <tr>
-                    <th className="text-left p-2 uppercase text-slate-600 font-semibold">Destinataire</th>
-                    <th className="text-left p-2 uppercase text-slate-600 font-semibold">O/N</th>
-                    <th className="text-left p-2 uppercase text-slate-600 font-semibold">Nom</th>
-                    <th className="text-left p-2 uppercase text-slate-600 font-semibold">Observation</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t">
-                    <td className="p-2">Cellule Sécurité</td>
-                    <td className="p-2">{protocol.transmissionCelluleSecuriteStatus}</td>
-                    <td className="p-2">{protocol.transmissionCelluleSecuriteNom || "—"}</td>
-                    <td className="p-2">{protocol.transmissionCelluleSecuriteObs || "—"}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="p-2">Corresp. site</td>
-                    <td className="p-2">{protocol.transmissionCorrespondantSiteStatus}</td>
-                    <td className="p-2">{protocol.transmissionCorrespondantSiteNom || "—"}</td>
-                    <td className="p-2">{protocol.transmissionCorrespondantSiteObs || "—"}</td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="p-2">Corresp. APB</td>
-                    <td className="p-2">{protocol.transmissionCorrespondantAPBStatus}</td>
-                    <td className="p-2">{protocol.transmissionCorrespondantAPBNom || "—"}</td>
-                    <td className="p-2">{protocol.transmissionCorrespondantAPBObs || "—"}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500">Observations transmission</p>
-              <p className="text-slate-800 whitespace-pre-wrap mt-1">{protocol.observationsTransmission || "—"}</p>
-            </div>
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500">Observations / remarques</p>
-              <p className="text-slate-800 whitespace-pre-wrap mt-1">{protocol.observationsRemarques || "—"}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border border-rose-200 bg-white shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base text-rose-900">8) Signatures</CardTitle>
-          <CardDescription className="text-xs">
-            Empreinte visuelle (image) ou complément manuscrit hors ligne. Pour une signature électronique qualifiée (certificat),
-            ouvrez ce PDF dans Adobe Acrobat Reader et utilisez « Signer le document » si votre organisation le prévoit.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 xl:grid-cols-3 gap-4 text-sm">
-          {(
-            [
-              {
-                entite: protocol.signatureEntite1 || "Entité 1",
-                nom: protocol.signatureNom1,
-                prenom: protocol.signaturePrenom1,
-                date: protocol.signatureDate1,
-                img: protocol.signatureDematerialiseeUrl1,
-              },
-              {
-                entite: protocol.signatureEntite2 || "Entité 2",
-                nom: protocol.signatureNom2,
-                prenom: protocol.signaturePrenom2,
-                date: protocol.signatureDate2,
-                img: protocol.signatureDematerialiseeUrl2,
-              },
-              {
-                entite: protocol.signatureEntite3 || "Entité 3",
-                nom: protocol.signatureNom3,
-                prenom: protocol.signaturePrenom3,
-                date: protocol.signatureDate3,
-                img: protocol.signatureDematerialiseeUrl3,
-              },
-            ] as const
-          ).map((s, i) => (
-            <div key={i} className="rounded-xl border border-rose-200 bg-rose-50/80 p-4 space-y-2">
-              <p className="font-semibold text-slate-900">{s.entite}</p>
-              <p>
-                <span className="font-medium">Nom : </span>
-                {s.nom || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Prénom : </span>
-                {s.prenom || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Date : </span>
-                {s.date || "—"}
-              </p>
-              <div className="mt-2 rounded-lg border border-dashed border-rose-300 bg-white p-2 min-h-[72px] flex items-center justify-center">
-                {s.img?.trim() ? (
-                  <img src={s.img} alt="" className="max-h-24 w-full object-contain" />
-                ) : (
-                  <p className="text-[10px] text-slate-400 text-center px-2">Zone réservée à la signature (image saisie dans l’éditeur)</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <Card className="border border-sky-200 bg-white shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-sky-900">10) Plan de circulation et déchargement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{protocol.planCirculation || "—"}</p>
-          </CardContent>
-        </Card>
-        <Card className="border border-sky-200 bg-white shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-sky-900">Matériel à remplacer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{protocol.materielRemplacer || "—"}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border border-slate-200 bg-white shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Annexes et documents joints</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {protocol.annexAttachments.length === 0 ? (
-            <p className="text-sm text-slate-500">Aucun fichier joint référencé dans l’export visuel (les binaires restent dans l’app).</p>
-          ) : (
-            <ul className="space-y-2">
-              {protocol.annexAttachments.map((att, idx) => (
-                <li key={att.id} className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50">
-                  <span className="font-semibold">
-                    {idx + 1}. {att.fileName}
-                  </span>
-                  <span className="text-xs text-slate-500"> · {annexFmt(att.sizeBytes)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {protocol.annexesDocuments.trim() ? (
-            <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-              <p className="text-[10px] font-bold uppercase text-slate-500 mb-1">Complément rédactionnel</p>
-              <p className="text-sm whitespace-pre-wrap">{protocol.annexesDocuments}</p>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <div className="rounded-lg border border-slate-200 bg-white p-4 text-[10px] leading-relaxed text-slate-500 space-y-2">
-        <p>
-          Document généré depuis l’application avec une mise en page visuelle proche de l’aperçu à l’écran. Les fichiers joints listés
-          ci-dessus peuvent être ajoutés séparément ou intégrés hors ligne selon votre circuit documentaire.
-        </p>
-      </div>
-    </div>
-  );
+function formatDate(value: string | undefined): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value?.trim() || "");
+  if (!match) return shown(value);
+  const day = Number(match[3]);
+  const month = MONTHS[Number(match[2]) - 1];
+  if (!month) return shown(value);
+  return `${day} ${month} ${match[1]}`;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+function transmissionLabel(value: string | undefined): string {
+  if (value === "oui") return "Oui";
+  if (value === "non") return "Non";
+  return "Non renseigné";
 }
 
-async function waitForDomPaint(): Promise<void> {
-  await sleep(0);
-  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-  await sleep(220);
-}
-
-/** Capture le rendu HTML puis produit un PDF multipage (JPEG) pour se rapprocher du visuel consultation. */
-export async function downloadPreventionPlanVisualPdf(plan: PlanRecord, protocol: PlanProtocolFields, risks: RiskInput[]): Promise<boolean> {
-  const host = document.createElement("div");
-  host.setAttribute("aria-hidden", "true");
-  host.style.position = "fixed";
-  host.style.left = "0";
-  host.style.top = "0";
-  host.style.zIndex = "-10";
-  host.style.pointerEvents = "none";
-  host.style.width = "794px";
-  host.style.maxWidth = "794px";
-  host.style.backgroundColor = "#f1f5f9";
-  host.style.padding = "12px";
-  host.style.boxSizing = "border-box";
-
-  const mount = document.createElement("div");
-  host.appendChild(mount);
-  document.body.appendChild(host);
-
-  const root = createRoot(mount);
-
-  try {
-    root.render(<PreventionPlanVisualDocument plan={plan} protocol={protocol} risks={risks} />);
-    await waitForDomPaint();
-
-    const canvas = await html2canvas(host, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: "#f1f5f9",
-      logging: false,
-      width: host.scrollWidth,
-      height: host.scrollHeight,
-      windowWidth: host.scrollWidth,
-      windowHeight: host.scrollHeight,
-    });
-
-    const { jsPDF } = await import("jspdf");
-    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const pxPerMm = canvas.width / pageW;
-    const pagePxH = pageH * pxPerMm;
-
-    let y = 0;
-    let first = true;
-    while (y < canvas.height) {
-      const sliceH = Math.min(pagePxH, canvas.height - y);
-      const slice = document.createElement("canvas");
-      slice.width = canvas.width;
-      slice.height = sliceH;
-      slice.getContext("2d")!.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-      const data = slice.toDataURL("image/jpeg", 0.9);
-      const hMm = sliceH / pxPerMm;
-      if (!first) pdf.addPage();
-      pdf.addImage(data, "JPEG", 0, 0, pageW, hMm, undefined, "FAST");
-      first = false;
-      y += sliceH;
+function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  const paragraphs = pdfSafe(text).replace(/\r/g, "").split("\n");
+  const lines: string[] = [];
+  const pushWord = (word: string) => {
+    if (font.widthOfTextAtSize(word, size) <= maxWidth) {
+      lines.push(word);
+      return;
     }
+    let chunk = "";
+    for (const char of word) {
+      const next = chunk + char;
+      if (font.widthOfTextAtSize(next, size) <= maxWidth) chunk = next;
+      else {
+        if (chunk) lines.push(chunk);
+        chunk = char;
+      }
+    }
+    if (chunk) lines.push(chunk);
+  };
+  paragraphs.forEach((paragraph, index) => {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      if (index < paragraphs.length - 1) lines.push("");
+      return;
+    }
+    let current = "";
+    words.forEach((word) => {
+      const next = current ? `${current} ${word}` : word;
+      if (font.widthOfTextAtSize(next, size) <= maxWidth) current = next;
+      else {
+        if (current) lines.push(current);
+        if (font.widthOfTextAtSize(word, size) <= maxWidth) current = word;
+        else {
+          pushWord(word);
+          current = "";
+        }
+      }
+    });
+    if (current) lines.push(current);
+  });
+  return lines.length > 0 ? lines : [""];
+}
 
-    pdf.save(`plan-prevention-${plan.riskNumber || plan.id}.pdf`);
-    return true;
-  } catch (err) {
-    console.error("downloadPreventionPlanVisualPdf", err);
-    return false;
-  } finally {
-    root.unmount();
-    document.body.removeChild(host);
+async function embedSignature(pdf: PDFDocument, dataUrl: string | undefined): Promise<PDFImage | null> {
+  const match = /^data:image\/(png|jpe?g);base64,(.+)$/i.exec(dataUrl?.trim() || "");
+  if (!match) return null;
+  try {
+    const bytes = Uint8Array.from(atob(match[2]), (char) => char.charCodeAt(0));
+    return match[1].toLowerCase() === "png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+  } catch {
+    return null;
   }
+}
+
+export async function renderPreventionPlanPdf(
+  plan: PlanRecord,
+  protocol: PlanProtocolFields,
+  risks: RiskInput[],
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const pages: PDFPage[] = [];
+  let page = pdf.addPage([PAGE_W, PAGE_H]);
+  pages.push(page);
+  let y = PAGE_H - HEADER;
+
+  const drawHeader = (target: PDFPage) => {
+    target.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W / 3, height: 4, color: NAVY });
+    target.drawRectangle({ x: PAGE_W / 3, y: PAGE_H - 4, width: PAGE_W / 3, height: 4, color: WHITE });
+    target.drawRectangle({ x: (PAGE_W / 3) * 2, y: PAGE_H - 4, width: PAGE_W / 3, height: 4, color: RED });
+    target.drawText("RÉPUBLIQUE FRANÇAISE", { x: MARGIN, y: PAGE_H - 24, size: 9, font: bold, color: NAVY });
+    target.drawText("Liberté  ·  Égalité  ·  Fraternité", { x: MARGIN, y: PAGE_H - 38, size: 8, font: regular, color: MUTED });
+    const right = "Direction interrégionale de la mer";
+    const right2 = "Méditerranée";
+    target.drawText(right, {
+      x: PAGE_W - MARGIN - bold.widthOfTextAtSize(right, 8),
+      y: PAGE_H - 24,
+      size: 8,
+      font: bold,
+      color: NAVY,
+    });
+    target.drawText(right2, {
+      x: PAGE_W - MARGIN - regular.widthOfTextAtSize(right2, 8),
+      y: PAGE_H - 36,
+      size: 8,
+      font: regular,
+      color: MUTED,
+    });
+    target.drawLine({
+      start: { x: MARGIN, y: PAGE_H - 52 },
+      end: { x: PAGE_W - MARGIN, y: PAGE_H - 52 },
+      thickness: 0.6,
+      color: NAVY,
+    });
+  };
+
+  const newPage = () => {
+    page = pdf.addPage([PAGE_W, PAGE_H]);
+    pages.push(page);
+    drawHeader(page);
+    y = PAGE_H - HEADER;
+  };
+
+  const BOTTOM = MARGIN + FOOTER;
+  const LEADING = 12;
+  const BODY = 9;
+
+  const ensure = (needed: number) => {
+    const room = PAGE_H - HEADER - BOTTOM;
+    if (needed >= room) return;
+    if (y - needed < BOTTOM) newPage();
+  };
+
+  const paintLines = (
+    lines: string[],
+    x: number,
+    top: number,
+    font: PDFFont,
+    size: number,
+    color: typeof INK,
+    leading = LEADING,
+  ) => {
+    lines.forEach((line, index) => {
+      if (!line) return;
+      page.drawText(line, { x, y: top - size - index * leading, size, font, color });
+    });
+  };
+
+  let accent: Paint = EDGE_STONE;
+  let accentSoft: Paint = PALE_STONE;
+
+  const section = (title: string, fill: Paint = PALE_STONE, edge: Paint = EDGE_STONE) => {
+    accent = edge;
+    accentSoft = fill;
+    const height = 18;
+    if (y - (height + 40) < BOTTOM) newPage();
+    else y -= 10;
+    page.drawRectangle({ x: MARGIN, y: y - height, width: CONTENT_W, height, color: fill });
+    page.drawRectangle({ x: MARGIN, y: y - height, width: 2, height, color: edge });
+    page.drawText(pdfSafe(title), { x: MARGIN + 10, y: y - 13, size: 9, font: bold, color: INK });
+    y -= height;
+  };
+
+  const fieldRow = (label: string, value: string) => {
+    const labelW = 150;
+    const text = shown(value);
+    const valueLines = wrap(text, regular, BODY, CONTENT_W - labelW - 12);
+    const labelLines = wrap(label, bold, 8, labelW - 12);
+    let rest = valueLines.length ? valueLines : [""];
+    let first = true;
+    let guard = 0;
+    while (rest.length && guard < 40) {
+      guard += 1;
+      const room = Math.floor((y - BOTTOM - 8) / LEADING);
+      if (room < 1) {
+        newPage();
+        continue;
+      }
+      const count = Math.min(rest.length, room);
+      const slice = rest.slice(0, count);
+      rest = rest.slice(count);
+      const height = Math.max(slice.length, first ? labelLines.length : 1) * LEADING + 8;
+      page.drawRectangle({ x: MARGIN, y: y - height, width: labelW, height, color: accentSoft });
+      page.drawRectangle({ x: MARGIN, y: y - height, width: 2, height, color: accent });
+      page.drawRectangle({ x: MARGIN, y: y - height, width: CONTENT_W, height, borderColor: RULE, borderWidth: 0.45 });
+      page.drawLine({
+        start: { x: MARGIN + labelW, y },
+        end: { x: MARGIN + labelW, y: y - height },
+        thickness: 0.45,
+        color: RULE,
+      });
+      if (first) paintLines(labelLines, MARGIN + 8, y - 2, bold, 8, accent, 10);
+      paintLines(slice, MARGIN + labelW + 6, y - 1, regular, BODY, text === "Non renseigné" ? MUTED : INK);
+      y -= height;
+      first = false;
+    }
+  };
+
+  const drawTiles = (items: Array<{ label: string; value: string; bar: Paint; soft: Paint }>) => {
+    const gap = 8;
+    for (let index = 0; index < items.length; index += 2) {
+      const pair = [items[index], items[index + 1]].filter((item): item is (typeof items)[number] => Boolean(item));
+      const width = pair.length === 2 ? (CONTENT_W - gap) / 2 : CONTENT_W;
+      const blocks = pair.map((item) => wrap(shown(item.value), regular, BODY, width - 16));
+      if (blocks.some((lines) => lines.length > 5)) {
+        pair.forEach((item) => fieldRow(item.label, item.value));
+        continue;
+      }
+      const height = Math.max(...blocks.map((lines) => Math.max(lines.length, 1))) * LEADING + 22;
+      ensure(height);
+      pair.forEach((item, itemIndex) => {
+        const x = MARGIN + itemIndex * (width + gap);
+        const raw = shown(item.value);
+        page.drawRectangle({ x, y: y - height, width, height, color: item.soft, borderColor: item.bar, borderWidth: 0.45 });
+        page.drawRectangle({ x, y: y - 3.5, width, height: 3.5, color: item.bar });
+        page.drawText(pdfSafe(item.label).toUpperCase(), { x: x + 8, y: y - 16, size: 7, font: bold, color: item.bar });
+        paintLines(blocks[itemIndex], x + 8, y - 18, regular, BODY, raw === "Non renseigné" ? MUTED : INK);
+      });
+      y -= height + 6;
+    }
+  };
+
+  const columnWidths = (weights: number[]) => {
+    const widths: number[] = [];
+    let used = 0;
+    weights.forEach((weight, index) => {
+      if (index === weights.length - 1) widths.push(CONTENT_W - used);
+      else {
+        const width = Math.round(CONTENT_W * weight);
+        widths.push(width);
+        used += width;
+      }
+    });
+    return widths;
+  };
+
+  const statusTone = (value: string) => {
+    if (value === "Oui") return SAUGE;
+    if (value === "Non") return DUST;
+    return MUTED;
+  };
+
+  const drawTable = (
+    headers: string[],
+    rows: string[][],
+    weights: number[],
+    look: { header: Paint; zebra: Paint; columns?: Paint[]; statusColumn?: number },
+  ) => {
+    const widths = columnWidths(weights);
+    const headerLines = headers.map((header, index) => wrap(header, bold, 8, Math.max(12, widths[index] - 8)));
+    const paintHeader = () => {
+      const count = Math.max(1, ...headerLines.map((lines) => lines.length));
+      const height = count * 10 + 8;
+      if (y - (height + 24) < BOTTOM) newPage();
+      let x = MARGIN;
+      headerLines.forEach((lines, index) => {
+        page.drawRectangle({
+          x,
+          y: y - height,
+          width: widths[index],
+          height,
+          color: look.columns?.[index] ?? look.header,
+        });
+        paintLines(lines, x + 5, y - 1, bold, 8, INK, 10);
+        x += widths[index];
+      });
+      y -= height;
+    };
+    paintHeader();
+    rows.forEach((row, rowIndex) => {
+      const wrapped = row.map((cell, index) => {
+        const lines = wrap(shown(cell), regular, 8, Math.max(12, widths[index] - 8));
+        return lines.length ? lines : [""];
+      });
+      let pending = wrapped;
+      let guard = 0;
+      while (pending.some((lines) => lines.length) && guard < 50) {
+        guard += 1;
+        const room = Math.floor((y - BOTTOM - 8) / 11);
+        if (room < 1) {
+          newPage();
+          paintHeader();
+          continue;
+        }
+        const firstChunk = pending.every((lines, index) => lines.length === wrapped[index].length);
+        const count = Math.min(room, Math.max(...pending.map((lines) => lines.length)));
+        const slice = pending.map((lines) => lines.slice(0, count));
+        pending = pending.map((lines) => lines.slice(count));
+        const height = Math.max(1, ...slice.map((lines) => lines.length)) * 11 + 8;
+        if (rowIndex % 2 === 0) {
+          page.drawRectangle({ x: MARGIN, y: y - height, width: CONTENT_W, height, color: look.zebra });
+        }
+        page.drawRectangle({ x: MARGIN, y: y - height, width: CONTENT_W, height, borderColor: RULE, borderWidth: 0.4 });
+        let x = MARGIN;
+        slice.forEach((lines, index) => {
+          if (index > 0) {
+            page.drawLine({ start: { x, y }, end: { x, y: y - height }, thickness: 0.4, color: RULE });
+          }
+          const badge = look.statusColumn === index && firstChunk ? lines[0] : "";
+          if (badge === "Oui" || badge === "Non" || badge === "Non renseigné") {
+            const tone = statusTone(badge);
+            page.drawRectangle({ x: x + 5, y: y - 12.5, width: 3.5, height: 3.5, color: tone });
+            page.drawText(badge, { x: x + 12, y: y - 14, size: 8, font: regular, color: tone });
+          } else {
+            paintLines(lines, x + 5, y - 1, regular, 8, INK, 11);
+          }
+          x += widths[index];
+        });
+        y -= height;
+      }
+    });
+  };
+
+  drawHeader(page);
+
+  const titleBlock = () => {
+    const ref = wrap(
+      shown(protocol.codeTravailReference || "Code du travail, articles R4515-4 à R4515-11"),
+      regular,
+      8,
+      CONTENT_W - 24,
+    );
+    const risk = wrap(`${shown(plan.riskNumber)}  ·  ${shown(plan.riskTitle)}`, bold, 11, CONTENT_W - 24);
+    const height = 86 + ref.length * 11 + risk.length * 14;
+    ensure(height);
+    page.drawRectangle({ x: MARGIN, y: y - height, width: CONTENT_W, height, color: WHITE, borderColor: EDGE_STONE, borderWidth: 0.6 });
+    let pen = y - 22;
+    page.drawText("PLAN DE PRÉVENTION", { x: MARGIN + 12, y: pen, size: 15, font: bold, color: INK });
+    pen -= 16;
+    ref.forEach((line) => {
+      page.drawText(line, { x: MARGIN + 12, y: pen, size: 8, font: regular, color: MUTED });
+      pen -= 11;
+    });
+    pen -= 4;
+    risk.forEach((line) => {
+      page.drawText(line, { x: MARGIN + 12, y: pen, size: 11, font: bold, color: INK });
+      pen -= 14;
+    });
+    pen -= 6;
+    page.drawLine({
+      start: { x: MARGIN + 12, y: pen + 4 },
+      end: { x: PAGE_W - MARGIN - 12, y: pen + 4 },
+      thickness: 0.4,
+      color: RULE,
+    });
+    const metaX = MARGIN + 12;
+    const metaMid = MARGIN + CONTENT_W / 2;
+    page.drawText("STATUT", { x: metaX, y: pen - 8, size: 7, font: bold, color: MUTED });
+    page.drawText("PRIORITÉ", { x: metaMid, y: pen - 8, size: 7, font: bold, color: MUTED });
+    page.drawText(STATUS_LABEL[plan.status], { x: metaX, y: pen - 22, size: 11, font: bold, color: INK });
+    page.drawText(PRIORITY_LABEL[plan.priority], { x: metaMid, y: pen - 22, size: 11, font: bold, color: INK });
+    y -= height;
+  };
+
+  titleBlock();
+  if (y - 8 < BOTTOM) newPage();
+  else y -= 8;
+
+  drawTiles([
+    { label: "Service", value: plan.service, bar: EDGE_STONE, soft: PALE_STONE },
+    { label: "Domaine", value: plan.domain, bar: EDGE_MIST, soft: PALE_MIST },
+    { label: "Lieu de l'opération", value: protocol.lieuLivraison || plan.location, bar: EDGE_SAND, soft: PALE_SAND },
+    { label: "Responsable", value: plan.owner, bar: EDGE_SAGE, soft: PALE_SAGE },
+    { label: "Échéance", value: formatDate(plan.dueDate), bar: EDGE_SAND, soft: PALE_SAND },
+    { label: "Type d'opération", value: protocol.operationType, bar: EDGE_BLUSH, soft: PALE_BLUSH },
+  ]);
+
+  section("Objet et actions de prévention", PALE_STONE, EDGE_STONE);
+  fieldRow("Objectif", plan.objective);
+  fieldRow(
+    "Actions",
+    plan.actions.length ? plan.actions.map((action, index) => `${index + 1}. ${action}`).join("\n") : "",
+  );
+
+  section("1. Co-intervenants", PALE_BLUSH, EDGE_BLUSH);
+  const orgs = protocol.coIntervenantRows.filter((row) =>
+    [row.qualite, row.denomination, row.adresse, row.contactNom, row.contactEmail, row.complements].some((part) => part.trim()),
+  );
+  if (orgs.length === 0) fieldRow("Structures", "");
+  else {
+    drawTable(
+      ["Qualité", "Dénomination", "Contact", "Adresse"],
+      orgs.map((row) => [
+        row.qualite,
+        row.denomination,
+        [row.contactNom, row.contactEmail].filter((part) => part.trim()).join("\n"),
+        [row.adresse, row.complements].filter((part) => part.trim()).join("\n"),
+      ]),
+      [0.18, 0.24, 0.28, 0.3],
+      { header: PALE_BLUSH, zebra: rgb(0.99, 0.975, 0.972) },
+    );
+  }
+
+  section("2. Nature de la prestation", PALE_MIST, EDGE_MIST);
+  fieldRow("Prestation", protocol.prestationNature);
+
+  section("3. Organisation de l'opération", PALE_MIST, EDGE_MIST);
+  fieldRow("Lieu de livraison ou prise en charge", protocol.lieuLivraison);
+  fieldRow("Matériels spécifiques", protocol.materielsSpecifiques);
+  fieldRow("Consignes de sécurité sur le site", protocol.consignesSite);
+  fieldRow("Consignes concernant l'opération", protocol.consignesOperation);
+
+  section("4. Évaluation des risques (art. R4515-5)", PALE_SAND, EDGE_SAND);
+  const riskRows = protocol.riskEvaluationRows.filter((row) =>
+    [row.domaine, row.natureRisques, row.mesuresPrevention, row.evaluationRiskFreeText].some((part) => part.trim()),
+  );
+  if (riskRows.length === 0) fieldRow("Situations", "");
+  else {
+    drawTable(
+      ["Situation dangereuse", "Dommages associés", "Mesures de prévention"],
+      riskRows.map((row) => {
+        const linked = row.linkedEvaluationRiskId ? risks.find((risk) => risk.id === row.linkedEvaluationRiskId) : undefined;
+        const prefix = linked
+          ? `Risque n° ${linked.numeroRisque}\n`
+          : row.evaluationRiskFreeText.trim()
+            ? `Hors référentiel : ${row.evaluationRiskFreeText.trim()}\n`
+            : "";
+        return [`${prefix}${row.domaine}`, row.natureRisques, row.mesuresPrevention];
+      }),
+      [0.36, 0.32, 0.32],
+      { header: PALE_SAND, zebra: rgb(0.99, 0.98, 0.96), columns: [PALE_SAND, PALE_BLUSH, PALE_SAGE] },
+    );
+  }
+  if (protocol.evaluationRisques.trim()) fieldRow("Complément", protocol.evaluationRisques);
+
+  section("5. Premiers secours (art. R4515-6)", PALE_SAGE, EDGE_SAGE);
+  fieldRow("Personnes à prévenir", protocol.personnesAPrevenir);
+  fieldRow("Mesures en cas d'accident ou d'incendie", protocol.mesuresUrgence);
+
+  section("6. Transmission du plan (art. R4515-11)", PALE_MIST, EDGE_MIST);
+  fieldRow("Liste de diffusion", protocol.planTransmis);
+  drawTable(
+    ["Destinataire", "Transmission", "Nom", "Observation"],
+    [
+      ["Cellule sécurité prévention DIRM MED", transmissionLabel(protocol.transmissionCelluleSecuriteStatus), protocol.transmissionCelluleSecuriteNom, protocol.transmissionCelluleSecuriteObs],
+      ["Correspondant hygiène et sécurité du site", transmissionLabel(protocol.transmissionCorrespondantSiteStatus), protocol.transmissionCorrespondantSiteNom, protocol.transmissionCorrespondantSiteObs],
+      ["Correspondant hygiène et sécurité APB", transmissionLabel(protocol.transmissionCorrespondantAPBStatus), protocol.transmissionCorrespondantAPBNom, protocol.transmissionCorrespondantAPBObs],
+    ],
+    [0.36, 0.16, 0.22, 0.26],
+    { header: PALE_MIST, zebra: rgb(0.98, 0.983, 0.99), statusColumn: 1 },
+  );
+  if (protocol.observationsTransmission.trim()) fieldRow("Observations de transmission", protocol.observationsTransmission);
+
+  section("7. Observations et remarques", PALE_STONE, EDGE_STONE);
+  fieldRow("Remarques", protocol.observationsRemarques);
+
+  const signers = [
+    { entite: protocol.signatureEntite1, nom: protocol.signatureNom1, prenom: protocol.signaturePrenom1, date: protocol.signatureDate1, image: await embedSignature(pdf, protocol.signatureDematerialiseeUrl1) },
+    { entite: protocol.signatureEntite2, nom: protocol.signatureNom2, prenom: protocol.signaturePrenom2, date: protocol.signatureDate2, image: await embedSignature(pdf, protocol.signatureDematerialiseeUrl2) },
+    { entite: protocol.signatureEntite3, nom: protocol.signatureNom3, prenom: protocol.signaturePrenom3, date: protocol.signatureDate3, image: await embedSignature(pdf, protocol.signatureDematerialiseeUrl3) },
+  ];
+  const boxGap = 8;
+  const boxW = (CONTENT_W - boxGap * 2) / 3;
+  const bands = signers.map((signer, index) =>
+    wrap(signer.entite || `Signataire ${index + 1}`, bold, 8, boxW - 12).slice(0, 2),
+  );
+  const bandH = Math.max(...bands.map((lines) => lines.length), 1) * 10 + 6;
+  const boxH = bandH + 84;
+  if (y - (28 + boxH) < BOTTOM) newPage();
+  section("8. Signatures");
+  const signerTones = [
+    { fill: PALE_STONE, edge: EDGE_STONE },
+    { fill: PALE_SAND, edge: EDGE_SAND },
+    { fill: PALE_SAGE, edge: EDGE_SAGE },
+  ];
+  signers.forEach((signer, index) => {
+    const x = MARGIN + index * (boxW + boxGap);
+    const signerTone = signerTones[index] ?? signerTones[0];
+    page.drawRectangle({ x, y: y - boxH, width: boxW, height: boxH, borderColor: signerTone.edge, borderWidth: 0.5 });
+    page.drawRectangle({ x, y: y - bandH, width: boxW, height: bandH, color: signerTone.fill });
+    paintLines(bands[index], x + 6, y - 1, bold, 8, INK, 10);
+    const name = wrap(`${signer.prenom} ${signer.nom}`.trim() || "Nom non renseigné", regular, 8, boxW - 12).slice(0, 2);
+    paintLines(name, x + 6, y - bandH - 2, regular, 8, INK, 11);
+    page.drawText(pdfSafe(signer.date ? formatDate(signer.date) : "Date non renseignée"), {
+      x: x + 6,
+      y: y - bandH - 30,
+      size: 8,
+      font: regular,
+      color: MUTED,
+    });
+    page.drawLine({
+      start: { x: x + 8, y: y - boxH + 18 },
+      end: { x: x + boxW - 8, y: y - boxH + 18 },
+      thickness: 0.4,
+      color: RULE,
+    });
+    if (signer.image) {
+      const maxW = boxW - 16;
+      const maxH = 42;
+      const scale = Math.min(maxW / signer.image.width, maxH / signer.image.height, 1);
+      const width = signer.image.width * scale;
+      const height = signer.image.height * scale;
+      page.drawImage(signer.image, { x: x + 8, y: y - boxH + 22, width, height });
+    } else {
+      page.drawText("Signature", { x: x + 6, y: y - boxH + 6, size: 7, font: regular, color: MUTED });
+    }
+  });
+  y -= boxH;
+
+  section("10. Plan de circulation et de déchargement", PALE_SAGE, EDGE_SAGE);
+  fieldRow("Plan de circulation", protocol.planCirculation);
+  fieldRow("Matériel à remplacer", protocol.materielRemplacer);
+
+  section("Annexes", PALE_BLUSH, EDGE_BLUSH);
+  if (protocol.annexAttachments.length === 0 && !protocol.annexesDocuments.trim()) fieldRow("Pièces jointes", "");
+  else {
+    if (protocol.annexAttachments.length > 0) {
+      fieldRow(
+        "Pièces jointes",
+        protocol.annexAttachments.map((attachment, index) => `${index + 1}. ${attachment.fileName}`).join("\n"),
+      );
+    }
+    if (protocol.annexesDocuments.trim()) fieldRow("Complément", protocol.annexesDocuments);
+  }
+
+  const generated = formatDate(new Date().toISOString().slice(0, 10));
+  pages.forEach((target, index) => {
+    target.drawLine({
+      start: { x: MARGIN, y: 28 },
+      end: { x: PAGE_W - MARGIN, y: 28 },
+      thickness: 0.4,
+      color: RULE,
+    });
+    target.drawText(`DIRM Méditerranée  ·  Généré le ${generated}`, { x: MARGIN, y: 16, size: 8, font: regular, color: MUTED });
+    const pageLabel = `Page ${index + 1} / ${pages.length}`;
+    target.drawText(pageLabel, {
+      x: PAGE_W - MARGIN - regular.widthOfTextAtSize(pageLabel, 8),
+      y: 16,
+      size: 8,
+      font: regular,
+      color: MUTED,
+    });
+  });
+
+  pdf.setTitle(`Plan de prévention ${pdfSafe(plan.riskNumber)} ${pdfSafe(plan.riskTitle)}`);
+  pdf.setAuthor("DIRM Méditerranée");
+  pdf.setSubject("Plan de prévention, articles R4515-4 à R4515-11 du code du travail");
+  return pdf.save();
+}
+
+export async function downloadPreventionPlanVisualPdf(
+  plan: PlanRecord,
+  protocol: PlanProtocolFields,
+  risks: RiskInput[],
+): Promise<void> {
+  const bytes = await renderPreventionPlanPdf(plan, protocol, risks);
+  const blob = new Blob([bytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `plan-prevention-${pdfSafe(plan.riskNumber || plan.id) || "document"}.pdf`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

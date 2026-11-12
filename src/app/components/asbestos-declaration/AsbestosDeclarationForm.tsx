@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -31,6 +32,7 @@ interface AsbestosDeclarationFormProps {
 }
 
 export function AsbestosDeclarationForm({ declaration, currentUser, onSave, onCancel }: AsbestosDeclarationFormProps) {
+  const requestLeave = useLeaveGuard();
   // Type de déclaration
   const [type, setType] = useState<DeclarationType>(declaration?.type || 'intermediaire');
   
@@ -187,7 +189,7 @@ export function AsbestosDeclarationForm({ declaration, currentUser, onSave, onCa
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={() => requestLeave(onCancel)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
@@ -199,7 +201,7 @@ export function AsbestosDeclarationForm({ declaration, currentUser, onSave, onCa
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={() => requestLeave(onCancel)}>
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
@@ -626,8 +628,7 @@ export function AsbestosDeclarationForm({ declaration, currentUser, onSave, onCa
 
       {/* Actions */}
       <div className="flex justify-end gap-4">
-        <Button variant="outline" onClick={onCancel}>
-          <X className="h-4 w-4 mr-2" />
+        <Button variant="outline" onClick={() => requestLeave(onCancel)}>
           Annuler
         </Button>
         <Button

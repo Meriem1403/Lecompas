@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -31,6 +32,7 @@ interface AsbestosInterventionFormProps {
 }
 
 export function AsbestosInterventionForm({ intervention, onSave, onCancel }: AsbestosInterventionFormProps) {
+  const requestLeave = useLeaveGuard();
   // Identification
   const [zoneMateriau, setZoneMateriau] = useState(intervention?.zoneMateriau || '');
   const [localisationPrecise, setLocalisationPrecise] = useState(intervention?.localisationPrecise || '');
@@ -139,7 +141,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
       {/* Header */}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={() => requestLeave(onCancel)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
           </Button>
@@ -153,7 +155,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={() => requestLeave(onCancel)}>
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
@@ -552,8 +554,7 @@ export function AsbestosInterventionForm({ intervention, onSave, onCancel }: Asb
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-            <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
-              <X className="h-4 w-4 mr-2" />
+            <Button variant="outline" onClick={() => requestLeave(onCancel)} className="w-full sm:w-auto">
               Annuler
             </Button>
             <Button

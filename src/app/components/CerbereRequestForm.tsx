@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -76,6 +77,7 @@ export function CerbereRequestForm({
   initialData = null,
   submitLabel = 'Soumettre la demande',
 }: CerbereRequestFormProps) {
+  const requestLeave = useLeaveGuard();
   const [agentConcerne, setAgentConcerne] = useState('');
   const [selectedApplications, setSelectedApplications] = useState<string[]>([]);
   const [selectedProfils, setSelectedProfils] = useState<{
@@ -317,7 +319,7 @@ export function CerbereRequestForm({
     <div className="space-y-6 p-3 sm:p-6">
       {/* En-tête */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto hover:bg-blue-50">
+        <Button variant="outline" onClick={() => requestLeave(onBack)} className="w-full sm:w-auto hover:bg-blue-50">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -632,8 +634,7 @@ export function CerbereRequestForm({
           <div className="flex flex-col gap-3 sm:flex-row pt-4">
             <Button
               variant="outline"
-              onClick={onBack}
-              className="w-full sm:flex-1"
+              onClick={() => requestLeave(onBack)}
             >
               Annuler
             </Button>

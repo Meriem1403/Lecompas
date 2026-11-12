@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLeaveGuard } from "@/app/components/leaveGuard";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -71,6 +72,7 @@ export function ReservationForm({
   onSubmit,
   onCancel,
 }: ReservationFormProps) {
+  const requestLeave = useLeaveGuard();
   const [values, setValues] = useState<ReservationFormValues>(() => ({
     ...defaultValues(),
     ...initial,
@@ -388,8 +390,7 @@ export function ReservationForm({
         </p>
 
         <div className="flex flex-wrap gap-3 justify-end border-t border-slate-100 pt-6 xl:col-span-12">
-          <Button type="button" variant="outline" size="lg" onClick={onCancel}>
-            Annuler
+          <Button type="button" variant="outline" size="lg" onClick={() => requestLeave(onCancel)}>
           </Button>
           <Button
             type="submit"

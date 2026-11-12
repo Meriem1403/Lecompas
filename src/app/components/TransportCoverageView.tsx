@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLeaveGuard } from "@/app/components/leaveGuard";
 import { Bus, Calendar, Check, ChevronDown, Download, Eye, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useAppDataDocumentStore } from "@/app/hooks/useAppDataDocumentStore";
@@ -313,6 +314,7 @@ export function TransportCoverageView({
   );
   const [draft, setDraft] = useState<TransportCoverageRequest | null>(null);
   const [step, setStep] = useState<"list" | "form" | "recap" | "consult" | "rh" | "apercu">("list");
+  const requestLeave = useLeaveGuard(step === "form" || step === "recap" || step === "rh" || step === "apercu");
   const [previewFrom, setPreviewFrom] = useState<"consult" | "rh">("consult");
   const [dropping, setDropping] = useState(false);
   const [readingSheet, setReadingSheet] = useState(false);
@@ -717,10 +719,10 @@ export function TransportCoverageView({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
+                onClick={() => requestLeave(() => {
                   setDraft(null);
                   setStep("list");
-                }}
+                })}
               >
                 Retour à la liste
               </Button>
@@ -983,7 +985,7 @@ export function TransportCoverageView({
                 <h2 className="text-lg font-semibold text-slate-900">{draft.prenom} {draft.nom}</h2>
                 <p className="text-sm text-slate-600">{requestLine(draft)}</p>
               </div>
-              <Button type="button" variant="outline" onClick={() => { setDraft(null); setStep("list"); }}>
+              <Button type="button" variant="outline" onClick={() => requestLeave(() => { setDraft(null); setStep("list"); })}>
                 Retour à la liste
               </Button>
             </div>

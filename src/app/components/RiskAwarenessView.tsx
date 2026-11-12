@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLeaveGuard } from "@/app/components/leaveGuard";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
@@ -39,6 +40,8 @@ export interface RiskAwarenessRecord {
   location?: string;
   summary: string;
   content: string;
+  situations?: string;
+  dommages?: string;
   links: string[];
   documents: AwarenessDocument[];
   status: "a_completer" | "complete";
@@ -84,6 +87,7 @@ export function RiskAwarenessView({
   };
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const requestLeave = useLeaveGuard(viewMode === "create" || viewMode === "edit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -466,7 +470,7 @@ export function RiskAwarenessView({
             <Button
               variant="outline"
               size="default"
-              onClick={() => setViewMode("list")}
+              onClick={() => requestLeave(() => setViewMode("list"))}
               className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300 hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -644,7 +648,7 @@ export function RiskAwarenessView({
             <Button
               variant="outline"
               size="default"
-              onClick={() => setViewMode("list")}
+              onClick={() => requestLeave(() => setViewMode("list"))}
               className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300 hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -814,7 +818,7 @@ export function RiskAwarenessView({
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-4 border-t">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setViewMode("list")}>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => requestLeave(() => setViewMode("list"))}>
                 Annuler
               </Button>
               <Button

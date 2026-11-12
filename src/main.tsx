@@ -2,6 +2,7 @@ import { Toaster } from "sonner";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./app/App.tsx";
+import { LeaveGuardProvider } from "./app/components/leaveGuard.tsx";
 import { ErrorBoundary } from "./app/components/ErrorBoundary.tsx";
 import "./styles/index.css";
 
@@ -33,7 +34,9 @@ if (rootEl) {
         */}
         <Toaster position="top-center" duration={4500} closeButton richColors />
         <BrowserRouter>
-          <App />
+          <LeaveGuardProvider>
+            <App />
+          </LeaveGuardProvider>
         </BrowserRouter>
       </>
     </ErrorBoundary>,

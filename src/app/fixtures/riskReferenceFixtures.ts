@@ -1,4 +1,5 @@
 import type { RiskReference } from "../components/admin/RiskReferencesManagementView";
+import { displayRiskSheet } from "./riskReferenceSheets";
 
 /**
  * Dossiers INRS vérifiés sur https://www.inrs.fr/risques.html.
@@ -50,6 +51,20 @@ export function resolveRiskReferenceFicheUrl(reference: {
 }): string {
   if (reference.ficheUrl !== undefined) return reference.ficheUrl.trim();
   return INRS_FICHE_BY_NUMERO[reference.numeroRisque.trim()] ?? "";
+}
+
+export function stickReferenceContent<T extends RiskReference>(reference: T): T {
+  const copy = displayRiskSheet(reference);
+  const filled = (value: string | undefined, fallback: string) =>
+    value?.trim() ? value : fallback;
+  return {
+    ...reference,
+    ficheUrl: reference.ficheUrl !== undefined ? reference.ficheUrl : resolveRiskReferenceFicheUrl(reference),
+    description: filled(reference.description, copy.description),
+    situations: filled(reference.situations, copy.situations),
+    dommages: filled(reference.dommages, copy.dommages),
+    prevention: filled(reference.prevention, copy.prevention),
+  };
 }
 
 const RISK_REFERENCE_TITLES: Array<Pick<RiskReference, "id" | "numeroRisque" | "title">> = [

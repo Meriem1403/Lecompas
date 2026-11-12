@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLeaveGuard } from "@/app/components/leaveGuard";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
-import { Separator } from "@/app/components/ui/separator";
 import {
   Accordion,
   AccordionContent,
@@ -25,20 +26,40 @@ import {
 import {
   AlertTriangle,
   ArrowLeft,
+  Building2,
+  Calendar,
+  CalendarDays,
+  Clock,
+  Hash,
+  Link2,
   Download,
+  Eye,
   FileText,
-  Filter,
+  LayoutGrid,
+  MapPin,
   Pencil,
+  Phone,
   Plus,
   PlusCircle,
   Search,
   Shield,
+  SlidersHorizontal,
+  Siren,
   Table2,
   Target,
   Trash2,
+  User,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
+import { ColumnFilterPopover } from "@/app/components/ui/column-filter-popover";
+import { MultiSelectFilter } from "@/app/components/ui/multi-select-filter";
+import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "@/app/components/ui/list-pagination-bar";
+import {
+  emptyColumnFilterState,
+  type ColumnFilterKind,
+  type ColumnFilterState,
+} from "@/app/utils/riskManagementFilterLogic";
 import { getBlockedExternalLinkMessage, isAllowedExternalUrl } from "@/app/services/externalLinkGuard";
 
 export interface ControleRow {
@@ -204,6 +225,130 @@ function countFilledControlRows(r: SecuritySheetRecord): number {
   return n;
 }
 
+function filledControlSections(record: SecuritySheetRecord) {
+  return SECTIONS.filter((section) => {
+    const rows = record[section.key] as ControleRow[];
+    return rows.some(
+      (row) => row.action || row.site || row.dateRapport || row.reference || row.observation || row.datePassage || row.nomInspecteur,
+    );
+  }).length;
+}
+
+function formatSheetDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!match) return value.trim() || "Non renseignée";
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+type SheetColumnKey = "titre" | "site" | "lieu" | "referentiel" | "correspondant" | "maj" | "controles";
+type SheetColumnFacts = Record<SheetColumnKey, string>;
+type SheetListFilters = { sites: string[]; referentiels: string[]; prevention: string[]; controles: string[] };
+
+const SHEET_COLUMNS: { key: SheetColumnKey; label: string; kind: ColumnFilterKind }[] = [
+  { key: "titre", label: "Fiche", kind: "text" },
+  { key: "site", label: "Site", kind: "text" },
+  { key: "lieu", label: "Lieu", kind: "text" },
+  { key: "referentiel", label: "Référentiel", kind: "text" },
+  { key: "correspondant", label: "Correspondant", kind: "text" },
+  { key: "maj", label: "Mise à jour", kind: "date" },
+  { key: "controles", label: "Contrôles", kind: "number" },
+];
+
+function emptySheetListFilters(): SheetListFilters {
+  return { sites: [], referentiels: [], prevention: [], controles: [] };
+}
+
+function emptySheetColumnFilters() {
+  return Object.fromEntries(SHEET_COLUMNS.map((column) => [column.key, emptyColumnFilterState()])) as Record<SheetColumnKey, ColumnFilterState>;
+}
+
+function uniqueSorted(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right, "fr"));
+}
+
+function sheetFacts(record: SecuritySheetRecord): SheetColumnFacts {
+  return {
+    titre: record.titreFiche.trim(),
+    site: record.nomSite.trim(),
+    lieu: record.lieuElementsControles.trim(),
+    referentiel: record.referentielAnnee.trim(),
+    correspondant: record.correspondantPrevention.trim(),
+    maj: /^(\d{4}-\d{2}-\d{2})/.exec(record.dateMiseAJour.trim())?.[1] || "",
+    controles: String(countFilledControlRows(record)),
+  };
+}
+
+function sheetColumnLabel(key: SheetColumnKey, value: string) {
+  if (key === "maj") return formatSheetDate(value);
+  if (key === "controles") return value || "0";
+  return value.trim() || "(vide)";
+}
+
+function sheetColumnActive(filter: ColumnFilterState) {
+  return filter.values !== null || (filter.operator !== "none" && filter.query.trim().length > 0);
+}
+
+function parseSheetFilterDate(value: string) {
+  const french = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (french) return `${french[3]}-${french[2].padStart(2, "0")}-${french[1].padStart(2, "0")}`;
+  return value.trim().slice(0, 10);
+}
+
+function matchesSheetColumn(facts: SheetColumnFacts, key: SheetColumnKey, filter: ColumnFilterState) {
+  const value = facts[key];
+  if (filter.values !== null && !filter.values.includes(value)) return false;
+  if (filter.operator === "none" || !filter.query.trim()) return true;
+  const kind = SHEET_COLUMNS.find((column) => column.key === key)?.kind ?? "text";
+  const displayed = sheetColumnLabel(key, value).toLocaleLowerCase("fr");
+  const query = filter.query.trim().toLocaleLowerCase("fr");
+  if (kind === "number") {
+    const current = Number(value.replace(",", "."));
+    const min = Number(filter.query.trim().replace(",", "."));
+    const max = Number(filter.queryTo.trim().replace(",", "."));
+    if (!Number.isFinite(current) || !Number.isFinite(min)) return false;
+    if (filter.operator === "equals") return current === min;
+    if (filter.operator === "notEquals") return current !== min;
+    if (filter.operator === "gt") return current > min;
+    if (filter.operator === "gte") return current >= min;
+    if (filter.operator === "lt") return current < min;
+    if (filter.operator === "lte") return current <= min;
+    if (filter.operator === "between") return Number.isFinite(max) && current >= Math.min(min, max) && current <= Math.max(min, max);
+    return displayed.includes(query);
+  }
+  if (kind === "date") {
+    const current = parseSheetFilterDate(value);
+    const min = parseSheetFilterDate(filter.query);
+    const max = parseSheetFilterDate(filter.queryTo);
+    if (!current || !min) return false;
+    if (filter.operator === "equals") return current === min;
+    if (filter.operator === "notEquals") return current !== min;
+    if (filter.operator === "gt") return current > min;
+    if (filter.operator === "lt") return current < min;
+    if (filter.operator === "between") return Boolean(max) && current >= (min < max ? min : max) && current <= (min < max ? max : min);
+    return displayed.includes(query);
+  }
+  if (filter.operator === "equals") return displayed === query;
+  if (filter.operator === "notEquals") return displayed !== query;
+  if (filter.operator === "startsWith") return displayed.startsWith(query);
+  if (filter.operator === "endsWith") return displayed.endsWith(query);
+  if (filter.operator === "notContains") return !displayed.includes(query);
+  return displayed.includes(query);
+}
+
+function compareSheetColumn(left: string, right: string, key: SheetColumnKey) {
+  const kind = SHEET_COLUMNS.find((column) => column.key === key)?.kind ?? "text";
+  if (kind === "number") {
+    const delta = Number(left) - Number(right);
+    if (Number.isFinite(delta) && delta !== 0) return delta;
+  }
+  if (kind === "date") return parseSheetFilterDate(left).localeCompare(parseSheetFilterDate(right));
+  return sheetColumnLabel(key, left).localeCompare(sheetColumnLabel(key, right), "fr", { numeric: true, sensitivity: "base" });
+}
+
 export async function downloadFicheSecuritePdf(record: SecuritySheetRecord) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -336,7 +481,12 @@ export function SecuritySheetView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 6;
+  const [listFilters, setListFilters] = useState<SheetListFilters>(emptySheetListFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [displayMode, setDisplayMode] = useState<"cards" | "table">("cards");
+  const [columnFilters, setColumnFilters] = useState(emptySheetColumnFilters);
+  const [columnSort, setColumnSort] = useState<{ key: SheetColumnKey; direction: "asc" | "desc" } | null>(null);
+  const pageSize = displayMode === "table" ? TABLE_LIST_PAGE_SIZE : 6;
   const [form, setForm] = useState<SecuritySheetRecord | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -348,23 +498,40 @@ export function SecuritySheetView({
   const filtered = useMemo(() => {
     const rows = Array.isArray(records) ? records : [];
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
+    const matched = rows.filter((record) => {
+      if (listFilters.sites.length > 0 && !listFilters.sites.includes(record.nomSite.trim())) return false;
+      if (listFilters.referentiels.length > 0 && !listFilters.referentiels.includes(record.referentielAnnee.trim())) return false;
+      const hasPrevention = Boolean(record.correspondantPrevention.trim());
+      if (listFilters.prevention.length === 1 && listFilters.prevention[0] === "avec" && !hasPrevention) return false;
+      if (listFilters.prevention.length === 1 && listFilters.prevention[0] === "sans" && hasPrevention) return false;
+      const hasControls = countFilledControlRows(record) > 0;
+      if (listFilters.controles.length === 1 && listFilters.controles[0] === "avec" && !hasControls) return false;
+      if (listFilters.controles.length === 1 && listFilters.controles[0] === "sans" && hasControls) return false;
+      if (!q) return true;
       const pack = [
-        r.duerpTitre,
-        r.titreFiche,
-        r.nomSite,
-        r.lieuElementsControles,
-        r.referentielAnnee,
-        r.adresse,
-        r.activitesPrincipales,
-        r.correspondantPrevention,
+        record.duerpTitre,
+        record.titreFiche,
+        record.nomSite,
+        record.lieuElementsControles,
+        record.referentielAnnee,
+        record.adresse,
+        record.activitesPrincipales,
+        record.correspondantPrevention,
       ]
         .join(" ")
         .toLowerCase();
       return pack.includes(q);
     });
-  }, [records, query]);
+    const columnMatched = matched.filter((record) => {
+      const facts = sheetFacts(record);
+      return SHEET_COLUMNS.every((column) => matchesSheetColumn(facts, column.key, columnFilters[column.key]));
+    });
+    if (!columnSort) return columnMatched;
+    return [...columnMatched].sort((left, right) => {
+      const delta = compareSheetColumn(sheetFacts(left)[columnSort.key], sheetFacts(right)[columnSort.key], columnSort.key);
+      return columnSort.direction === "asc" ? delta : -delta;
+    });
+  }, [records, query, listFilters, columnFilters, columnSort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = useMemo(
@@ -374,7 +541,30 @@ export function SecuritySheetView({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [query]);
+  }, [query, listFilters, columnFilters, columnSort, displayMode]);
+
+  useEffect(() => {
+    document.getElementById("main-content")?.scrollTo({ top: 0 });
+  }, [viewMode, selectedId]);
+
+  const listFiltersActive =
+    listFilters.sites.length > 0 ||
+    listFilters.referentiels.length > 0 ||
+    listFilters.prevention.length > 0 ||
+    listFilters.controles.length > 0 ||
+    query.trim().length > 0;
+  const columnFiltersActive = SHEET_COLUMNS.some((column) => sheetColumnActive(columnFilters[column.key]));
+  const pendingDelete = records.find((record) => record.id === deleteId) ?? null;
+
+  const downloadSheet = async (record: SecuritySheetRecord) => {
+    try {
+      const { downloadSecuritySheetVisualPdf } = await import("./securitySheetVisualPdf");
+      await downloadSecuritySheetVisualPdf(record);
+      toast.success("Fiche téléchargée en PDF.");
+    } catch {
+      toast.error("Impossible de générer le PDF.");
+    }
+  };
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -485,6 +675,56 @@ export function SecuritySheetView({
     [filtered],
   );
 
+  const renderFilterableTh = (key: SheetColumnKey) => {
+    const column = SHEET_COLUMNS.find((item) => item.key === key);
+    if (!column) return null;
+    const options = uniqueSorted(records.map((record) => sheetFacts(record)[key])).map((value) => ({
+      value,
+      label: sheetColumnLabel(key, value),
+    }));
+    return (
+      <th key={key} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide">
+        <div className="flex items-center gap-1">
+          <span>{column.label}</span>
+          <ColumnFilterPopover
+            options={options}
+            filter={columnFilters[key]}
+            kind={column.kind}
+            sorted={columnSort?.key === key ? columnSort.direction : null}
+            onApply={(filter) => setColumnFilters((current) => ({ ...current, [key]: filter }))}
+            onSort={(direction) => setColumnSort({ key, direction })}
+            ariaLabel={`Filtrer ${column.label}`}
+          />
+        </div>
+      </th>
+    );
+  };
+
+  const deleteDialog = (
+    <AlertDialog open={deleteId !== null} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+      <AlertDialogContent className="rounded-2xl">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Supprimer cette fiche ?</AlertDialogTitle>
+          <AlertDialogDescription className="text-left">
+            {pendingDelete ? <span className="mb-2 block font-medium text-slate-900">{pendingDelete.titreFiche}</span> : null}
+            La suppression est définitive. La fiche ne pourra pas être restaurée.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="rounded-xl">Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            className="rounded-xl bg-rose-600 text-white hover:bg-rose-700"
+            onClick={() => {
+              if (deleteId) removeRecord(deleteId);
+            }}
+          >
+            Supprimer
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (viewMode === "create" && form && canEdit) {
     return (
       <EditBody
@@ -523,27 +763,18 @@ export function SecuritySheetView({
 
   if (viewMode === "detail" && selected) {
     return (
-      <DetailBody
-        record={selected}
-        canEdit={canEdit}
-        onBack={() => setViewMode("list")}
-        onEdit={() => startEdit(selected)}
-        onDownload={async () => {
-          try {
-            const { downloadSecuritySheetVisualPdf } = await import("./securitySheetVisualPdf");
-            const visualOk = await downloadSecuritySheetVisualPdf(selected);
-            if (visualOk) {
-              toast.success("Fiche téléchargée en PDF (aperçu visuel).");
-              return;
-            }
-            await downloadFicheSecuritePdf(selected);
-            toast.success("Fiche téléchargée en PDF.");
-          } catch {
-            toast.error("Impossible de générer le PDF.");
-          }
-        }}
-        readSection={readSection}
-      />
+      <>
+        <DetailBody
+          record={selected}
+          canEdit={canEdit}
+          onBack={() => setViewMode("list")}
+          onEdit={() => startEdit(selected)}
+          onDownload={() => void downloadSheet(selected)}
+          onDelete={() => setDeleteId(selected.id)}
+          readSection={readSection}
+        />
+        {deleteDialog}
+      </>
     );
   }
 
@@ -559,7 +790,7 @@ export function SecuritySheetView({
               <div>
                 <CardTitle className="text-3xl sm:text-4xl font-bold">Fiches de sécurité</CardTitle>
                 <p className="text-pink-100 text-lg mt-1">
-                  Identification, prevention et controles reglementaires par site — meme logique que le plan de prevention.
+                  Identification du site, prévention et contrôles réglementaires.
                 </p>
               </div>
             </div>
@@ -579,154 +810,228 @@ export function SecuritySheetView({
         </Card>
         <Card className="border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-rose-50">
           <CardContent className="p-4">
-            <p className="text-xs text-pink-800 uppercase font-semibold">Avec dispositif prevention</p>
+            <p className="text-xs text-pink-800 uppercase font-semibold">Avec correspondant prévention</p>
             <p className="text-2xl font-bold text-pink-950 mt-1">{statAvecPrevention}</p>
           </CardContent>
         </Card>
         <Card className="border-2 border-stone-300 bg-gradient-to-br from-stone-100 to-stone-50">
           <CardContent className="p-4">
-            <p className="text-xs text-stone-600 uppercase font-semibold">Avec controles saisis</p>
+            <p className="text-xs text-stone-600 uppercase font-semibold">Avec contrôles saisis</p>
             <p className="text-2xl font-bold text-stone-900 mt-1">{statAvecControles}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-2 bg-white/95">
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-col md:flex-row gap-3 w-full xl:flex-1">
-              <div className="relative w-full xl:max-w-md">
-                <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Rechercher une fiche (site, titre, adresse, activites...)"
-                  className="pl-10 border-2 border-slate-300"
-                />
-              </div>
+      <Card className="border-2 border-rose-100 bg-white/95" role="region" aria-label="Filtres des fiches">
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Rechercher une fiche (site, titre, adresse, activités...)"
+                className="h-11 rounded-xl border-rose-200 bg-white pl-10 shadow-sm"
+              />
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="hidden xl:flex items-center gap-2 text-sm text-slate-500">
-                <Filter className="h-4 w-4" />
-                Filtre recherche
-              </div>
+            <p className="shrink-0 text-sm font-semibold text-rose-950">{filtered.length} fiche(s)</p>
+            <div className="inline-flex rounded-xl bg-rose-100/80 p-1" role="group" aria-label="Mode d'affichage">
+              <button
+                type="button"
+                aria-pressed={displayMode === "cards"}
+                onClick={() => setDisplayMode("cards")}
+                className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium ${displayMode === "cards" ? "bg-white text-rose-950 shadow-sm" : "text-rose-700"}`}
+              >
+                <LayoutGrid className="h-4 w-4" aria-hidden />
+                Cartes
+              </button>
+              <button
+                type="button"
+                aria-pressed={displayMode === "table"}
+                onClick={() => setDisplayMode("table")}
+                className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium ${displayMode === "table" ? "bg-white text-rose-950 shadow-sm" : "text-rose-700"}`}
+              >
+                <Table2 className="h-4 w-4" aria-hidden />
+                Tableau
+              </button>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="h-11 rounded-xl border-rose-200 bg-white px-4 text-rose-800 hover:bg-rose-50"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {filtersOpen ? "Masquer les filtres" : "Filtres"}
+            </Button>
+            {listFiltersActive ? (
               <Button
-                variant="outline"
-                size="sm"
+                type="button"
+                variant="ghost"
                 onClick={() => {
                   setQuery("");
+                  setListFilters(emptySheetListFilters());
                   setCurrentPage(1);
                 }}
+                className="h-11 rounded-xl text-slate-600"
               >
-                Reinitialiser
+                Réinitialiser
               </Button>
-            </div>
+            ) : null}
             {canEdit ? (
               <Button
                 onClick={startCreate}
-                className="w-full xl:w-auto bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700"
+                className="h-11 w-full rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 sm:w-auto"
               >
-                <PlusCircle className="h-4 w-4 mr-2" />
+                <PlusCircle className="mr-2 h-4 w-4" />
                 Nouvelle fiche
               </Button>
             ) : null}
           </div>
+          {filtersOpen ? (
+            <div className="grid grid-cols-1 gap-4 border-t border-rose-100 pt-4 xl:grid-cols-3">
+              <section className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/80 p-4">
+                <h2 className="text-sm font-bold text-rose-950">Site</h2>
+                <MultiSelectFilter label="Site" selected={listFilters.sites} onChange={(sites) => setListFilters((current) => ({ ...current, sites }))} options={uniqueSorted(records.map((record) => record.nomSite)).map((value) => ({ value, label: value }))} />
+                <MultiSelectFilter label="Référentiel" selected={listFilters.referentiels} onChange={(referentiels) => setListFilters((current) => ({ ...current, referentiels }))} options={uniqueSorted(records.map((record) => record.referentielAnnee)).map((value) => ({ value, label: value }))} />
+              </section>
+              <section className="space-y-3 rounded-2xl border border-pink-200 bg-pink-50/80 p-4">
+                <h2 className="text-sm font-bold text-pink-950">Prévention</h2>
+                <MultiSelectFilter
+                  label="Correspondant prévention"
+                  selected={listFilters.prevention}
+                  onChange={(prevention) => setListFilters((current) => ({ ...current, prevention }))}
+                  options={[{ value: "avec", label: "Renseigné" }, { value: "sans", label: "À compléter" }]}
+                />
+              </section>
+              <section className="space-y-3 rounded-2xl border border-stone-300 bg-stone-50 p-4">
+                <h2 className="text-sm font-bold text-stone-800">Contrôles</h2>
+                <MultiSelectFilter
+                  label="Lignes de contrôle"
+                  selected={listFilters.controles}
+                  onChange={(controles) => setListFilters((current) => ({ ...current, controles }))}
+                  options={[{ value: "avec", label: "Au moins une ligne" }, { value: "sans", label: "Aucune ligne" }]}
+                />
+              </section>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {pageRows.map((r) => (
-          <Card key={r.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur overflow-hidden relative">
+      {columnFiltersActive ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-950 sm:flex-row sm:items-center sm:justify-between">
+          <p>Des filtres de colonnes sont actifs.</p>
+          <Button type="button" variant="ghost" className="h-9 rounded-xl text-rose-800" onClick={() => setColumnFilters(emptySheetColumnFilters())}>
+            Réinitialiser les colonnes
+          </Button>
+        </div>
+      ) : null}
+
+      {displayMode === "cards" && filtered.length > 0 ? (
+      <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-2">
+        {pageRows.map((record) => {
+          const sections = filledControlSections(record);
+          return (
+          <Card key={record.id} className="flex h-full flex-col overflow-hidden border-0 bg-white/80 shadow-xl backdrop-blur transition-all hover:shadow-2xl">
             <div className="h-2 bg-gradient-to-r from-pink-500 to-rose-500" />
-            <CardContent className="p-5 space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex items-center gap-3">
-                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg">
-                    <Target className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-pink-800">Fiche securite</p>
-                    <p className="text-lg font-semibold text-slate-900 leading-snug break-words">{r.titreFiche || "Titre a renseigner"}</p>
-                  </div>
+            <CardContent className="flex flex-1 flex-col space-y-4 p-5">
+              <div className="flex min-w-0 items-start gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 shadow-lg">
+                  <Target className="h-7 w-7 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-pink-800">{record.nomSite || "Site non renseigné"}</p>
+                  <p className="break-words text-lg font-semibold leading-snug text-slate-900">{record.titreFiche || "Titre à renseigner"}</p>
                 </div>
               </div>
-              <p className="text-sm text-slate-700 line-clamp-2">{r.duerpTitre}</p>
-              <div className="space-y-2 text-xs text-slate-600">
-                <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-rose-800">Site :</span>
-                  <span className="text-sm font-semibold text-rose-900">{r.nomSite || "—"}</span>
+              <p className="line-clamp-2 text-sm text-slate-700">{record.duerpTitre || "Unité non renseignée"}</p>
+              <div className="space-y-2 text-sm">
+                <p className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-950"><MapPin className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><span className="min-w-0 break-words">{record.lieuElementsControles || "Lieu non renseigné"}</span></p>
+                <p className="flex items-start gap-2 rounded-lg border border-pink-200 bg-pink-50 px-3 py-2 text-pink-950"><FileText className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><span className="min-w-0 break-words">{record.referentielAnnee || "Référentiel non renseigné"}</span></p>
+                <p className="flex items-start gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-stone-800"><User className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><span className="min-w-0 break-words">{record.correspondantPrevention || "Correspondant non renseigné"}</span></p>
+                <p className="flex items-start gap-2 rounded-lg border border-stone-300 bg-stone-100 px-3 py-2 text-stone-900"><CalendarDays className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /><span>Mise à jour le {formatSheetDate(record.dateMiseAJour)}</span></p>
+              </div>
+              <div className="mt-auto">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="font-semibold text-slate-600">Rubriques de contrôle</span>
+                  <span className="font-bold text-rose-700">{sections}/9</span>
                 </div>
-                <div className="flex items-center gap-2 bg-rose-50/60 border border-rose-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-rose-800">Lieu / éléments :</span>
-                  <span className="text-sm font-semibold text-rose-900 line-clamp-2">{r.lieuElementsControles || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-pink-50 border border-pink-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-pink-800">Referentiel :</span>
-                  <span className="text-sm font-semibold text-pink-900">{r.referentielAnnee || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-stone-100 border border-stone-300 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-stone-600">Dernière mise à jour :</span>
-                  <span className="text-sm font-semibold text-stone-900">{r.dateMiseAJour || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-pink-100/80 border border-pink-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-rose-900">Adresse :</span>
-                  <span className="text-sm font-semibold text-rose-950 line-clamp-2">{r.adresse || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-stone-600">Correspondant :</span>
-                  <span className="text-sm font-semibold text-stone-800 line-clamp-1">{r.correspondantPrevention || "—"}</span>
+                <div className="h-2 overflow-hidden rounded-full bg-rose-50">
+                  <div className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500" style={{ width: `${(sections / 9) * 100}%` }} />
                 </div>
               </div>
-              <Separator />
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <span className="text-xs text-gray-600 font-semibold">Creee le</span>
-                  <div className="w-full text-center py-3 rounded-lg font-bold text-base border-2 bg-rose-50 border-rose-400 text-rose-800">
-                    {r.dateCreation || "—"}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <span className="text-xs text-gray-600 font-semibold">Lignes controle (total)</span>
-                  <div className="w-full text-center py-3 rounded-lg font-bold text-base border-2 bg-stone-200 border-stone-400 text-stone-800">
-                    {countFilledControlRows(r)}
-                  </div>
-                </div>
-              </div>
-              <Badge className="w-full justify-center font-bold border-0 bg-gradient-to-r from-pink-500 to-rose-600 text-white py-2">
-                Controles reglementaires (amiante, plomb, CVC, etc.)
-              </Badge>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button variant="outline" className="w-full sm:flex-1" onClick={() => openDetail(r)}>
-                  <FileText className="h-4 w-4 mr-2" />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button variant="outline" className="w-full border-rose-200 sm:flex-1" onClick={() => openDetail(record)}>
+                  <FileText className="mr-2 h-4 w-4" />
                   Consulter
                 </Button>
-                <Button
-                  variant="outline"
-                  className="w-full sm:flex-1"
-                  onClick={() => void downloadFicheSecuritePdf(r)}
-                >
-                  <Download className="h-4 w-4 mr-2" />
+                <Button variant="outline" className="w-full border-rose-200 sm:flex-1" onClick={() => void downloadSheet(record)}>
+                  <Download className="mr-2 h-4 w-4" />
                   PDF
                 </Button>
                 {canEdit ? (
                   <>
-                    <Button
-                      className="w-full sm:flex-1 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700"
-                      onClick={() => startEdit(r)}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" />
+                    <Button className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 sm:flex-1" onClick={() => startEdit(record)}>
+                      <Pencil className="mr-2 h-4 w-4" />
                       Modifier
                     </Button>
-                    <Button variant="outline" className="w-full sm:w-auto text-red-600" onClick={() => setDeleteId(r.id)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button variant="outline" className="w-full border-rose-200 text-rose-700 hover:bg-rose-50 sm:w-auto" onClick={() => setDeleteId(record.id)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Supprimer
                     </Button>
                   </>
                 ) : null}
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
+      ) : null}
+
+      {displayMode === "table" && filtered.length > 0 ? (
+        <Card className="overflow-hidden border border-rose-100 bg-white shadow-sm">
+          <div className="h-1.5 bg-gradient-to-r from-pink-500 to-rose-500" />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1100px] border-separate border-spacing-0 text-left text-sm">
+              <thead className="bg-rose-50 text-rose-950">
+                <tr>
+                  {SHEET_COLUMNS.map((column) => renderFilterableTh(column.key))}
+                  <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.map((record) => (
+                  <tr key={record.id} className="cursor-pointer hover:bg-rose-50/60" onClick={() => openDetail(record)}>
+                    <td className="max-w-[240px] border-t border-rose-100 px-3 py-3 align-top font-semibold leading-snug text-slate-950">{record.titreFiche || "Titre à renseigner"}</td>
+                    <td className="border-t border-rose-100 px-3 py-3 align-top">{record.nomSite || "Non renseigné"}</td>
+                    <td className="max-w-[200px] border-t border-rose-100 px-3 py-3 align-top leading-snug">{record.lieuElementsControles || "Non renseigné"}</td>
+                    <td className="max-w-[180px] border-t border-rose-100 px-3 py-3 align-top leading-snug">{record.referentielAnnee || "Non renseigné"}</td>
+                    <td className="max-w-[200px] border-t border-rose-100 px-3 py-3 align-top leading-snug">{record.correspondantPrevention || "Non renseigné"}</td>
+                    <td className="whitespace-nowrap border-t border-rose-100 px-3 py-3 align-top">{formatSheetDate(record.dateMiseAJour)}</td>
+                    <td className="border-t border-rose-100 px-3 py-3 align-top">
+                      <div className="flex min-w-[92px] items-center gap-2">
+                        <div className="h-1.5 w-12 overflow-hidden rounded-full bg-rose-100">
+                          <div className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500" style={{ width: `${(filledControlSections(record) / 9) * 100}%` }} />
+                        </div>
+                        <span className="font-semibold text-rose-800">{filledControlSections(record)}/9</span>
+                      </div>
+                    </td>
+                    <td className="border-t border-rose-100 bg-white px-3 py-3 align-top" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex items-center gap-1">
+                        <Button variant="outline" size="icon" className="h-9 w-9 border-rose-200" onClick={() => openDetail(record)} aria-label="Consulter"><Eye className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" className="h-9 w-9 border-rose-200" onClick={() => void downloadSheet(record)} aria-label="Télécharger le PDF"><Download className="h-4 w-4" /></Button>
+                        {canEdit ? <Button size="icon" className="h-9 w-9 bg-gradient-to-r from-pink-600 to-rose-600" onClick={() => startEdit(record)} aria-label="Modifier"><Pencil className="h-4 w-4" /></Button> : null}
+                        {canEdit ? <Button variant="outline" size="icon" className="h-9 w-9 border-rose-200 text-rose-700" onClick={() => setDeleteId(record.id)} aria-label="Supprimer"><Trash2 className="h-4 w-4" /></Button> : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
 
       <ListPaginationBar
         currentPage={currentPage}
@@ -737,161 +1042,166 @@ export function SecuritySheetView({
       />
 
       {filtered.length === 0 ? (
-        <Card className="border-2 border-dashed border-gray-300 bg-white/80">
+        <Card className="border-2 border-dashed border-rose-200 bg-white/80">
           <CardContent className="py-14 text-center">
-            <AlertTriangle className="h-10 w-10 text-pink-500 mx-auto mb-3" />
-            <p className="text-gray-700 font-semibold">Aucune fiche securite</p>
-            <p className="text-gray-500 text-sm mt-1">Ajuste la recherche{canEdit ? " ou cree une nouvelle fiche." : "."}</p>
+            <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-pink-500" />
+            <p className="font-semibold text-slate-700">Aucune fiche de sécurité</p>
+            <p className="mt-1 text-sm text-slate-500">Ajuste les filtres{canEdit ? " ou crée une nouvelle fiche." : "."}</p>
           </CardContent>
         </Card>
       ) : null}
+      {deleteDialog}
+    </div>
+  );
+}
 
-      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la fiche ?</AlertDialogTitle>
-            <AlertDialogDescription>La suppression est définitive.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => {
-                if (deleteId) removeRecord(deleteId);
-              }}
-            >
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+const sheetInputClass = "h-11 w-full rounded-xl border-rose-200 bg-white pl-10 text-sm shadow-sm focus-visible:border-rose-400 focus-visible:ring-4 focus-visible:ring-rose-100";
+const sheetTextareaClass = "min-h-[96px] w-full rounded-xl border-rose-200 bg-white px-3 py-2.5 text-sm leading-relaxed shadow-sm focus-visible:border-rose-400 focus-visible:ring-4 focus-visible:ring-rose-100";
+const evacuationChoices = ["Oui", "Non", "À créer"];
+
+function SheetLineField({
+  label,
+  icon: Icon,
+  children,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <Label className="text-sm font-medium text-slate-700">{label}</Label>
+      <div className="relative">
+        <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rose-500" aria-hidden />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SheetTextBlock({
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  rows = 4,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+}) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <Label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <Icon className="h-4 w-4 shrink-0 text-rose-500" aria-hidden />
+        {label}
+      </Label>
+      <Textarea value={value} rows={rows} onChange={(event) => onChange(event.target.value)} className={sheetTextareaClass} />
+    </div>
+  );
+}
+
+function SheetDateField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <Label className="text-sm font-medium text-slate-700">{label}</Label>
+      <div className="relative">
+        <input
+          type="date"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-11 w-full rounded-xl border border-rose-200 bg-white pl-3 pr-10 text-sm text-slate-900 shadow-sm outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:top-1/2 [&::-webkit-calendar-picker-indicator]:h-5 [&::-webkit-calendar-picker-indicator]:w-5 [&::-webkit-calendar-picker-indicator]:-translate-y-1/2 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+        />
+        <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rose-500" aria-hidden />
+      </div>
     </div>
   );
 }
 
 function IdentityFields({ form, patch }: { form: SecuritySheetRecord; patch: (p: Partial<SecuritySheetRecord>) => void }) {
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <Label>DUERP (titre de l&apos;unité)</Label>
-          <Textarea
-            value={form.duerpTitre}
-            onChange={(e) => patch({ duerpTitre: e.target.value })}
-            className="mt-1 min-h-[64px] border-2 border-slate-300"
-          />
-        </div>
-        <div>
-          <Label>Référentiel / année</Label>
-          <Input value={form.referentielAnnee} onChange={(e) => patch({ referentielAnnee: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
-        <div className="md:col-span-2">
-          <Label>Titre de la fiche</Label>
-          <Input value={form.titreFiche} onChange={(e) => patch({ titreFiche: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Site (ex. COB)</Label>
-          <Input value={form.nomSite} onChange={(e) => patch({ nomSite: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Lieu ou éléments contrôlés</Label>
-          <Input
-            value={form.lieuElementsControles}
-            onChange={(e) => patch({ lieuElementsControles: e.target.value })}
-            className="mt-1 border-2 border-slate-300"
-            placeholder="Ex : atelier PB, local technique, toiture, quai"
-          />
-        </div>
-        <div>
-          <Label>Date création fiche</Label>
-          <Input type="date" value={form.dateCreation} onChange={(e) => patch({ dateCreation: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Date mise à jour</Label>
-          <Input type="date" value={form.dateMiseAJour} onChange={(e) => patch({ dateMiseAJour: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Effectif total</Label>
-          <Textarea value={form.effectif} onChange={(e) => patch({ effectif: e.target.value })} className="mt-1 min-h-[60px] border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Adresse</Label>
-          <Textarea value={form.adresse} onChange={(e) => patch({ adresse: e.target.value })} className="mt-1 min-h-[60px] border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Téléphone bureau</Label>
-          <Input value={form.telephoneBureau} onChange={(e) => patch({ telephoneBureau: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
-        <div>
-          <Label>Astreinte</Label>
-          <Input value={form.telephoneAstreinte} onChange={(e) => patch({ telephoneAstreinte: e.target.value })} className="mt-1 border-2 border-slate-300" />
-        </div>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="md:col-span-2">
+        <SheetTextBlock label="DUERP, titre de l'unité" icon={FileText} value={form.duerpTitre} onChange={(duerpTitre) => patch({ duerpTitre })} rows={2} />
       </div>
+      <SheetLineField label="Référentiel / année" icon={FileText}>
+        <Input value={form.referentielAnnee} onChange={(event) => patch({ referentielAnnee: event.target.value })} className={sheetInputClass} />
+      </SheetLineField>
+      <div className="md:col-span-2">
+        <SheetLineField label="Titre de la fiche" icon={FileText}>
+          <Input value={form.titreFiche} onChange={(event) => patch({ titreFiche: event.target.value })} className={sheetInputClass} />
+        </SheetLineField>
+      </div>
+      <SheetLineField label="Site" icon={Building2}>
+        <Input value={form.nomSite} onChange={(event) => patch({ nomSite: event.target.value })} className={sheetInputClass} placeholder="Ex. COB Marseille" />
+      </SheetLineField>
+      <SheetLineField label="Lieu ou éléments contrôlés" icon={MapPin}>
+        <Input value={form.lieuElementsControles} onChange={(event) => patch({ lieuElementsControles: event.target.value })} className={sheetInputClass} placeholder="Atelier, local technique, toiture, quai" />
+      </SheetLineField>
+      <SheetDateField label="Date de création" value={form.dateCreation} onChange={(dateCreation) => patch({ dateCreation })} />
+      <SheetDateField label="Date de mise à jour" value={form.dateMiseAJour} onChange={(dateMiseAJour) => patch({ dateMiseAJour })} />
+      <SheetTextBlock label="Effectif" icon={Users} value={form.effectif} onChange={(effectif) => patch({ effectif })} rows={2} />
+      <SheetTextBlock label="Adresse" icon={MapPin} value={form.adresse} onChange={(adresse) => patch({ adresse })} rows={2} />
+      <SheetLineField label="Téléphone bureau" icon={Phone}>
+        <Input type="tel" value={form.telephoneBureau} onChange={(event) => patch({ telephoneBureau: event.target.value })} className={sheetInputClass} />
+      </SheetLineField>
+      <SheetLineField label="Astreinte" icon={Phone}>
+        <Input type="tel" value={form.telephoneAstreinte} onChange={(event) => patch({ telephoneAstreinte: event.target.value })} className={sheetInputClass} />
+      </SheetLineField>
     </div>
   );
 }
 
 function ActFields({ form, patch }: { form: SecuritySheetRecord; patch: (p: Partial<SecuritySheetRecord>) => void }) {
   return (
-    <div className="space-y-3">
-      <div>
-        <Label>Activités principales</Label>
-        <Textarea
-          value={form.activitesPrincipales}
-          onChange={(e) => patch({ activitesPrincipales: e.target.value })}
-          className="mt-1 min-h-[100px] border-2 border-slate-300"
-        />
-      </div>
-      <div>
-        <Label>Cycles et horaires de fonctionnement</Label>
-        <Textarea value={form.cyclesHoraires} onChange={(e) => patch({ cyclesHoraires: e.target.value })} className="mt-1 min-h-[80px] border-2 border-slate-300" />
-      </div>
+    <div className="grid grid-cols-1 gap-4">
+      <SheetTextBlock label="Activités principales" icon={FileText} value={form.activitesPrincipales} onChange={(activitesPrincipales) => patch({ activitesPrincipales })} />
+      <SheetTextBlock label="Cycles et horaires de fonctionnement" icon={Clock} value={form.cyclesHoraires} onChange={(cyclesHoraires) => patch({ cyclesHoraires })} rows={3} />
     </div>
   );
 }
 
 function PrevFields({ form, patch }: { form: SecuritySheetRecord; patch: (p: Partial<SecuritySheetRecord>) => void }) {
+  const evacuationOptions = form.procedureEvacuationIncendie && !evacuationChoices.includes(form.procedureEvacuationIncendie)
+    ? [form.procedureEvacuationIncendie, ...evacuationChoices]
+    : evacuationChoices;
   return (
-    <div className="space-y-3">
-      <div>
-        <Label>Correspondant sécurité / prévention</Label>
-        <Textarea
-          value={form.correspondantPrevention}
-          onChange={(e) => patch({ correspondantPrevention: e.target.value })}
-          className="mt-1 border-2 border-slate-300"
-        />
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="md:col-span-2">
+        <SheetTextBlock label="Correspondant sécurité / prévention" icon={User} value={form.correspondantPrevention} onChange={(correspondantPrevention) => patch({ correspondantPrevention })} rows={2} />
       </div>
-      <div>
-        <Label>Présence registre SST (n°)</Label>
-        <Input value={form.registreSst} onChange={(e) => patch({ registreSst: e.target.value })} className="mt-1 border-2 border-slate-300" />
+      <SheetLineField label="Registre SST" icon={Hash}>
+        <Input value={form.registreSst} onChange={(event) => patch({ registreSst: event.target.value })} className={sheetInputClass} placeholder="Numéro du registre" />
+      </SheetLineField>
+      <SheetLineField label="Lien intranet" icon={Link2}>
+        <Input type="url" value={form.lienIntranet} onChange={(event) => patch({ lienIntranet: event.target.value })} className={sheetInputClass} placeholder="https://" />
+      </SheetLineField>
+      <div className="md:col-span-2">
+        <SheetTextBlock label="Protocole d'accueil et de prévention des risques" icon={Shield} value={form.protocoleAccueil} onChange={(protocoleAccueil) => patch({ protocoleAccueil })} rows={2} />
       </div>
-      <div>
-        <Label>Lien intranet (enquête, etc.)</Label>
-        <Input value={form.lienIntranet} onChange={(e) => patch({ lienIntranet: e.target.value })} className="mt-1 border-2 border-slate-300" />
+      <div className="md:col-span-2">
+        <SheetTextBlock label="Registre des contrôles, emplacement" icon={MapPin} value={form.registreControlesLieu} onChange={(registreControlesLieu) => patch({ registreControlesLieu })} rows={2} />
       </div>
-      <div>
-        <Label>Protocole d&apos;accueil et de prévention des risques</Label>
-        <Textarea value={form.protocoleAccueil} onChange={(e) => patch({ protocoleAccueil: e.target.value })} className="mt-1 border-2 border-slate-300" />
+      <div className="md:col-span-2">
+        <SheetTextBlock label="Personnel habilité électrique, un nom par ligne" icon={Users} value={form.personnelHabilitationElectrique} onChange={(personnelHabilitationElectrique) => patch({ personnelHabilitationElectrique })} rows={3} />
       </div>
-      <div>
-        <Label>Registre des contrôles / emplacement</Label>
-        <Textarea value={form.registreControlesLieu} onChange={(e) => patch({ registreControlesLieu: e.target.value })} className="mt-1 border-2 border-slate-300" />
-      </div>
-      <div>
-        <Label>Personnel habilité électrique (un nom par ligne)</Label>
-        <Textarea
-          value={form.personnelHabilitationElectrique}
-          onChange={(e) => patch({ personnelHabilitationElectrique: e.target.value })}
-          className="mt-1 min-h-[72px] border-2 border-slate-300"
-        />
-      </div>
-      <div>
-        <Label>Procédure d&apos;évacuation incendie</Label>
-        <Input
-          value={form.procedureEvacuationIncendie}
-          onChange={(e) => patch({ procedureEvacuationIncendie: e.target.value })}
-          className="mt-1 border-2 border-slate-300"
-        />
+      <div className="min-w-0 space-y-1.5 md:col-span-2">
+        <Label className="text-sm font-medium text-slate-700">Procédure d'évacuation incendie</Label>
+        <div className="relative">
+          <Siren className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-rose-500" aria-hidden />
+          <Select value={form.procedureEvacuationIncendie || undefined} onValueChange={(procedureEvacuationIncendie) => patch({ procedureEvacuationIncendie })}>
+            <SelectTrigger className="h-11 w-full rounded-xl border-rose-200 bg-white pl-10 shadow-sm data-[size=default]:h-11">
+              <SelectValue placeholder="Choisir" />
+            </SelectTrigger>
+            <SelectContent>
+              {evacuationOptions.map((choice) => (
+                <SelectItem key={choice} value={choice}>{choice}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );
@@ -914,73 +1224,60 @@ function TableEditor({
   onAdd: () => void;
   onRemove: (id: string) => void;
 }) {
+  const lineInput = "h-11 rounded-xl border-rose-200 bg-white text-sm shadow-sm focus-visible:border-rose-400 focus-visible:ring-4 focus-visible:ring-rose-100";
   return (
     <div className="space-y-3">
       {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
-      {rows.map((row, i) => (
-        <div key={row.id} className="rounded-lg border-2 border-pink-100 bg-pink-50/40 p-3 space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold text-pink-900">Ligne {i + 1}</span>
+      {rows.map((row, index) => (
+        <div key={row.id} className="overflow-hidden rounded-2xl border border-rose-200 bg-white">
+          <div className="flex items-center justify-between gap-3 bg-rose-50 px-3 py-2">
+            <p className="text-sm font-semibold text-rose-950">Ligne {index + 1}</p>
             {rows.length > 1 ? (
-              <Button type="button" variant="ghost" size="sm" className="h-7 text-red-600" onClick={() => onRemove(row.id)}>
-                <Trash2 className="h-3.5 w-3.5" />
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50" onClick={() => onRemove(row.id)}>
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Retirer
               </Button>
             ) : null}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Action</Label>
-              <Textarea
-                value={row.action}
-                onChange={(e) => onPatch(row.id, { action: e.target.value })}
-                className="min-h-[52px] mt-0.5 border-2 border-slate-300"
-              />
+          <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-sm font-medium text-slate-700">Action</Label>
+              <Textarea value={row.action} onChange={(event) => onPatch(row.id, { action: event.target.value })} className="min-h-[72px] rounded-xl border-rose-200 bg-white text-sm shadow-sm focus-visible:border-rose-400 focus-visible:ring-4 focus-visible:ring-rose-100" />
             </div>
-            <div>
-              <Label className="text-xs">Site</Label>
-              <Input value={row.site} onChange={(e) => onPatch(row.id, { site: e.target.value })} className="mt-0.5 border-2 border-slate-300" />
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-slate-700">Site</Label>
+              <Input value={row.site} onChange={(event) => onPatch(row.id, { site: event.target.value })} className={lineInput} />
             </div>
-            <div>
-              <Label className="text-xs">Date rapport</Label>
-              <Input value={row.dateRapport} onChange={(e) => onPatch(row.id, { dateRapport: e.target.value })} className="mt-0.5 border-2 border-slate-300" />
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-slate-700">Date du rapport</Label>
+              <Input value={row.dateRapport} onChange={(event) => onPatch(row.id, { dateRapport: event.target.value })} className={lineInput} placeholder="06/07/2022" />
             </div>
-            <div>
-              <Label className="text-xs">Référence</Label>
-              <Input value={row.reference} onChange={(e) => onPatch(row.id, { reference: e.target.value })} className="mt-0.5 border-2 border-slate-300" />
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-sm font-medium text-slate-700">Référence</Label>
+              <Input value={row.reference} onChange={(event) => onPatch(row.id, { reference: event.target.value })} className={lineInput} />
             </div>
             {withInspector ? (
               <>
-                <div>
-                  <Label className="text-xs">Date de passage (optionnel)</Label>
-                  <Input
-                    value={row.datePassage || ""}
-                    onChange={(e) => onPatch(row.id, { datePassage: e.target.value })}
-                    className="mt-0.5 border-2 border-slate-300"
-                  />
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-700">Date de passage</Label>
+                  <Input value={row.datePassage || ""} onChange={(event) => onPatch(row.id, { datePassage: event.target.value })} className={lineInput} placeholder="Optionnel" />
                 </div>
-                <div>
-                  <Label className="text-xs">Nom inspecteur (optionnel)</Label>
-                  <Input
-                    value={row.nomInspecteur || ""}
-                    onChange={(e) => onPatch(row.id, { nomInspecteur: e.target.value })}
-                    className="mt-0.5 border-2 border-slate-300"
-                  />
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-700">Nom de l'inspecteur</Label>
+                  <Input value={row.nomInspecteur || ""} onChange={(event) => onPatch(row.id, { nomInspecteur: event.target.value })} className={lineInput} placeholder="Optionnel" />
                 </div>
               </>
             ) : null}
-            <div className="sm:col-span-2">
-              <Label className="text-xs">Observation</Label>
-              <Textarea
-                value={row.observation}
-                onChange={(e) => onPatch(row.id, { observation: e.target.value })}
-                className="min-h-[56px] mt-0.5 border-2 border-slate-300"
-              />
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-sm font-medium text-slate-700">Observation</Label>
+              <Textarea value={row.observation} onChange={(event) => onPatch(row.id, { observation: event.target.value })} className="min-h-[72px] rounded-xl border-rose-200 bg-white text-sm shadow-sm focus-visible:border-rose-400 focus-visible:ring-4 focus-visible:ring-rose-100" />
             </div>
           </div>
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto border-dashed" onClick={onAdd}>
-        <Plus className="h-4 w-4 mr-1" /> Ajouter une ligne — {title}
+      <Button type="button" variant="outline" className="h-10 w-full rounded-xl border-dashed border-rose-300 text-rose-800 hover:bg-rose-50 sm:w-auto" onClick={onAdd}>
+        <Plus className="mr-1.5 h-4 w-4" />
+        Ajouter une ligne, {title}
       </Button>
     </div>
   );
@@ -1045,26 +1342,14 @@ function EditBody({
   addRow: (s: SheetArrayKey) => void;
   removeRow: (s: SheetArrayKey, id: string) => void;
 }) {
+  const requestLeave = useLeaveGuard();
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">
-            {isCreate ? "Nouvelle fiche securite" : "Modifier la fiche securite"}
-          </h2>
-          <p className="text-slate-600 mt-1">Edition en page complete, alignee sur le plan de prevention.</p>
-        </div>
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="default"
-            onClick={onBack}
-            className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Retour
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-950 sm:text-3xl">
+          {isCreate ? "Nouvelle fiche de sécurité" : "Modifier la fiche de sécurité"}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">Identification du site, prévention et contrôles réglementaires.</p>
       </div>
 
       <Card className="border-0 shadow-2xl bg-white">
@@ -1074,11 +1359,11 @@ function EditBody({
             <CardContent className="p-5">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-pink-100">Document fiche securite</p>
-                  <p className="text-lg font-semibold mt-1">{form.titreFiche || "Fiche a completer"}</p>
-                  <p className="text-pink-100 text-sm mt-1">{form.referentielAnnee || "Referentiel"}</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-pink-100">Fiche de sécurité</p>
+                  <p className="text-lg font-semibold mt-1">{form.titreFiche || "Fiche à compléter"}</p>
+                  <p className="text-pink-100 text-sm mt-1">{form.referentielAnnee || "Référentiel"}</p>
                 </div>
-                <Badge className="bg-white text-slate-900 border-white/20">{isCreate ? "Creation" : "Modification"}</Badge>
+                <Badge className="bg-white text-slate-900 border-white/20">{isCreate ? "Création" : "Modification"}</Badge>
               </div>
             </CardContent>
           </Card>
@@ -1097,7 +1382,7 @@ function EditBody({
 
           <Card className="border-2 border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">Activites &amp; horaires</CardTitle>
+              <CardTitle className="text-base">Activités et horaires</CardTitle>
             </CardHeader>
             <CardContent>
               <ActFields form={form} patch={patchForm} />
@@ -1106,8 +1391,8 @@ function EditBody({
 
           <Card className="border-2 border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">Dispositif de prevention</CardTitle>
-              <CardDescription>Registres, protocole, habilitations, evacuation</CardDescription>
+              <CardTitle className="text-base">Dispositif de prévention</CardTitle>
+              <CardDescription>Registres, protocole, habilitations, évacuation</CardDescription>
             </CardHeader>
             <CardContent>
               <PrevFields form={form} patch={patchForm} />
@@ -1118,7 +1403,7 @@ function EditBody({
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Table2 className="h-4 w-4 text-pink-600" />
-                Controles reglementaires
+                Contrôles réglementaires
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1149,28 +1434,28 @@ function EditBody({
 
           <Card className="border-2 border-slate-200 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">Autres (complements d&apos;information)</CardTitle>
+              <CardTitle className="text-base">Autres compléments</CardTitle>
             </CardHeader>
             <CardContent>
               <Textarea
                 value={form.autresComplement}
                 onChange={(e) => patchForm({ autresComplement: e.target.value })}
-                placeholder="Aeration, assainissement, extincteurs, controles specifiques..."
-                className="min-h-[100px] border-2 border-slate-300"
+                placeholder="Aération, assainissement, extincteurs, contrôles spécifiques..."
+                className="min-h-[100px] rounded-xl border-rose-200 bg-white shadow-sm"
               />
             </CardContent>
           </Card>
 
-          <Separator />
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
-              Annuler
+          <div className="flex flex-col gap-3 border-t border-rose-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <Button variant="outline" onClick={() => requestLeave(onBack)} className="h-11 w-full rounded-xl border-rose-200 sm:w-auto">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour à la liste
             </Button>
             <Button
               onClick={onSave}
-              className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700"
+              className="h-11 w-full rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 sm:w-auto"
             >
-              Enregistrer
+              {isCreate ? "Enregistrer" : "Mettre à jour"}
             </Button>
           </div>
         </CardContent>
@@ -1184,6 +1469,7 @@ function DetailBody({
   onBack,
   onEdit,
   onDownload,
+  onDelete,
   canEdit,
   readSection,
 }: {
@@ -1191,6 +1477,7 @@ function DetailBody({
   onBack: () => void;
   onEdit: () => void;
   onDownload: () => void;
+  onDelete: () => void;
   canEdit: boolean;
   readSection: (r: SecuritySheetRecord, k: SheetArrayKey) => ControleRow[];
 }) {
@@ -1202,65 +1489,69 @@ function DetailBody({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const filledSections = SECTIONS.filter((section) => readSection(record, section.key).length > 0);
+  const emptySections = SECTIONS.filter((section) => readSection(record, section.key).length === 0);
+
   return (
-    <div className="space-y-6 p-3 sm:p-6">
-      <div className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          <Button variant="outline" onClick={onDownload} className="w-full sm:w-auto border-pink-300 text-pink-800 hover:bg-pink-50">
-            <Download className="h-4 w-4 mr-2" />
-            Telecharger
-          </Button>
-          {canEdit ? (
-            <Button onClick={onEdit} className="w-full sm:w-auto bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700">
-              <Pencil className="h-4 w-4 mr-2" />
-              Modifier
-            </Button>
-          ) : null}
-        </div>
-        <div className="flex justify-end pt-3 border-t border-slate-200">
-          <Button
-            variant="outline"
-            size="default"
-            onClick={onBack}
-            className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+    <div className="space-y-5 p-3 sm:p-6">
+      <div>
+        <h1 className="break-words text-2xl font-semibold text-slate-950 sm:text-3xl">Consultation de la fiche</h1>
+        <p className="mt-1 text-sm text-slate-500">Identification, prévention et contrôles réglementaires du site.</p>
+      </div>
+      <article className="overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm">
+        <div className="h-1.5 bg-gradient-to-r from-pink-500 to-rose-500" />
+        <div className="flex flex-col gap-3 border-b border-rose-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <Button variant="outline" onClick={onBack} className="h-10 w-full rounded-xl border-rose-200 bg-white text-rose-950 hover:bg-rose-50 sm:w-auto">
+            <ArrowLeft className="mr-2 h-4 w-4" />
             Retour
           </Button>
+          <div className="grid w-full grid-cols-1 gap-2 min-[520px]:grid-cols-3 sm:flex sm:w-auto sm:justify-end">
+            <Button variant="outline" onClick={onDownload} className="h-10 rounded-xl border-rose-200 bg-white text-rose-950 hover:bg-rose-50">
+              <Download className="mr-2 h-4 w-4" />
+              Télécharger
+            </Button>
+            {canEdit ? (
+              <Button onClick={onEdit} className="h-10 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-white hover:from-pink-700 hover:to-rose-700">
+                <Pencil className="mr-2 h-4 w-4" />
+                Modifier
+              </Button>
+            ) : null}
+            {canEdit ? (
+              <Button variant="outline" onClick={onDelete} className="h-10 rounded-xl border-rose-200 bg-white text-rose-700 hover:bg-rose-50">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer
+              </Button>
+            ) : null}
+          </div>
         </div>
-      </div>
-
-      <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-rose-900 to-pink-900 text-white">
-        <CardHeader>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center">
+        <div className="bg-gradient-to-br from-slate-900 via-rose-900 to-pink-900 px-4 py-5 text-white sm:px-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/20">
                 <Shield className="h-7 w-7" />
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-pink-100">Fiche securite</p>
-                <CardTitle className="text-2xl mt-1">
-                  {record.nomSite} — {record.titreFiche}
-                </CardTitle>
-                <CardDescription className="text-pink-100 mt-2">{record.duerpTitre}</CardDescription>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-pink-100">{record.nomSite || "Site non renseigné"}</p>
+                <h2 className="mt-1 break-words text-xl font-semibold leading-snug sm:text-2xl">{record.titreFiche}</h2>
+                <p className="mt-2 break-words text-sm text-pink-100">{record.duerpTitre}</p>
               </div>
             </div>
-            <Badge className="bg-white/15 text-white border border-white/30">MAJ {record.dateMiseAJour}</Badge>
+            <Badge className="w-fit shrink-0 border border-white/30 bg-white/15 text-white">Mise à jour le {formatSheetDate(record.dateMiseAJour)}</Badge>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+      </article>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Card className="border-2 border-rose-200 bg-rose-50/80">
           <CardContent className="p-4">
-            <p className="text-xs text-rose-800 font-semibold uppercase">Referentiel</p>
+            <p className="text-xs text-rose-800 font-semibold uppercase">Référentiel</p>
             <p className="font-semibold text-rose-950 mt-1 break-words">{record.referentielAnnee}</p>
           </CardContent>
         </Card>
         <Card className="border-2 border-pink-200 bg-pink-50/80">
           <CardContent className="p-4">
-            <p className="text-xs text-pink-800 font-semibold uppercase">Creation fiche</p>
-            <p className="font-semibold text-pink-950 mt-1">{record.dateCreation}</p>
+            <p className="text-xs text-pink-800 font-semibold uppercase">Création</p>
+            <p className="font-semibold text-pink-950 mt-1">{formatSheetDate(record.dateCreation)}</p>
           </CardContent>
         </Card>
         <Card className="border-2 border-stone-300 bg-stone-100/80">
@@ -1271,8 +1562,8 @@ function DetailBody({
         </Card>
         <Card className="border-2 border-stone-200 bg-stone-50/90">
           <CardContent className="p-4">
-            <p className="text-xs text-stone-600 font-semibold uppercase">Lignes controle (total)</p>
-            <p className="font-semibold text-stone-900 mt-1">{countFilledControlRows(record)}</p>
+            <p className="text-xs text-stone-600 font-semibold uppercase">Rubriques renseignées</p>
+            <p className="font-semibold text-stone-900 mt-1">{filledSections.length}/9</p>
           </CardContent>
         </Card>
       </div>
@@ -1293,7 +1584,7 @@ function DetailBody({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <Card className="border-2 border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Activites &amp; horaires</CardTitle>
+            <CardTitle className="text-base">Activités et horaires</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-3 text-slate-800">
             <div className="rounded-lg bg-slate-50 p-3">
@@ -1308,7 +1599,7 @@ function DetailBody({
         </Card>
         <Card className="border-2 border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base text-pink-900">Dispositif de prevention</CardTitle>
+            <CardTitle className="text-base text-pink-900">Dispositif de prévention</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2 text-slate-800">
             <div className="rounded-lg bg-rose-50 p-3 border border-rose-100">
@@ -1331,7 +1622,7 @@ function DetailBody({
                     openSafeLink(record.lienIntranet);
                   }}
                 >
-                  Acces intranet
+                  Accès intranet
                 </a>
               ) : (
                 "—"
@@ -1344,35 +1635,44 @@ function DetailBody({
               <span className="text-slate-500">Lieu / éléments contrôlés :</span> {record.lieuElementsControles || "—"}
             </p>
             <p>
-              <span className="text-slate-500">Registre controles :</span> {record.registreControlesLieu || "—"}
+              <span className="text-slate-500">Registre des contrôles :</span> {record.registreControlesLieu || "Non renseigné"}
             </p>
             <p className="whitespace-pre-wrap">
-              <span className="text-slate-500">Habilitation elec. :</span> {record.personnelHabilitationElectrique || "—"}
+              <span className="text-slate-500">Habilitation électrique :</span> {record.personnelHabilitationElectrique || "Non renseignée"}
             </p>
             <p>
-              <span className="text-slate-500">Evacuation :</span> {record.procedureEvacuationIncendie || "—"}
+              <span className="text-slate-500">Évacuation :</span> {record.procedureEvacuationIncendie || "Non renseignée"}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {SECTIONS.map((sec) => {
-        const rows = readSection(record, sec.key);
-        return (
-          <Card key={sec.key} className="border-2 border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">{sec.label}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {rows.length ? (
-                <TableRead title={sec.label} rows={rows} withInspector={sec.withInspector} />
-              ) : (
-                <p className="text-sm text-slate-500">Aucune ligne renseignee pour cette rubrique.</p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+      <section className="overflow-hidden rounded-2xl border border-rose-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-1 bg-rose-50 px-4 py-3 text-rose-950 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <h2 className="text-base font-semibold">Contrôles réglementaires</h2>
+          <p className="text-sm font-semibold">{filledSections.length}/9 rubriques</p>
+        </div>
+        <div className="space-y-4 p-4 sm:p-5">
+          {filledSections.map((section) => (
+            <div key={section.key} className="min-w-0 rounded-xl border border-rose-100 bg-rose-50/40 p-3 sm:p-4">
+              <h3 className="mb-2 text-sm font-semibold text-rose-950">{section.label}</h3>
+              <TableRead title={section.label} rows={readSection(record, section.key)} withInspector={section.withInspector} />
+            </div>
+          ))}
+          {emptySections.length > 0 ? (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">À compléter</p>
+              <div className="flex flex-wrap gap-2">
+                {emptySections.map((section) => (
+                  <span key={section.key} className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-sm text-stone-700">
+                    {section.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       {record.autresComplement ? (
         <Card className="border-2 border-slate-200 shadow-sm">

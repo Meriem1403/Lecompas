@@ -128,18 +128,6 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 p-3 rounded-xl border-2 border-indigo-200 bg-indigo-50/70">
-          <p className="text-xs font-semibold text-indigo-700 mb-2 uppercase tracking-wide">
-            Navigation des retours
-          </p>
-          <ListPaginationBar
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={actionReturns.length}
-            onPageChange={setCurrentPage}
-            itemLabel="retour(s) d'action"
-          />
-        </div>
         <div className="space-y-4">
             {paginatedActionReturns.map((actionReturn) => (
               <Card 
@@ -247,15 +235,16 @@ export function ActionReturnHistory({ actionReturns, onManageActionReturns, user
               </Card>
             ))}
         </div>
-        <div className="mt-4 p-3 rounded-xl border-2 border-indigo-200 bg-indigo-50/70">
+        {totalPages > 1 ? (
           <ListPaginationBar
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={actionReturns.length}
             onPageChange={setCurrentPage}
             itemLabel="retour(s) d'action"
+            className="mt-4"
           />
-        </div>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -32,6 +33,7 @@ interface MercuryCampaignFormProps {
 }
 
 export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampaignFormProps) {
+  const requestLeave = useLeaveGuard();
   const [activePhase, setActivePhase] = useState(1);
   
   // Phase 1 - Planification
@@ -222,7 +224,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
       {/* Header */}
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={() => requestLeave(onCancel)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour à la liste
           </Button>
@@ -236,7 +238,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
           </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={() => requestLeave(onCancel)}>
             <X className="h-4 w-4 mr-2" />
             Annuler
           </Button>
@@ -907,8 +909,7 @@ export function MercuryCampaignForm({ campaign, onSave, onCancel }: MercuryCampa
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center">
             <Button
               variant="outline"
-              onClick={onCancel}
-              className="w-full md:w-auto"
+              onClick={() => requestLeave(onCancel)}
             >
               <X className="h-4 w-4 mr-2" />
               Annuler

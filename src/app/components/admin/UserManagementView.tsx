@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -434,6 +435,7 @@ function UserFormView({
   categories: Category[];
   isEdit: boolean;
 }) {
+  const requestLeave = useLeaveGuard();
   const [formData, setFormData] = useState<Partial<AppUser>>(user || {});
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -444,7 +446,7 @@ function UserFormView({
   return (
     <div className="space-y-6 p-3 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+        <Button variant="outline" onClick={() => requestLeave(onCancel)} className="w-full sm:w-auto">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Retour
         </Button>
@@ -595,7 +597,7 @@ function UserFormView({
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end pt-6 border-t">
-              <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+              <Button type="button" variant="outline" onClick={() => requestLeave(onCancel)} className="w-full sm:w-auto">
                 Annuler
               </Button>
               <Button 

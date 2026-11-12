@@ -34,9 +34,9 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "risks",
-    label: "Évaluation des risques",
+    label: "Consultation des risques",
     section: "Prevention",
-    description: "Risque, niveaux, mesures et responsables.",
+    description: "Vue de lecture pour les chefs de service et les agents.",
   },
   {
     id: "risk-awareness",
@@ -94,9 +94,9 @@ export const ACCESS_MODULES: AccessModule[] = [
   },
   {
     id: "risks-management",
-    label: "Gestion des risques",
+    label: "Mise à jour des risques",
     section: "Administration",
-    description: "Administration des risques et de leurs caracteristiques.",
+    description: "Création et modification des risques, réservées à l'administration.",
   },
   {
     id: "risk-references",

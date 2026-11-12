@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLeaveGuard } from "@/app/components/leaveGuard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -194,13 +195,13 @@ function LocationForm({
   onSave: (data: Omit<Location, "id">) => void;
   onCancel: () => void;
 }) {
+  const requestLeave = useLeaveGuard();
   const [name, setName] = useState(location?.name ?? "");
   const [regionCode, setRegionCode] = useState(location?.regionCode ?? "");
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      <Button variant="outline" onClick={onCancel} className="w-fit">
-        <ArrowLeft className="h-4 w-4 mr-2" />
+      <Button variant="outline" onClick={() => requestLeave(onCancel)} className="w-fit">
         Retour
       </Button>
       <Card>

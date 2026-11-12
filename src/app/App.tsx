@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, startTransition, useCallback } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useRequestLeave } from "./components/leaveGuard";
 import {
   Card,
   CardContent,
@@ -47,6 +48,8 @@ import {
   type RiskEvaluationFilters,
 } from "./utils/riskFilterLogic";
 import { RiskEditView } from "./components/RiskEditView";
+import { RiskEvaluationFacts, RiskProgress } from "./components/risks/RiskEvaluationFacts";
+import { RiskConsultationDetail, RiskScalePair } from "./components/risks/RiskConsultationDetail";
 import {
   AdminTabsView,
   FAKE_USERS,
@@ -69,7 +72,6 @@ import { ActualitesView } from "./components/ActualitesView";
 import { NotificationBell } from "./components/NotificationBell";
 import { ArriveesDepartsView } from "./components/ArriveesDepartsView";
 import { TransportCoverageView } from "./components/TransportCoverageView";
-import { ActionReturnHistory } from "./components/ActionReturnHistory";
 import { RetourActionView } from "./components/RetourActionView";
 import { DashboardView } from "./components/DashboardView";
 import { DUERPSignatureManagement } from "./components/DUERPSignatureManagement";
@@ -78,11 +80,12 @@ import {
   RiskReference,
   RiskReferencesManagementView,
 } from "./components/admin/RiskReferencesManagementView";
-import { RISK_REFERENCE_FIXTURES } from "./fixtures/riskReferenceFixtures";
+import { RISK_REFERENCE_FIXTURES, stickReferenceContent } from "./fixtures/riskReferenceFixtures";
 import { CSN_PACA_CORSE_RISK_FIXTURES } from "./fixtures/csnPacaCorseRiskFixtures";
 import { PAPRIPACT_2026_ACTION_FIXTURES } from "./fixtures/papripactFixtures";
 import {
   buildRiskAwarenessKey,
+  normalizeRiskTitle,
   loadAwarenessRecords,
   loadManualActions,
   loadNotifications,
@@ -126,7 +129,6 @@ import { ApplicationsModulesView } from "./components/ApplicationsModulesView";
 import { AdministrationModulesView } from "./components/AdministrationModulesView";
 import { TeamView } from "./components/TeamView";
 import { AccessManagementView } from "./components/AccessManagementView";
-import { RiskAwarenessView } from "./components/RiskAwarenessView";
 import { RiskAwarenessRecord } from "./components/RiskAwarenessView";
 import { PreventionPlanView } from "./components/PreventionPlanView";
 import { SafetyProtocolView } from "./components/SafetyProtocolView";
@@ -135,7 +137,7 @@ import {
   SecuritySheetView,
 } from "./components/SecuritySheetView";
 import { ACCESS_MODULES } from "./components/access-management/constants";
-import { profileFromRoleCode, profileHasAnyGrant, roleCodeFromUserRole } from "./components/access-management/roleAccess";
+import { presetForRoleCode, profileFromRoleCode, profileHasAnyGrant, roleCodeFromUserRole } from "./components/access-management/roleAccess";
 import { loadAdminUsers, saveAdminUsers } from "./utils/adminUserRecord";
 import {
   appUserDisplayName,
@@ -205,10 +207,12 @@ import {
   Calculator,
   Send,
   MessageSquare,
+  Eye,
+  LayoutGrid,
+  Table2,
   FileSignature,
   Database,
   Stethoscope,
-  Info,
   ArrowLeft,
   ChevronLeft,
   Menu,
@@ -241,6 +245,7 @@ import {
 } from "./services/authApi";
 import { fetchRisksFromApi, syncRisksToApi } from "./services/risksApi";
 import { ensureOfficialDuerpRiskBase } from "./utils/duerpRiskBase";
+import { closeRiskNumberGap, denseRiskNumbers, nextRiskNumber } from "./utils/riskSequence";
 import {
   fetchAdminUsers,
   syncAdminUsersToApi,
@@ -261,7 +266,7 @@ import {
   fetchActionReturnsFromApi,
   syncActionReturnsToApi,
 } from "./services/actionReturnsApi";
-import { ACTION_RETURN_FIXTURES } from "./fixtures/actionReturnFixtures";
+import { ACTION_RETURN_FIXTURES, previewActionReturnsForRisks } from "./fixtures/actionReturnFixtures";
 import { APP_DATA_KEYS, fetchAppData, saveAppData } from "./services/appDataApi";
 import {
   hydrateAppDataValue,
@@ -285,6 +290,7 @@ interface Risk {
   id: string;
   numeroRisque: string; // Numéro risque
   title: string; // Risque
+  detachedFromReference?: boolean;
   unite: string; // Unité
   domain?: string; // Domaine
   service: string; // Service
@@ -554,15 +560,16 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const requestLeave = useRequestLeave();
   const { viewId: activeView, categoryId: categoryView } = useMemo(
     () => resolveViewFromPathname(location.pathname),
     [location.pathname],
   );
   const goToView = useCallback(
     (viewId: string, categoryId?: string | null) => {
-      navigate(getPathForView(viewId, categoryId ?? null));
+      requestLeave(() => navigate(getPathForView(viewId, categoryId ?? null)));
     },
-    [navigate],
+    [navigate, requestLeave],
   );
   const risksSkipSyncRef = React.useRef(false);
   const risksReadyRef = React.useRef(!isBackendApiEnabled());
@@ -644,6 +651,10 @@ export default function App() {
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(
     null,
   );
+  const [referenceSheetRequest, setReferenceSheetRequest] = useState<{
+    numeroRisque: string;
+    title: string;
+  } | null>(null);
   const [isEditingRisk, setIsEditingRisk] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [riskToEdit, setRiskToEdit] = useState<Risk | null>(
@@ -663,7 +674,19 @@ export default function App() {
 
   const canAccessRisk = (risk: Risk) => {
     if (!user) return false;
-    if (user.role === "admin") return true;
+    const directoryRole = adminUsers.find((person) => {
+      const sameEmail =
+        Boolean(person.email) &&
+        Boolean(user.email) &&
+        person.email.toLowerCase() === user.email.toLowerCase();
+      const sameName =
+        `${person.firstName} ${person.lastName}`.toLowerCase() ===
+        (user.name || "").toLowerCase();
+      return sameEmail || person.id === user.id || sameName;
+    })?.role;
+    if (user.role === "admin" || (directoryRole && presetForRoleCode(directoryRole) === "admin")) {
+      return true;
+    }
 
     const userServices = parseMultiValues(user.service);
     const userDomains = parseMultiValues(user.domain);
@@ -845,7 +868,6 @@ export default function App() {
         hasChanges = true;
         return {
           ...risk,
-          numeroRisque: matchingReference.current.numeroRisque,
           title: matchingReference.current.title,
           updatedAt: new Date().toISOString(),
         };
@@ -1315,31 +1337,84 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [actionReturns, accessToken]);
 
+  const previousRisksRef = React.useRef<Risk[] | null>(null);
   React.useEffect(() => {
-    const sourceByKey = new Map<
-      string,
-      { riskNumber: string; riskTitle: string }
-    >();
+    const previousRisks = previousRisksRef.current;
+    previousRisksRef.current = risks;
 
-    riskReferences.forEach((reference) => {
-      const key = `${reference.numeroRisque}::${reference.title}`;
-      sourceByKey.set(key, {
-        riskNumber: reference.numeroRisque,
-        riskTitle: reference.title,
+    setRisks((prev) => {
+      let changed = false;
+      const next = prev.map((risk) => {
+        if (!risk.detachedFromReference || !risk.title.trim()) return risk;
+        changed = true;
+        return { ...risk, detachedFromReference: false };
       });
+      return changed ? next : prev;
     });
 
-    risks.forEach((risk) => {
-      const key = `${risk.numeroRisque}::${risk.title}`;
-      sourceByKey.set(key, {
-        riskNumber: risk.numeroRisque,
-        riskTitle: risk.title,
-      });
-    });
+    if (previousRisks) {
+      const freshKeys = risks
+        .filter((risk) => !previousRisks.some((before) => String(before.id) === String(risk.id)))
+        .map((risk) => buildRiskAwarenessKey(risk));
+      if (freshKeys.length > 0) {
+        setSuppressedAwarenessKeys((prev) => {
+          const next = prev.filter((key) => !freshKeys.includes(key));
+          return next.length === prev.length ? prev : next;
+        });
+      }
+    }
+
+    const titleIsCatalog = (title: string) =>
+      riskReferences.some((reference) => normalizeRiskTitle(reference.title) === normalizeRiskTitle(title));
 
     setRiskAwarenessRecords((previous) => {
+      let records = previous;
+      if (previousRisks) {
+        previousRisks.forEach((before) => {
+          const after = risks.find((risk) => String(risk.id) === String(before.id));
+          if (!after || normalizeRiskTitle(before.title) === normalizeRiskTitle(after.title)) return;
+          const oldNorm = normalizeRiskTitle(before.title);
+          const stillUsed = risks.some((risk) => normalizeRiskTitle(risk.title) === oldNorm);
+          if (stillUsed || titleIsCatalog(before.title) || titleIsCatalog(after.title)) return;
+          const oldKey = buildRiskAwarenessKey(before);
+          const newKey = buildRiskAwarenessKey(after);
+          records = records.map((record) =>
+            record.riskKey === oldKey || normalizeRiskTitle(record.riskTitle) === oldNorm
+              ? {
+                  ...record,
+                  riskKey: newKey,
+                  riskNumber: after.numeroRisque,
+                  riskTitle: after.title,
+                }
+              : record,
+          );
+        });
+      }
+
+      const sourceByKey = new Map<
+        string,
+        { riskNumber: string; riskTitle: string }
+      >();
+
+      riskReferences.forEach((reference) => {
+        const key = `${reference.numeroRisque}::${reference.title}`;
+        sourceByKey.set(key, {
+          riskNumber: reference.numeroRisque,
+          riskTitle: reference.title,
+        });
+      });
+
+      risks.forEach((risk) => {
+        if (!risk.title.trim() || risk.detachedFromReference) return;
+        const key = `${risk.numeroRisque}::${risk.title}`;
+        sourceByKey.set(key, {
+          riskNumber: risk.numeroRisque,
+          riskTitle: risk.title,
+        });
+      });
+
       const previousByRiskKey = new Map<string, RiskAwarenessRecord[]>();
-      previous.forEach((record) => {
+      records.forEach((record) => {
         const bucket = previousByRiskKey.get(record.riskKey) || [];
         bucket.push(record);
         previousByRiskKey.set(record.riskKey, bucket);
@@ -1350,10 +1425,15 @@ export default function App() {
       sourceByKey.forEach((source, riskKey) => {
         const existingRecords = previousByRiskKey.get(riskKey) || [];
         if (existingRecords.length > 0) {
+          const titleInCatalog = riskReferences.some(
+            (reference) => normalizeRiskTitle(reference.title) === normalizeRiskTitle(source.riskTitle),
+          );
           nextRecords.push(
             ...existingRecords.map((existing) => ({
               ...existing,
-              riskNumber: source.riskNumber,
+              riskNumber: titleInCatalog
+                ? source.riskNumber
+                : existing.riskNumber.trim() || source.riskNumber,
               riskTitle: source.riskTitle,
             })),
           );
@@ -1377,15 +1457,68 @@ export default function App() {
         });
       });
 
-      previous.forEach((record) => {
-        if (!sourceByKey.has(record.riskKey)) {
+      records.forEach((record) => {
+        if (!sourceByKey.has(record.riskKey) && record.riskTitle.trim()) {
           nextRecords.push(record);
         }
       });
 
-      return nextRecords;
+      const catalogTitles = new Set(riskReferences.map((reference) => normalizeRiskTitle(reference.title)));
+      const usedNumbers = new Set(
+        riskReferences.map((reference) => reference.numeroRisque.trim()).filter(Boolean),
+      );
+      return nextRecords.map((record) => {
+        if (!record.riskTitle.trim() || catalogTitles.has(normalizeRiskTitle(record.riskTitle))) {
+          return record;
+        }
+        const current = record.riskNumber.trim();
+        if (current && !usedNumbers.has(current)) {
+          usedNumbers.add(current);
+          return record;
+        }
+        const next = nextRiskNumber(usedNumbers);
+        usedNumbers.add(next);
+        return current === next ? record : { ...record, riskNumber: next };
+      });
     });
   }, [riskReferences, risks, suppressedAwarenessKeys]);
+
+  React.useEffect(() => {
+    const catalogTitles = new Set(riskReferences.map((reference) => normalizeRiskTitle(reference.title)));
+    const visibleRecords = riskAwarenessRecords.filter(
+      (record) =>
+        record.riskTitle.trim() &&
+        !catalogTitles.has(normalizeRiskTitle(record.riskTitle)),
+    );
+    const planned = denseRiskNumbers([
+      ...riskReferences.map((reference) => ({ id: reference.id, numero: reference.numeroRisque })),
+      ...visibleRecords.map((record) => ({ id: record.id, numero: record.riskNumber })),
+    ]);
+    const referencesNeedUpdate = riskReferences.some(
+      (reference) => planned.get(reference.id) !== reference.numeroRisque,
+    );
+    if (referencesNeedUpdate) {
+      setRiskReferences((current) =>
+        current.map((reference) => {
+          const next = planned.get(reference.id);
+          if (!next || next === reference.numeroRisque) return reference;
+          return { ...stickReferenceContent(reference), numeroRisque: next };
+        }),
+      );
+    }
+    const recordsNeedUpdate = visibleRecords.some(
+      (record) => planned.get(record.id) !== record.riskNumber,
+    );
+    if (recordsNeedUpdate) {
+      setRiskAwarenessRecords((current) =>
+        current.map((record) => {
+          const next = planned.get(record.id);
+          if (!next || next === record.riskNumber) return record;
+          return { ...record, riskNumber: next };
+        }),
+      );
+    }
+  }, [riskReferences, riskAwarenessRecords]);
 
   const resolveDemoUser = (
     email: string,
@@ -1785,8 +1918,45 @@ export default function App() {
     }
   }, [selectedRisk, risks, user]);
 
+  React.useEffect(() => {
+    setRisks((previous) => {
+      if (previous.every((risk) => risk.id)) return previous;
+      const used = new Set(previous.map((risk) => risk.id).filter(Boolean));
+      return previous.map((risk, index) => {
+        if (risk.id) return risk;
+        let id = `risk-${Date.now()}-${index}`;
+        while (used.has(id)) id = `${id}-x`;
+        used.add(id);
+        return { ...risk, id };
+      });
+    });
+  }, [risks]);
+
+  React.useEffect(() => {
+    if (activeView !== "retour_action" || !selectedRisk) return;
+    const fresh = selectedRisk.id
+      ? risks.find((risk) => risk.id === selectedRisk.id)
+      : undefined;
+    if (!fresh) {
+      setSelectedRisk(null);
+      return;
+    }
+    if (fresh !== selectedRisk) setSelectedRisk(fresh);
+  }, [activeView, risks, selectedRisk]);
+
+  React.useEffect(() => {
+    if (isBackendApiEnabled()) return;
+    if (risks.length === 0 || risks.some((risk) => !risk.id)) return;
+    const samples = previewActionReturnsForRisks(risks);
+    setActionReturns((prev) => {
+      const missing = samples.filter((sample) => !prev.some((item) => item.id === sample.id));
+      return missing.length === 0 ? prev : [...missing, ...prev];
+    });
+  }, [risks]);
+
   const [actionReturnsCurrentPage, setActionReturnsCurrentPage] =
     useState(1);
+  const [actionReturnsDisplay, setActionReturnsDisplay] = useState<"cards" | "table">("cards");
   const [actionReturnsSearch, setActionReturnsSearch] = useState("");
   const [actionReturnsServiceFilter, setActionReturnsServiceFilter] =
     useState("all");
@@ -1795,12 +1965,14 @@ export default function App() {
   const [actionReturnsRiskFilter, setActionReturnsRiskFilter] =
     useState("all");
   const ACTION_RETURNS_PAGE_SIZE = 6;
+  const riskLinkedToActionReturn = (actionReturn: { riskId: string }) =>
+    risks.find((risk) => risk.id !== "" && risk.id === actionReturn.riskId);
   const pendingActionReturns = actionReturns.filter(
-    (ar) => ar.status === "pending",
+    (ar) => ar.status === "pending" && riskLinkedToActionReturn(ar),
   );
   const filteredPendingActionReturns = pendingActionReturns.filter(
     (actionReturn) => {
-      const linkedRisk = risks.find((r) => r.id === actionReturn.riskId);
+      const linkedRisk = riskLinkedToActionReturn(actionReturn);
       const service = linkedRisk?.service || "";
       const site = linkedRisk?.site || "";
       const riskTitle =
@@ -1838,7 +2010,7 @@ export default function App() {
   const availableActionReturnServices = Array.from(
     new Set(
       pendingActionReturns
-        .map((ar) => risks.find((r) => r.id === ar.riskId)?.service || "")
+        .map((ar) => riskLinkedToActionReturn(ar)?.service || "")
         .filter(Boolean),
     ),
   ).sort();
@@ -1849,7 +2021,7 @@ export default function App() {
     new Set(
       pendingActionReturns
         .map((ar) => {
-          const risk = risks.find((r) => r.id === ar.riskId);
+          const risk = riskLinkedToActionReturn(ar);
           if (!risk) return null;
           return `${risk.id}::${risk.title}`;
         })
@@ -1941,28 +2113,47 @@ export default function App() {
     setRiskDeleteDialogOpen(true);
   };
 
+  const deleteRiskById = (id: string) => {
+    const targetId = String(id);
+    const deletedRisk = risks.find((risk) => String(risk.id) === targetId);
+    const nextRisks = closeRiskNumberGap(risks, targetId);
+    const numberChanges = new Map<string, { key: string; number: string }>();
+    for (const risk of nextRisks) {
+      const previous = risks.find((item) => item.id === risk.id);
+      if (!previous || previous.numeroRisque === risk.numeroRisque) continue;
+      numberChanges.set(buildRiskAwarenessKey(previous), {
+        key: buildRiskAwarenessKey(risk),
+        number: risk.numeroRisque,
+      });
+    }
+    setRisks(nextRisks);
+    if (targetId) {
+      setActionReturns((prev) => prev.filter((item) => item.riskId !== targetId));
+    }
+    if (deletedRisk) {
+      setRiskAwarenessRecords((prev) =>
+        prev.map((record) => {
+          const change = numberChanges.get(record.riskKey);
+          return change
+            ? { ...record, riskKey: change.key, riskNumber: change.number }
+            : record;
+        }),
+      );
+      setSuppressedAwarenessKeys((prev) =>
+        prev.map((key) => numberChanges.get(key)?.key ?? key),
+      );
+    }
+    toast.success("Risque supprimé avec succès");
+    if (String(selectedRisk?.id) === targetId) {
+      setSelectedRisk(null);
+    }
+  };
+
   const handleDeleteRiskConfirm = () => {
     if (riskToDelete) {
-      const targetId = String(riskToDelete);
-      const deletedRisk = risks.find((r) => String(r.id) === targetId);
-      setRisks((prev) =>
-        prev.filter((r) => String(r.id) !== targetId),
-      );
-      if (deletedRisk) {
-        const riskKey = buildRiskAwarenessKey(deletedRisk);
-        setRiskAwarenessRecords((prev) =>
-          prev.filter((record) => record.riskKey !== riskKey),
-        );
-        setSuppressedAwarenessKeys((prev) =>
-          prev.filter((key) => key !== riskKey),
-        );
-      }
-      toast.success("Risque supprimé avec succès");
+      deleteRiskById(riskToDelete);
       setRiskDeleteDialogOpen(false);
       setRiskToDelete(null);
-      if (String(selectedRisk?.id) === targetId) {
-        setSelectedRisk(null);
-      }
     }
   };
 
@@ -1997,6 +2188,50 @@ export default function App() {
     [],
   );
 
+  const detachRisksFromReference = useCallback((title: string) => {
+    const from = normalizeRiskTitle(title);
+    if (!from) return;
+    const updatedAt = new Date().toISOString();
+    setRisks((prev) =>
+      prev.map((risk) =>
+        normalizeRiskTitle(risk.title) === from
+          ? { ...risk, title: "", detachedFromReference: true, updatedAt }
+          : risk,
+      ),
+    );
+    setSelectedRisk((prev) =>
+      prev && normalizeRiskTitle(prev.title) === from
+        ? { ...prev, title: "", detachedFromReference: true, updatedAt }
+        : prev,
+    );
+    setRiskAwarenessRecords((prev) =>
+      prev.filter((record) => normalizeRiskTitle(record.riskTitle) !== from),
+    );
+  }, []);
+
+  const renameRisksLinkedToTitle = useCallback((previousTitle: string, nextTitle: string) => {
+    const from = normalizeRiskTitle(previousTitle);
+    const to = nextTitle.trim();
+    if (!from || normalizeRiskTitle(to) === from) return;
+    setRisks((prev) =>
+      prev.map((risk) =>
+        normalizeRiskTitle(risk.title) === from
+          ? { ...risk, title: to, updatedAt: new Date().toISOString() }
+          : risk,
+      ),
+    );
+    setSelectedRisk((prev) =>
+      prev && normalizeRiskTitle(prev.title) === from ? { ...prev, title: to } : prev,
+    );
+    setRiskAwarenessRecords((prev) =>
+      prev.map((record) =>
+        normalizeRiskTitle(record.riskTitle) === from
+          ? { ...record, riskTitle: to, riskKey: `${record.riskNumber}::${to}` }
+          : record,
+      ),
+    );
+  }, []);
+
   const handleAwarenessRecordSaved = useCallback((riskKey: string) => {
     setSuppressedAwarenessKeys((prev) =>
       prev.filter((key) => key !== riskKey),
@@ -2017,9 +2252,9 @@ export default function App() {
         ),
       );
     } else {
-      // Add new risk
       const newRisk: Risk = {
         ...riskData,
+        numeroRisque: nextRiskNumber(risks.map((risk) => risk.numeroRisque)),
         id: `risk-${Date.now()}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -2039,8 +2274,33 @@ export default function App() {
     proposedMeasure: string;
     justification: string;
   }) => {
+    let riskId = actionReturnData.riskId;
+    if (!riskId && selectedRisk) {
+      riskId = `risk-${Date.now()}`;
+      const stamped = { ...selectedRisk, id: riskId };
+      setRisks((prev) =>
+        prev.map((risk) =>
+          risk === selectedRisk ||
+          (!risk.id &&
+            risk.createdAt === selectedRisk.createdAt &&
+            risk.updatedAt === selectedRisk.updatedAt &&
+            risk.numeroRisque === selectedRisk.numeroRisque &&
+            risk.title === selectedRisk.title)
+            ? stamped
+            : risk,
+        ),
+      );
+      setSelectedRisk(stamped);
+    }
+    if (!riskId) {
+      toast.error("Le retour d'action doit être rattaché à une fiche.");
+      return;
+    }
+    const linked = risks.find((risk) => risk.id === riskId) ?? selectedRisk;
     const newActionReturn: ActionReturn = {
       ...actionReturnData,
+      riskId,
+      riskTitle: linked?.title || actionReturnData.riskTitle,
       id: `ar-${Date.now()}`,
       proposedDate: new Date().toISOString(),
       status: "pending",
@@ -2113,9 +2373,9 @@ export default function App() {
                 targetMeasureIndex: targetMeasureIndex,
                 targetMeasureText:
                   targetMeasureIndex !== undefined
-                    ? risks.find(
+                    ? (risks.find(
                         (r) => r.id === actionReturn.riskId,
-                      )?.existingMeasures[targetMeasureIndex]
+                      )?.existingMeasures ?? [])[targetMeasureIndex]
                     : undefined,
               }
             : ar,
@@ -2126,27 +2386,28 @@ export default function App() {
       setRisks((prev) =>
         prev.map((risk) => {
           if (risk.id === actionReturn.riskId) {
+            const measures = risk.existingMeasures ?? [];
             if (action === "add") {
-              // Ajouter la nouvelle mesure
               return {
                 ...risk,
                 existingMeasures: [
-                  ...risk.existingMeasures,
+                  ...measures,
                   actionReturn.proposedMeasure,
                 ],
+                retourAction: actionReturn.proposedMeasure,
                 updatedAt: new Date().toISOString(),
               };
             } else if (
               action === "replace" &&
               targetMeasureIndex !== undefined
             ) {
-              // Remplacer la mesure existante
-              const newMeasures = [...risk.existingMeasures];
+              const newMeasures = [...measures];
               newMeasures[targetMeasureIndex] =
                 actionReturn.proposedMeasure;
               return {
                 ...risk,
                 existingMeasures: newMeasures,
+                retourAction: actionReturn.proposedMeasure,
                 updatedAt: new Date().toISOString(),
               };
             }
@@ -2175,6 +2436,23 @@ export default function App() {
         "Retour d'action approuvé ! La mesure a été remplacée.",
       );
     }
+  };
+
+  const openActionReturn = (actionReturn: ActionReturn) => {
+    const linked = riskLinkedToActionReturn(actionReturn);
+    if (!linked) return;
+    setSelectedRisk(linked);
+    goToView("retour_action");
+  };
+
+  const formatActionReturnDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Date non renseignée";
+    return date.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
   };
 
   // Accident CRUD handlers
@@ -2292,7 +2570,7 @@ export default function App() {
 
   const sidebarItems = [
     {
-      section: "Applications",
+      section: "Accueil",
       items: [
         {
           id: "dashboard",
@@ -2307,17 +2585,6 @@ export default function App() {
           color: "text-sky-600",
         },
         {
-          id: "access-management",
-          label: "Gestion des accès",
-          icon: Cog,
-          color: "text-violet-600",
-        },
-      ],
-    },
-    {
-      section: "Communication",
-      items: [
-        {
           id: "actualites",
           label: "Actualités",
           icon: Bell,
@@ -2326,11 +2593,17 @@ export default function App() {
       ],
     },
     {
-      section: "Administration",
+      section: "Risques",
       items: [
         {
+          id: "risks",
+          label: "Évaluation des risques",
+          icon: Shield,
+          color: "text-purple-500",
+        },
+        {
           id: "risks-management",
-          label: "Gestion des risques",
+          label: "Mise à jour des risques",
           icon: Database,
           color: "text-red-600",
         },
@@ -2341,34 +2614,74 @@ export default function App() {
           color: "text-emerald-600",
         },
         {
-          id: "users",
-          label: "Utilisateurs",
-          icon: Users,
-          color: "text-blue-600",
+          id: "risk-references",
+          label: "Référentiel des risques",
+          icon: FileText,
+          color: "text-amber-600",
+        },
+      ],
+    },
+    {
+      section: "Prévention",
+      items: [
+        {
+          id: "prevention-plan",
+          label: "Plan de prévention",
+          icon: Target,
+          color: "text-sky-600",
         },
         {
-          id: "roles",
-          label: "Rôles",
-          icon: UserCog,
+          id: "safety-protocols",
+          label: "Protocole de sécurité",
+          icon: Shield,
+          color: "text-cyan-600",
+        },
+        {
+          id: "safety-sheets",
+          label: "Fiches de sécurité",
+          icon: FileCheck,
+          color: "text-pink-600",
+        },
+        {
+          id: "documents",
+          label: "Documents SST",
+          icon: FileText,
+          color: "text-orange-500",
+        },
+        {
+          id: "archives",
+          label: "Archives (40 ans)",
+          icon: Archive,
+          color: "text-red-500",
+        },
+        {
+          id: "signature-duerp",
+          label: "Signature DUERP",
+          icon: FileSignature,
           color: "text-purple-600",
         },
+      ],
+    },
+    {
+      section: "Accidents",
+      items: [
         {
-          id: "services",
-          label: "Services",
-          icon: Building2,
-          color: "text-green-600",
+          id: "accidents",
+          label: "Accidentologie",
+          icon: AlertCircle,
+          color: "text-red-500",
         },
         {
-          id: "domains",
-          label: "Domaines",
-          icon: Layers,
-          color: "text-orange-600",
+          id: "registre",
+          label: "Registre des accidents",
+          icon: ClipboardList,
+          color: "text-rose-500",
         },
         {
-          id: "locations",
-          label: "Lieux",
-          icon: MapPin,
-          color: "text-cyan-600",
+          id: "actions",
+          label: "Plan d'action",
+          icon: Calendar,
+          color: "text-green-500",
         },
       ],
     },
@@ -2402,94 +2715,6 @@ export default function App() {
       ],
     },
     {
-      section: "Informatique",
-      items: [
-        {
-          id: "cerbere",
-          label: "Applications Cerbère",
-          icon: Shield,
-          color: "text-indigo-600",
-        },
-        {
-          id: "reservations",
-          label: "Réservations",
-          icon: Car,
-          color: "text-violet-600",
-        },
-      ],
-    },
-    {
-      section: "Prévention",
-      items: [
-        {
-          id: "risks",
-          label: "Évaluation des risques",
-          icon: Shield,
-          color: "text-purple-500",
-        },
-        {
-          id: "risk-awareness",
-          label: "Sensibilisation aux risques",
-          icon: Info,
-          color: "text-orange-600",
-        },
-        {
-          id: "risk-references",
-          label: "Référentiel des risques",
-          icon: FileText,
-          color: "text-amber-600",
-        },
-        {
-          id: "prevention-plan",
-          label: "Plan de prévention",
-          icon: Target,
-          color: "text-sky-600",
-        },
-        {
-          id: "safety-protocols",
-          label: "Protocole de sécurité",
-          icon: Shield,
-          color: "text-cyan-600",
-        },
-        {
-          id: "safety-sheets",
-          label: "Fiches de sécurité",
-          icon: FileCheck,
-          color: "text-pink-600",
-        },
-        {
-          id: "accidents",
-          label: "Accidentologie",
-          icon: AlertCircle,
-          color: "text-red-500",
-        },
-        {
-          id: "registre",
-          label: "Registre des accidents",
-          icon: ClipboardList,
-          color: "text-rose-500",
-        },
-        {
-          id: "actions",
-          label: "Plan d'action",
-          icon: Calendar,
-          color: "text-green-500",
-        },
-        {
-          id: "documents",
-          label: "Documents SST",
-          icon: FileText,
-          color: "text-orange-500",
-        },
-        {
-          id: "archives",
-          label: "Archives (40 ans)",
-          icon: Archive,
-          color: "text-red-500",
-        },
-      ],
-    },
-    {
       section: "Environnement",
       items: [
         {
@@ -2519,19 +2744,61 @@ export default function App() {
       ],
     },
     {
-      section: "Validation",
+      section: "Informatique",
       items: [
         {
-          id: "signature-duerp",
-          label: "Signature DUERP",
-          icon: FileSignature,
-          color: "text-purple-600",
+          id: "cerbere",
+          label: "Applications Cerbère",
+          icon: Shield,
+          color: "text-indigo-600",
+        },
+        {
+          id: "reservations",
+          label: "Réservations",
+          icon: Car,
+          color: "text-violet-600",
         },
       ],
     },
     {
-      section: "Système",
+      section: "Paramétrage",
       items: [
+        {
+          id: "access-management",
+          label: "Gestion des accès",
+          icon: Cog,
+          color: "text-violet-600",
+        },
+        {
+          id: "users",
+          label: "Utilisateurs",
+          icon: Users,
+          color: "text-blue-600",
+        },
+        {
+          id: "roles",
+          label: "Rôles",
+          icon: UserCog,
+          color: "text-purple-600",
+        },
+        {
+          id: "services",
+          label: "Services",
+          icon: Building2,
+          color: "text-green-600",
+        },
+        {
+          id: "domains",
+          label: "Domaines",
+          icon: Layers,
+          color: "text-orange-600",
+        },
+        {
+          id: "locations",
+          label: "Lieux",
+          icon: MapPin,
+          color: "text-cyan-600",
+        },
         {
           id: "settings",
           label: "Paramètres",
@@ -2619,7 +2886,7 @@ export default function App() {
 
   useEffect(() => {
     mainScrollRef.current?.scrollTo({ top: 0, left: 0 });
-  }, [activeView]);
+  }, [activeView, selectedRisk?.id, isEditingRisk]);
 
   const normalizedPath = location.pathname.replace(/\/$/, "") || "/";
   if (normalizedPath === "/") {
@@ -3050,7 +3317,7 @@ export default function App() {
               accidents={accidents}
               actions={manualActions}
               teamSize={adminUsers.length}
-              awarenessCount={riskAwarenessRecords.length}
+              awarenessCount={riskReferences.length}
               securitySheetCount={securitySheets.length}
               pendingReturns={actionReturns.filter((item) => item.status === "pending").length}
               accessToken={accessToken}
@@ -3160,8 +3427,9 @@ export default function App() {
               risk={null}
               onSave={(riskData) => {
                 const newRisk: Risk = {
-                  id: (Math.max(...risks.map((r) => parseInt(r.id)), 0) + 1).toString(),
+                  id: `risk-${Date.now()}`,
                   ...riskData,
+                  numeroRisque: nextRiskNumber(risks.map((risk) => risk.numeroRisque)),
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                 };
@@ -3200,8 +3468,7 @@ export default function App() {
                           Évaluation des risques
                         </h1>
                         <p className="text-gray-600 mt-1">
-                          Identification et évaluation des
-                          risques professionnels
+                          Vue de lecture pour les chefs de service et les agents. Même liste que Mise à jour des risques.
                         </p>
                       </div>
                     </div>
@@ -3225,7 +3492,7 @@ export default function App() {
                     resultCount={filteredVisibleRisks.length}
                   />
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2 xl:grid-cols-3">
                     {filteredVisibleRisks.length === 0 ? (
                       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur col-span-full">
                         <CardContent className="pt-12 pb-12 text-center">
@@ -3257,186 +3524,109 @@ export default function App() {
                           ).length;
                         const totalActions =
                           risk.plannedMeasures.length;
-                        const progress =
-                          totalActions > 0
-                            ? (completedActions /
-                                totalActions) *
-                              100
-                            : 0;
 
                         return (
                           <Card
                             key={risk.id}
-                            className="border-0 shadow-xl hover:shadow-2xl transition-all cursor-pointer group hover:scale-105 bg-white/80 backdrop-blur overflow-hidden relative"
+                            className="relative flex h-full cursor-pointer flex-col overflow-hidden border-0 bg-white/80 shadow-xl backdrop-blur transition-shadow hover:shadow-2xl"
                             onClick={() => {
                               setSelectedRisk(risk);
                               setIsEditingRisk(false);
                             }}
                           >
-                            <div
-                              className={`h-2 bg-gradient-to-r ${priorityGradient}`}
-                            ></div>
-
-                            {/* Action Buttons - Visible on hover */}
-                            {user?.role === 'admin' && (
-                              <div className="absolute left-4 right-4 top-4 z-10 flex flex-col gap-2 opacity-100 transition-opacity sm:left-auto sm:right-4 sm:flex-row sm:opacity-0 sm:group-hover:opacity-100">
-                                <Button
-                                  size="sm"
-                                  onClick={(e) =>
-                                    handleEditRisk(risk, e)
-                                  }
-                                  className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
-                                >
-                                  <Edit className="h-3.5 w-3.5 mr-1" />
-                                  Modifier
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={(e) =>
-                                    handleDeleteRiskClick(
-                                      risk.id,
-                                      e,
-                                    )
-                                  }
-                                  className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                  Supprimer
-                                </Button>
-                              </div>
-                            )}
-
-                            <CardHeader>
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <div className={`text-center p-4 rounded-xl bg-gradient-to-r ${priorityGradient} text-white shadow-lg min-w-[140px]`}>
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">
-                                    Priorité finale
-                                  </p>
-                                  <p className="text-4xl font-extrabold mt-1">
-                                    {getRiskLevelLabel(risk.riskLevel)}
-                                  </p>
-                                  <p className="text-xs opacity-90 mt-1">
-                                    GFM {risk.riskLevel}
-                                  </p>
+                            <div className={`h-2 bg-gradient-to-r ${priorityGradient}`} />
+                            <CardHeader className="space-y-4">
+                              <div className="flex items-start gap-4">
+                                <div className={`shrink-0 rounded-2xl bg-gradient-to-br ${priorityGradient} px-4 py-3 text-center text-white shadow-lg`}>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">Priorité finale</p>
+                                  <p className="mt-1 text-3xl font-extrabold leading-none">{getRiskLevelLabel(risk.riskLevel)}</p>
+                                  <p className="mt-1 text-xs opacity-90">GFM {risk.riskLevel}</p>
+                                </div>
+                                <div className="min-w-0 pt-1">
+                                  <p className="text-xs font-semibold text-violet-700">N° {risk.numeroRisque}</p>
+                                  <CardTitle className="mt-1 text-lg font-bold leading-snug text-slate-900">
+                                    {risk.detachedFromReference ? (
+                                      <span className="text-amber-800">Lié à aucun risque</span>
+                                    ) : (
+                                      risk.title
+                                    )}
+                                  </CardTitle>
                                 </div>
                               </div>
-                              <CardTitle className="text-lg mt-4 group-hover:text-purple-600 transition-colors font-bold">
-                                <div className="space-y-2">
-                                  <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 shadow-sm">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">
-                                      Numéro du risque
-                                    </span>
-                                    <span className="font-mono text-xs font-bold text-violet-900">
-                                      {risk.numeroRisque}
-                                    </span>
-                                  </div>
-                                  <p>{risk.title}</p>
-                                </div>
-                              </CardTitle>
                               <CardDescription className="line-clamp-2 text-gray-600">
                                 {risk.situation}
                               </CardDescription>
                             </CardHeader>
-                            <CardContent>
-                              <div className="space-y-4">
-                                {/* Service / Domaine / Lieux */}
-                                <div className="space-y-2">
-                                  {risk.service && (
-                                    <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                                      <Building2 className="h-4 w-4 text-blue-600" />
-                                      <span className="text-xs font-bold uppercase tracking-wide text-blue-700">
-                                        Service :
-                                      </span>
-                                      <span className="text-sm font-semibold text-blue-700">
-                                        {risk.service}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {(risk.domain || risk.unite) && (
-                                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-                                      <Layers className="h-4 w-4 text-indigo-600" />
-                                      <span className="text-xs font-bold uppercase tracking-wide text-indigo-700">
-                                        Domaine :
-                                      </span>
-                                      <span className="text-sm font-semibold text-indigo-700">
-                                        {risk.domain || risk.unite}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {risk.site && (
-                                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                      <MapPin className="h-4 w-4 text-emerald-600" />
-                                      <span className="text-xs font-bold uppercase tracking-wide text-emerald-700">
-                                        Lieux :
-                                      </span>
-                                      <span className="text-sm font-semibold text-emerald-700">
-                                        {risk.site}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <div className="flex items-center justify-between text-sm mb-2">
-                                    <span className="text-gray-600 font-semibold flex items-center gap-1">
-                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                      Avancement actions
-                                    </span>
-                                    <span className="font-bold text-purple-600">
-                                      {completedActions}/
-                                      {totalActions}
-                                    </span>
+                            <CardContent className="flex flex-1 flex-col">
+                              <div className="flex flex-1 flex-col gap-3">
+                                {risk.service ? (
+                                  <div className="flex min-w-0 items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                                    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                                    <span className="min-w-0 break-words text-sm font-semibold text-blue-800">{risk.service}</span>
                                   </div>
-                                  <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-500 shadow-md"
-                                      style={{
-                                        width: `${progress}%`,
-                                      }}
-                                    ></div>
+                                ) : null}
+                                {risk.unite ? (
+                                  <div className="flex min-w-0 items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                                    <Tag className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                                    <span className="min-w-0 break-words text-sm font-semibold text-amber-800">{risk.unite}</span>
                                   </div>
-                                </div>
-
-                                <Separator />
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  <div className="space-y-2">
-                                    <Label className="text-xs text-gray-600 font-semibold">Gravité</Label>
-                                    <div className={`w-full text-center py-3 rounded-lg font-bold text-base border-2 ${
-                                      risk.severity === 4 ? 'bg-indigo-50 border-indigo-500 text-indigo-700' :
-                                      risk.severity === 3 ? 'bg-blue-50 border-blue-400 text-blue-700' :
-                                      risk.severity === 2 ? 'bg-cyan-50 border-cyan-400 text-cyan-700' :
-                                      'bg-teal-50 border-teal-400 text-teal-700'
-                                    }`}>
-                                      {risk.severity}/4
-                                    </div>
+                                ) : null}
+                                {risk.domain ? (
+                                  <div className="flex min-w-0 items-start gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2">
+                                    <Layers className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+                                    <span className="min-w-0 break-words text-sm font-semibold text-indigo-800">{risk.domain}</span>
                                   </div>
-                                  <div className="space-y-2">
-                                    <Label className="text-xs text-gray-600 font-semibold">Fréquence</Label>
-                                    <div className={`w-full text-center py-3 rounded-lg font-bold text-base border-2 ${
-                                      risk.probability === 4 ? 'bg-indigo-50 border-indigo-500 text-indigo-700' :
-                                      risk.probability === 3 ? 'bg-blue-50 border-blue-400 text-blue-700' :
-                                      risk.probability === 2 ? 'bg-cyan-50 border-cyan-400 text-cyan-700' :
-                                      'bg-teal-50 border-teal-400 text-teal-700'
-                                    }`}>
-                                      {risk.probability}/4
-                                    </div>
+                                ) : null}
+                                {risk.site ? (
+                                  <div className="flex min-w-0 items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                                    <span className="min-w-0 break-words text-sm font-semibold text-emerald-800">{risk.site}</span>
                                   </div>
+                                ) : null}
+                                <div className="mt-auto space-y-3">
+                                <RiskScalePair severity={risk.severity} probability={risk.probability} />
+                                <RiskProgress completed={completedActions} total={totalActions} />
+                                {user?.role === "chef_service" && (
+                                  <Button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setSelectedRisk(risk);
+                                      goToView("retour_action");
+                                    }}
+                                    className="h-11 w-full rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                    Faire un retour d'action
+                                  </Button>
+                                )}
+                                {user?.role === "admin" && (
+                                  <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <Button
+                                      type="button"
+                                      onClick={(e) => handleEditRisk(risk, e)}
+                                      className="h-11 w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm hover:from-purple-700 hover:to-indigo-700"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                      Modifier
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={(e) => handleDeleteRiskClick(risk.id, e)}
+                                      className="h-11 w-full rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      Supprimer
+                                    </Button>
+                                  </div>
+                                )}
                                 </div>
-
-                                <div className={`rounded-xl border-2 p-3 text-center bg-gradient-to-r ${priorityGradient} text-white shadow-md`}>
-                                  <p className="text-xs font-semibold uppercase tracking-wide opacity-90">
-                                    Risque résiduel (GFM)
-                                  </p>
-                                  <p className="text-xl font-extrabold">
-                                    {risk.riskLevel}
-                                  </p>
-                                </div>
-
                               </div>
                             </CardContent>
                           </Card>
                         );
+
                       })
                     )}
                   </div>
@@ -3478,502 +3668,33 @@ export default function App() {
                   concernedPersons={concernedPersons}
                 />
               ) : selectedRisk ? (
-                /* Risk Detail View */
-                <div className="space-y-6">
-                  <div className="flex justify-start sm:justify-end mb-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedRisk(null);
-                        setIsEditingRisk(false);
-                      }}
-                      className="border-gray-300 hover:bg-gray-50"
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Retour
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    {/* Main Info Card */}
-                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
-                      <CardHeader>
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-4">
-                            <div className={`rounded-2xl border-2 border-slate-200 bg-white px-5 py-3 shadow-lg text-center min-w-[150px]`}>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                                Priorité finale
-                              </p>
-                              <p className={`text-3xl font-extrabold mt-1 bg-gradient-to-r ${getRiskLevelColor(selectedRisk.riskLevel)} bg-clip-text text-transparent`}>
-                                {selectedRisk.prioriteFinale}
-                              </p>
-                            </div>
-                            <div>
-                              <CardTitle className="text-2xl font-bold">
-                                {selectedRisk.title}
-                              </CardTitle>
-                              <Badge
-                                className={`mt-2 bg-gradient-to-r ${getRiskLevelColor(selectedRisk.riskLevel)} text-white border-0 shadow-md`}
-                              >
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {getRiskLevelLabel(
-                                  selectedRisk.riskLevel,
-                                )}{" "}
-                                - Niveau{" "}
-                                {selectedRisk.riskLevel}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:space-x-2">
-                            {user?.role === "chef_service" && (
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  goToView("retour_action")
-                                }
-                                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
-                              >
-                                <Send className="h-3.5 w-3.5 mr-1" />
-                                Retour d'action
-                              </Button>
-                            )}
-                            {user?.role === 'admin' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    setIsEditingRisk(true)
-                                  }
-                                  className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-                                >
-                                  <Edit className="h-3.5 w-3.5 mr-1" />
-                                  Modifier
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={(e) =>
-                                    handleDeleteRiskClick(
-                                      selectedRisk.id,
-                                      e,
-                                    )
-                                  }
-                                  className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                  Supprimer
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        {/* Informations administratives - Section mise en avant */}
-                        <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-6 rounded-2xl shadow-lg border border-gray-200 text-gray-800 space-y-4">
-                          <h3 className="text-2xl font-bold flex items-center mb-4 text-gray-700">
-                            <Building2 className="h-6 w-6 mr-3" />
-                            Identification du risque
-                          </h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="bg-white/80 backdrop-blur p-4 rounded-xl border border-gray-200">
-                              <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <FileText className="h-3 w-3 mr-1" />{" "}
-                                Numéro de risque
-                              </p>
-                              <p className="text-lg font-bold text-gray-800">
-                                {selectedRisk.numeroRisque}
-                              </p>
-                            </div>
-                            <div className="bg-white/80 backdrop-blur p-4 rounded-xl border border-gray-200">
-                              <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <User className="h-3 w-3 mr-1" />{" "}
-                                Responsable
-                              </p>
-                              <p className="text-lg font-bold text-gray-800">
-                                {selectedRisk.responsable}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
-                              <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <Users className="h-3 w-3 mr-1" />{" "}
-                                Services
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {(selectedRisk.service || "")
-                                  .split(",")
-                                  .map((item) => item.trim())
-                                  .filter(Boolean)
-                                  .map((service) => (
-                                    <Badge
-                                      key={service}
-                                      variant="outline"
-                                      className="bg-blue-50 text-blue-700 border-blue-200"
-                                    >
-                                      {service}
-                                    </Badge>
-                                  ))}
-                              </div>
-                            </div>
-                            <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
-                              <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <Building2 className="h-3 w-3 mr-1" />{" "}
-                                Domaines
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {(selectedRisk.domain || selectedRisk.unite || "")
-                                  .split(",")
-                                  .map((item) => item.trim())
-                                  .filter(Boolean)
-                                  .map((domain) => (
-                                    <Badge
-                                      key={domain}
-                                      variant="outline"
-                                      className="bg-orange-50 text-orange-700 border-orange-200"
-                                    >
-                                      {domain}
-                                    </Badge>
-                                  ))}
-                              </div>
-                            </div>
-                            <div className="bg-white/80 backdrop-blur p-3 rounded-xl border border-gray-200">
-                              <p className="text-xs font-semibold mb-1 text-gray-500 flex items-center">
-                                <MapPin className="h-3 w-3 mr-1" />{" "}
-                                Lieux
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {(selectedRisk.site || "")
-                                  .split(",")
-                                  .map((item) => item.trim())
-                                  .filter(Boolean)
-                                  .map((location) => (
-                                    <Badge
-                                      key={location}
-                                      variant="outline"
-                                      className="bg-cyan-50 text-cyan-700 border-cyan-200"
-                                    >
-                                      {location}
-                                    </Badge>
-                                  ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <Separator className="my-6" />
-
-                        {/* Situation dangereuse */}
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
-                            <AlertCircle className="h-4 w-4 mr-2 text-orange-500" />
-                            Situation dangereuse
-                          </h4>
-                          <p className="text-gray-700 bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500">
-                            {selectedRisk.situation}
-                          </p>
-                        </div>
-
-                        <Separator />
-
-                        {/* Dommages associés */}
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
-                            <Shield className="h-4 w-4 mr-2 text-red-500" />
-                            Dommages associés
-                          </h4>
-                          <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                            <p className="text-gray-700">
-                              {selectedRisk.associatedRisk}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Separator />
-
-                        {/* Mesures existantes */}
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
-                            <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                            Mesures de prévention existantes
-                          </h4>
-                          <ul className="space-y-2">
-                            {selectedRisk.existingMeasures &&
-                            selectedRisk.existingMeasures
-                              .length > 0 ? (
-                              selectedRisk.existingMeasures.map(
-                                (measure, idx) => (
-                                  <li
-                                    key={idx}
-                                    className="flex items-start"
-                                  >
-                                    <Badge
-                                      variant="outline"
-                                      className="bg-green-50 text-green-700 border-green-200 mr-2"
-                                    >
-                                      {idx + 1}
-                                    </Badge>
-                                    <span className="text-gray-700">
-                                      {measure}
-                                    </span>
-                                  </li>
-                                ),
-                              )
-                            ) : (
-                              <p className="text-gray-500 italic">
-                                Aucune mesure existante définie
-                              </p>
-                            )}
-                          </ul>
-                        </div>
-
-                        <Separator />
-
-                        {/* Mesures planifiées */}
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center">
-                            <Calendar className="h-4 w-4 mr-2 text-blue-500" />
-                            Actions planifiées (
-                            {selectedRisk.plannedMeasures?.filter(
-                              (m) => m.status === "completed",
-                            ).length || 0}
-                            /
-                            {selectedRisk.plannedMeasures
-                              ?.length || 0}{" "}
-                            terminées)
-                          </h4>
-                          <div className="space-y-3">
-                            {selectedRisk.plannedMeasures &&
-                            selectedRisk.plannedMeasures
-                              .length > 0 ? (
-                              selectedRisk.plannedMeasures.map(
-                                (measure, idx) => (
-                                  <Card
-                                    key={idx}
-                                    className={`border-2 ${measure.status === "completed" ? "border-green-300 bg-green-50" : measure.status === "in_progress" ? "border-blue-300 bg-blue-50" : "border-gray-300 bg-gray-50"}`}
-                                  >
-                                    <CardContent className="p-4">
-                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
-                                        <div className="flex items-start space-x-3 flex-1">
-                                          <Badge
-                                            className={`${measure.status === "completed" ? "bg-green-500" : measure.status === "in_progress" ? "bg-blue-500" : "bg-gray-400"} text-white flex items-center gap-1`}
-                                          >
-                                            {measure.status ===
-                                            "completed" ? (
-                                              <>
-                                                <CheckCircle className="h-3 w-3" />{" "}
-                                                Terminée
-                                              </>
-                                            ) : measure.status ===
-                                              "in_progress" ? (
-                                              <>
-                                                <Loader className="h-3 w-3" />{" "}
-                                                En cours
-                                              </>
-                                            ) : (
-                                              <>
-                                                <Clock className="h-3 w-3" />{" "}
-                                                En attente
-                                              </>
-                                            )}
-                                          </Badge>
-                                          <div className="flex-1">
-                                            <p className="font-semibold text-gray-900">
-                                              {
-                                                measure.description
-                                              }
-                                            </p>
-                                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                                              <div>
-                                                <span className="text-gray-500 font-medium">
-                                                  Responsable:
-                                                </span>
-                                                <p className="text-gray-700 font-semibold">
-                                                  {
-                                                    measure.responsible
-                                                  }
-                                                </p>
-                                              </div>
-                                              <div>
-                                                <span className="text-gray-500 font-medium">
-                                                  Échéance:
-                                                </span>
-                                                <p className="text-gray-700 font-semibold">
-                                                  {new Date(
-                                                    measure.deadline,
-                                                  ).toLocaleDateString(
-                                                    "fr-FR",
-                                                  )}
-                                                </p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                ),
-                              )
-                            ) : (
-                              <p className="text-gray-500 italic">
-                                Aucune action planifiée
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Observation - MISE EN AVANT */}
-                        <Separator className="my-6" />
-                        {selectedRisk.observation && (
-                          <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-6 rounded-2xl shadow-lg border border-gray-200 text-gray-800 space-y-3 mt-6">
-                            <h3 className="text-2xl font-bold flex items-center mb-3 text-gray-700">
-                              <AlertCircle className="h-6 w-6 mr-3" />
-                              Observation
-                            </h3>
-                            <div className="bg-white/80 backdrop-blur p-5 rounded-xl border border-gray-200">
-                              <p className="text-base font-medium leading-relaxed text-gray-800">
-                                {selectedRisk.observation}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        <Separator className="my-6" />
-
-                        {/* Bouton Faire un retour d'action */}
-                        {user?.role === "chef_service" && (
-                          <div className="flex justify-center">
-                            <Button
-                              onClick={() =>
-                                goToView("retour_action")
-                              }
-                              size="lg"
-                              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg hover:shadow-xl transition-all"
-                            >
-                              <Send className="h-5 w-5 mr-2" />
-                              Faire un retour d'action
-                            </Button>
-                          </div>
-                        )}
-
-                        <Separator className="my-6" />
-
-                        {/* Historique des retours d'action */}
-                        <ActionReturnHistory
-                          actionReturns={actionReturns.filter(
-                            (ar) =>
-                              ar.riskId === selectedRisk.id,
-                          )}
-                          userRole={user?.role}
-                          onManageActionReturns={() => {
-                            goToView("retour_action");
-                          }}
-                        />
-                      </CardContent>
-                    </Card>
-
-                    {/* Sidebar - Evaluation & Metadata */}
-                    <div className="space-y-6">
-                      {/* Evaluation Card */}
-                      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-                        <CardHeader>
-                          <CardTitle className="text-lg flex items-center">
-                            <Target className="h-5 w-5 mr-2 text-purple-500" />
-                            Évaluation
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="text-center p-4 rounded-xl bg-gradient-to-br from-red-50 to-orange-50 border-2 border-red-200">
-                              <p className="text-gray-600 text-xs font-semibold mb-1">
-                                Gravité
-                              </p>
-                              <p className="font-bold text-3xl bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                                {selectedRisk.severity}/4
-                              </p>
-                            </div>
-                            <div className="text-center p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200">
-                              <p className="text-gray-600 text-xs font-semibold mb-1">
-                                Probabilité
-                              </p>
-                              <p className="font-bold text-3xl bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-                                {selectedRisk.probability}/4
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-center p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-300">
-                            <p className="text-gray-600 text-xs font-semibold mb-1">
-                              Niveau de risque
-                            </p>
-                            <p className="font-bold text-4xl bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                              {selectedRisk.riskLevel}
-                            </p>
-                            <p className="text-sm font-semibold text-gray-600 mt-1">
-                              {getRiskLevelLabel(
-                                selectedRisk.riskLevel,
-                              )}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Progress Card */}
-                      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-                        <CardHeader>
-                          <CardTitle className="text-lg flex items-center">
-                            <TrendingUp className="h-5 w-5 mr-2 text-green-500" />
-                            Avancement
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-3">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600 font-semibold">
-                                Actions réalisées
-                              </span>
-                              <span className="font-bold text-purple-600">
-                                {selectedRisk.plannedMeasures?.filter(
-                                  (m) =>
-                                    m.status === "completed",
-                                ).length || 0}
-                                /
-                                {selectedRisk.plannedMeasures
-                                  ?.length || 0}
-                              </span>
-                            </div>
-                            <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-500 shadow-md"
-                                style={{
-                                  width: `${selectedRisk.plannedMeasures && selectedRisk.plannedMeasures.length > 0 ? (selectedRisk.plannedMeasures.filter((m) => m.status === "completed").length / selectedRisk.plannedMeasures.length) * 100 : 0}%`,
-                                }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-gray-500 text-center">
-                              {selectedRisk.plannedMeasures &&
-                              selectedRisk.plannedMeasures
-                                .length > 0
-                                ? Math.round(
-                                    (selectedRisk.plannedMeasures.filter(
-                                      (m) =>
-                                        m.status ===
-                                        "completed",
-                                    ).length /
-                                      selectedRisk
-                                        .plannedMeasures
-                                        .length) *
-                                      100,
-                                  )
-                                : 0}
-                              % complété
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                </div>
+                <RiskConsultationDetail
+                  risk={selectedRisk}
+                  riskLevelGradient={getRiskLevelColor}
+                  riskLevelLabel={getRiskLevelLabel}
+                  onBack={() => {
+                    setSelectedRisk(null);
+                    setIsEditingRisk(false);
+                  }}
+                  onEdit={() => setIsEditingRisk(true)}
+                  onDelete={() => {
+                    setRiskToDelete(selectedRisk.id);
+                    setRiskDeleteDialogOpen(true);
+                  }}
+                  canManage={user?.role === "admin"}
+                  canProposeReturn={user?.role === "chef_service"}
+                  onProposeReturn={() => goToView("retour_action")}
+                  actionReturns={actionReturns.filter((item) => item.riskId === selectedRisk.id)}
+                  userRole={user?.role}
+                  onManageActionReturns={() => goToView("action-returns")}
+                  onLearnMore={() => {
+                    setReferenceSheetRequest({
+                      numeroRisque: selectedRisk.numeroRisque,
+                      title: selectedRisk.title,
+                    });
+                    goToView("risk-references");
+                  }}
+                />
               ) : null}
             </div>
           )}
@@ -3994,17 +3715,28 @@ export default function App() {
             />
           )}
 
-          {activeView === "risk-awareness" && (
-            <RiskAwarenessView
-              userRole={user?.role || "agent"}
-              currentUserName={user?.name || "Utilisateur"}
-              records={riskAwarenessRecords}
-              setRecords={setRiskAwarenessRecords}
-              exposedRiskKeys={visibleRisks.map(
-                (risk) => `${risk.numeroRisque}::${risk.title}`,
-              )}
-              onRecordDeleted={handleAwarenessRecordDeleted}
-              onRecordSaved={handleAwarenessRecordSaved}
+          {(activeView === "risk-references" || activeView === "risk-awareness") && (
+            <RiskReferencesManagementView
+              references={riskReferences}
+              setReferences={setRiskReferences}
+              awarenessRecords={
+                user?.role === "admin"
+                  ? riskAwarenessRecords
+                  : riskAwarenessRecords.filter((record) =>
+                      visibleRisks.some(
+                        (risk) =>
+                          `${risk.numeroRisque}::${risk.title}` === record.riskKey,
+                      ),
+                    )
+              }
+              setAwarenessRecords={setRiskAwarenessRecords}
+              onAwarenessDeleted={handleAwarenessRecordDeleted}
+              onAwarenessSaved={handleAwarenessRecordSaved}
+              onRenameLinkedRisks={renameRisksLinkedToTitle}
+              onReferenceRemoved={detachRisksFromReference}
+              canManage={canManageModule("risk-references")}
+              openSheetFor={referenceSheetRequest}
+              onOpenSheetHandled={() => setReferenceSheetRequest(null)}
             />
           )}
           {activeView === "prevention-plan" && (
@@ -4070,53 +3802,90 @@ export default function App() {
               serviceCatalog={adminServices}
               riskReferences={riskReferences}
               concernedPersons={concernedPersons}
+              onDeleteRisk={deleteRiskById}
+              actionReturns={actionReturns}
+              onManageActionReturns={() => goToView("action-returns")}
+              onProposeReturn={
+                user?.role === "chef_service"
+                  ? (risk) => {
+                      setSelectedRisk(risk);
+                      goToView("retour_action");
+                    }
+                  : undefined
+              }
+              onLearnMore={(risk) => {
+                setReferenceSheetRequest({
+                  numeroRisque: risk.numeroRisque,
+                  title: risk.title,
+                });
+                goToView("risk-references");
+              }}
+              getCategoryIcon={getCategoryIcon}
+              getCategoryColor={getCategoryColor}
+              riskLevelGradient={getRiskLevelColor}
+              getRiskLevelLabel={getRiskLevelLabel}
             />
           )}
 
-          {activeView === "risk-references" && (
-            <RiskReferencesManagementView
-              references={riskReferences}
-              setReferences={setRiskReferences}
-              canManage={canManageModule("risk-references")}
-            />
-          )}
 
           {/* Action Returns View */}
           {activeView === "action-returns" && (
             <div className="space-y-6">
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-xl">
-                    <MessageSquare className="h-8 w-8 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900">
-                      Retours d'action
-                    </h1>
-                    <p className="text-gray-600 mt-1">
-                      Gérer les propositions des chefs de service
-                    </p>
-                  </div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900">
+                    Retours d'action
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Propositions en attente, rattachées à la fiche du risque
+                  </p>
+                </div>
+                <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                  <button
+                    type="button"
+                    aria-pressed={actionReturnsDisplay === "cards"}
+                    onClick={() => setActionReturnsDisplay("cards")}
+                    className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${
+                      actionReturnsDisplay === "cards"
+                        ? "bg-emerald-600 text-white"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                    Cartes
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={actionReturnsDisplay === "table"}
+                    onClick={() => setActionReturnsDisplay("table")}
+                    className={`inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold ${
+                      actionReturnsDisplay === "table"
+                        ? "bg-emerald-600 text-white"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    <Table2 className="h-4 w-4" />
+                    Tableau
+                  </button>
                 </div>
               </div>
 
-              {/* List of Action Returns */}
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
-                <CardContent className="pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <Card className="border border-emerald-100 bg-white shadow-sm">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                     <Input
                       placeholder="Rechercher (risque, mesure, auteur...)"
                       value={actionReturnsSearch}
                       onChange={(e) =>
                         setActionReturnsSearch(e.target.value)
                       }
+                      className="h-11 rounded-xl border-slate-200 bg-white"
                     />
                     <Select
                       value={actionReturnsServiceFilter}
                       onValueChange={setActionReturnsServiceFilter}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
                         <SelectValue placeholder="Service" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4137,7 +3906,7 @@ export default function App() {
                       value={actionReturnsAuthorFilter}
                       onValueChange={setActionReturnsAuthorFilter}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
                         <SelectValue placeholder="Auteur" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4158,7 +3927,7 @@ export default function App() {
                       value={actionReturnsRiskFilter}
                       onValueChange={setActionReturnsRiskFilter}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
                         <SelectValue placeholder="Risque" />
                       </SelectTrigger>
                       <SelectContent>
@@ -4182,88 +3951,171 @@ export default function App() {
                 </CardContent>
               </Card>
 
-              <div className="grid grid-cols-1 gap-6">
-                {filteredPendingActionReturns.length === 0 ? (
-                  <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-                    <CardContent className="pt-12 pb-12 text-center">
-                      <div className="h-24 w-24 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mx-auto mb-6">
-                        <MessageSquare className="h-12 w-12 text-gray-400" />
-                      </div>
-                      <p className="text-gray-500 text-lg mb-4">
-                        Aucun retour d'action en attente
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  paginatedPendingActionReturns.map((actionReturn) => {
-                    const risk = risks.find(r => r.id === actionReturn.riskId);
-                    if (!risk) return null;
-
+              {filteredPendingActionReturns.length === 0 ? (
+                <Card className="border border-dashed border-slate-200 bg-white shadow-sm">
+                  <CardContent className="py-12 text-center">
+                    <p className="text-sm font-medium text-slate-700">
+                      Aucun retour d'action en attente
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Une proposition est toujours portée par une fiche du risque.
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : actionReturnsDisplay === "cards" ? (
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {paginatedPendingActionReturns.map((actionReturn) => {
+                    const linked = riskLinkedToActionReturn(actionReturn);
+                    if (!linked) return null;
+                    const title = linked.detachedFromReference || !linked.title.trim()
+                      ? "Lié à aucun risque"
+                      : linked.title;
                     return (
-                      <Card
+                      <article
                         key={actionReturn.id}
-                        className="border-0 shadow-xl hover:shadow-2xl transition-all cursor-pointer group hover:scale-[1.01] bg-white/80 backdrop-blur overflow-hidden"
-                        onClick={() => {
-                          setSelectedRisk(risk);
-                          goToView("retour_action");
-                        }}
+                        className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm transition hover:shadow-md"
+                        onClick={() => openActionReturn(actionReturn)}
                       >
-                        <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <CardTitle className="text-xl group-hover:text-emerald-600 transition-colors font-bold">
-                                {risk.title}
-                              </CardTitle>
-                              <CardDescription className="mt-2 flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                Proposé par {actionReturn.proposedBy}
-                              </CardDescription>
-                              <CardDescription className="flex items-center gap-2 mt-1">
-                                <Calendar className="h-4 w-4" />
-                                {new Date(actionReturn.proposedDate).toLocaleDateString('fr-FR', {
-                                  day: '2-digit',
-                                  month: 'long',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </CardDescription>
+                        <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
+                        <div className="flex flex-1 flex-col p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                              {linked.numeroRisque ? (
+                                <span className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 px-2 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100">
+                                  {linked.numeroRisque}
+                                </span>
+                              ) : null}
+                              <h4 className="text-lg font-semibold leading-snug text-slate-900">
+                                {title}
+                              </h4>
                             </div>
-                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
+                              <Clock className="h-3.5 w-3.5" />
                               En attente
-                            </Badge>
+                            </span>
                           </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-4">
-                            <div>
-                              <Label className="text-xs text-gray-600 font-semibold">Mesure proposée</Label>
-                              <p className="text-sm text-gray-900 mt-1 bg-emerald-50 p-3 rounded-lg border-l-4 border-emerald-500">
-                                {actionReturn.proposedMeasure}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-xs text-gray-600 font-semibold">Justification</Label>
-                              <p className="text-sm text-gray-700 mt-1 line-clamp-2">
-                                {actionReturn.justification}
-                              </p>
-                            </div>
-                            <div className="flex items-center justify-between pt-2">
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Building2 className="h-4 w-4" />
-                                {risk.service} - {risk.site}
+                          <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
+                            {actionReturn.proposedMeasure}
+                          </p>
+                          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 shadow-sm">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+                                <User className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-emerald-800/70">Auteur</p>
+                                <p className="truncate text-sm font-semibold text-slate-900">{actionReturn.proposedBy}</p>
                               </div>
-                              <ChevronRight className="h-5 w-5 text-emerald-500 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-teal-100 bg-white px-3 py-2.5 shadow-sm">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500 text-white shadow-sm">
+                                <Calendar className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-teal-800/70">Date</p>
+                                <p className="truncate text-sm font-semibold text-slate-900">{formatActionReturnDate(actionReturn.proposedDate)}</p>
+                              </div>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
+                          <div className="mt-auto grid grid-cols-1 pt-4">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openActionReturn(actionReturn);
+                              }}
+                              className="h-10 w-full rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              Consulter
+                            </Button>
+                          </div>
+                        </div>
+                      </article>
                     );
-                  })
-                )}
-              </div>
+                  })}
+                </div>
+              ) : (
+                <Card className="overflow-hidden border border-emerald-100 bg-white shadow-sm">
+                  <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[860px]">
+                        <thead className="border-b border-emerald-100 bg-emerald-50/50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">Risque</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">Auteur</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">Date</th>
+                            <th className="px-4 py-3 text-left text-sm font-semibold text-slate-600">Statut</th>
+                            <th className="w-24 px-4 py-3 text-left text-sm font-semibold text-slate-600">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-emerald-50">
+                          {paginatedPendingActionReturns.map((actionReturn) => {
+                            const linked = riskLinkedToActionReturn(actionReturn);
+                            if (!linked) return null;
+                            const title = linked.detachedFromReference || !linked.title.trim()
+                              ? "Lié à aucun risque"
+                              : linked.title;
+                            return (
+                              <tr
+                                key={actionReturn.id}
+                                className="cursor-pointer align-middle transition-colors hover:bg-emerald-50/40"
+                                onClick={() => openActionReturn(actionReturn)}
+                              >
+                                <td className="px-4 py-4">
+                                  <div className="flex min-w-0 items-start gap-3">
+                                    {linked.numeroRisque ? (
+                                      <span className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 px-2 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100">
+                                        {linked.numeroRisque}
+                                      </span>
+                                    ) : null}
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold leading-snug text-slate-900">{title}</p>
+                                      <p className="mt-1 line-clamp-2 max-w-xl text-sm leading-5 text-slate-500">{actionReturn.proposedMeasure}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4">
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+                                      <User className="h-4 w-4" />
+                                    </span>
+                                    <span className="text-sm font-semibold text-slate-900">{actionReturn.proposedBy}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4 text-sm text-slate-700">{formatActionReturnDate(actionReturn.proposedDate)}</td>
+                                <td className="px-4 py-4">
+                                  <span className="inline-flex items-center gap-1 rounded-xl bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    En attente
+                                  </span>
+                                </td>
+                                <td className="px-4 py-4">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    aria-label="Consulter"
+                                    title="Consulter"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      openActionReturn(actionReturn);
+                                    }}
+                                    className="h-9 w-9 rounded-xl border-slate-200 bg-white p-0 text-slate-700 shadow-sm hover:bg-slate-50"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <ListPaginationBar
                 currentPage={actionReturnsCurrentPage}
                 totalPages={actionReturnsTotalPages}
@@ -4576,6 +4428,7 @@ export default function App() {
         serviceCatalog={adminServices}
         riskReferences={riskReferences}
         concernedPersons={concernedPersons}
+        suggestedNumber={nextRiskNumber(risks.map((risk) => risk.numeroRisque))}
       />
 
       <AlertDialog
@@ -4588,7 +4441,7 @@ export default function App() {
               Confirmer la suppression
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer ce risque ?
+              Êtes-vous sûr de vouloir supprimer ce risque ? La fiche reste dans le référentiel, avec la mention « Lié à aucun risque ».
               Cette action est irréversible et supprimera
               également toutes les actions planifiées associées.
             </AlertDialogDescription>

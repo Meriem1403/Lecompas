@@ -2,7 +2,7 @@ import React from "react";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
-import { ChevronsUpDown, X } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface MultiSelectOption {
@@ -17,6 +17,7 @@ interface MultiSelectFilterProps {
   onChange: (values: string[]) => void;
   placeholder?: string;
   className?: string;
+  wrapOptions?: boolean;
 }
 
 export function MultiSelectFilter({
@@ -26,6 +27,7 @@ export function MultiSelectFilter({
   onChange,
   placeholder = "Tous",
   className,
+  wrapOptions = false,
 }: MultiSelectFilterProps) {
   const toggle = (value: string) => {
     if (selected.includes(value)) {
@@ -46,48 +48,57 @@ export function MultiSelectFilter({
         : `${selected.length} sélectionné(s)`;
 
   return (
-    <div className={cn("space-y-1", className)}>
-      <p className="text-xs font-semibold text-gray-600">{label}</p>
+    <div className={cn("space-y-2", className)}>
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="w-full justify-between font-normal h-10 bg-white"
+            className="h-11 w-full justify-between rounded-xl border-slate-200 bg-white font-normal shadow-sm"
           >
             <span className="truncate text-left">{summary}</span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-2" align="start">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <span className="text-xs font-semibold text-gray-700">{label}</span>
+        <PopoverContent className={cn("rounded-xl p-2", wrapOptions ? "w-96" : "w-72")} align="start">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-xs font-semibold text-slate-700">{label}</span>
             {selected.length > 0 ? (
               <button
                 type="button"
-                className="text-xs text-red-600 hover:underline"
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800"
                 onClick={() => onChange([])}
               >
                 Effacer
               </button>
             ) : null}
           </div>
-          <div className="max-h-52 overflow-y-auto space-y-1">
+          <div className="max-h-52 space-y-1 overflow-y-auto">
             {options.map((option) => {
               const checked = selected.includes(option.value);
               return (
                 <label
                   key={option.value}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-50",
-                    checked && "bg-indigo-50",
+                    "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm",
+                    checked ? "bg-purple-50 text-purple-900" : "text-slate-700 hover:bg-slate-50",
                   )}
                 >
                   <input
                     type="checkbox"
+                    className="sr-only"
                     checked={checked}
                     onChange={() => toggle(option.value)}
                   />
-                  <span className="truncate">{option.label}</span>
+                  <span
+                    className={cn(
+                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                      checked ? "border-purple-600 bg-purple-600 text-white" : "border-slate-300 bg-white",
+                    )}
+                  >
+                    {checked ? <Check className="h-3 w-3" /> : null}
+                  </span>
+                  <span className={wrapOptions ? "min-w-0 whitespace-normal break-words" : "truncate"}>{option.label}</span>
                 </label>
               );
             })}

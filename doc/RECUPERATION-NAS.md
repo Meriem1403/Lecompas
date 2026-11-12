@@ -2,6 +2,16 @@
 
 Un `git pull` seul ne change pas le site. Les conteneurs continuent de servir l’ancienne image tant qu’ils ne sont pas reconstruits.
 
+## Cette version ne remplace pas les données du NAS
+
+Les écrans livrés ici (évaluation et mise à jour des risques, référentiel, retours d’action, plan de prévention, protocole de sécurité, fiche de sécurité, PDF) sont une évolution du frontend. Ils ne contiennent pas de nouveau jeu de données et ils n’écrasent pas PostgreSQL.
+
+Ce qui est déjà sur le NAS reste en place : les 478 risques du classeur une fois installés, le PAPRIPACT, les accidents, les comptes, et le reste des modules. Un déploiement ne les recharge pas.
+
+La seule écriture automatique sur les risques a déjà été livrée : à la connexion d’un administrateur, si la base est encore la courte base de démonstration (écart de plus de 20 lignes avec le classeur), elle est remplacée par les 478 lignes. Si le classeur est déjà en place, cette connexion ne réécrit rien. Le PAPRIPACT n’est pas concerné.
+
+Les brouillons saisis dans le navigateur avec l’API coupée (plans, protocoles, fiches de la session de démonstration) sont dans le navigateur de ce Mac. Ils ne sont ni dans Git, ni sur le NAS. Les déployer ne les emporte pas, et ne les efface pas non plus sur le serveur.
+
 ## Ce qui change pour la connexion
 
 - Ouvrir l’adresse IP affiche la page de connexion. La session de démonstration Jean-Marc DUBOIS n’est plus rouverte.
@@ -16,7 +26,7 @@ Les navigateurs qui avaient encore l’ancienne session voient la page de connex
 
 Le classeur DUERP contient **478** risques (`duerp-import-…`). Une cinquantaine de lignes, c’est l’ancienne base de démonstration, stockée dans PostgreSQL. Un `git pull` et une reconstruction des images ne la changent pas.
 
-Après cette version, une connexion **administrateur** remplace cette base courte par les 478 lignes du classeur. Le PAPRIPACT, les accidents et les autres données ne sont pas touchés. Tant que le classeur n’est pas en place, ne pas laisser l’ancienne page ouverte : elle peut réécrire les 49 lignes par-dessus le serveur.
+Si la base est encore cette base courte, une connexion **administrateur** la remplace par les 478 lignes du classeur. Le PAPRIPACT, les accidents et les autres données ne sont pas touchés. Si les 478 lignes sont déjà là, la connexion ne les réécrit pas. Tant que le classeur n’est pas en place, ne pas laisser l’ancienne page ouverte : elle peut réécrire les 49 lignes par-dessus le serveur.
 
 Pour le faire tout de suite depuis un PC du réseau, sans attendre le déploiement :
 

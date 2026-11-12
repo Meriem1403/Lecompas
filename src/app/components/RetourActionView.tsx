@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/app/components/ui/card';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
+import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
 import { Textarea } from '@/app/components/ui/textarea';
-import { Separator } from '@/app/components/ui/separator';
 import {
   ArrowLeft,
   Send,
@@ -11,15 +10,16 @@ import {
   XCircle,
   Clock,
   Calendar,
-  AlertCircle,
   FileText,
   CheckCircle2,
   RefreshCw,
   Ban,
   MessageSquare,
-  Check
+  User,
+  MapPin,
 } from 'lucide-react';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { getRiskWorkflowStatusLabel } from '@/app/services/riskPriority';
 
 interface Risk {
   id: string;
@@ -176,449 +176,412 @@ export function RetourActionView({
     if (historyPage > historyTotalPages) setHistoryPage(historyTotalPages);
   }, [historyPage, historyTotalPages]);
 
-  const getStatusBadge = (status: ActionReturn['status']) => {
-    switch (status) {
-      case 'pending':
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
-            <Clock className="h-3 w-3 mr-1" />
-            En attente
-          </Badge>
-        );
-      case 'validated_add':
-      case 'validated_replace':
-        return (
-          <Badge className="bg-green-100 text-green-800 border-green-300">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Validé
-          </Badge>
-        );
-      case 'rejected':
-        return (
-          <Badge className="bg-red-100 text-red-800 border-red-300">
-            <XCircle className="h-3 w-3 mr-1" />
-            Refusé
-          </Badge>
-        );
+  const formatDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Date non renseignée";
+    return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+  };
+
+  const formatDateTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Date non renseignée";
+    return date.toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const statusChip = (status: ActionReturn["status"]) => {
+    if (status === "pending") {
+      return (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-100">
+          <Clock className="h-3.5 w-3.5" />
+          En attente
+        </span>
+      );
     }
+    if (status === "rejected") {
+      return (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-100">
+          <XCircle className="h-3.5 w-3.5" />
+          Refusé
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">
+        <CheckCircle className="h-3.5 w-3.5" />
+        Validé
+      </span>
+    );
+  };
+
+  const ficheTitle = risk.title.trim() ? risk.title : "Lié à aucun risque";
+  const measures = risk.existingMeasures ?? [];
+  const isProposal = user.role === "chef_service";
+  useLeaveGuard(isProposal);
+  const replaceDisabled = (actionReturnId: string) => {
+    const selected = selectedMeasureForReplace[actionReturnId];
+    return selected === undefined || selected < 0;
   };
 
   return (
     <div className="space-y-6">
-      {/* Header avec bouton retour */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          onClick={onBack}
-          variant="outline"
-          className="w-full sm:w-auto gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Retour
-        </Button>
-        <h1 className="text-2xl sm:text-3xl text-center sm:text-left font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-          Retours d'action
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">
+          {isProposal ? "Proposer un retour d'action" : "Consultation du retour d'action"}
         </h1>
-        <div className="hidden sm:block w-24"></div>
+        <p className="mt-1 text-sm text-slate-500">
+          {isProposal
+            ? "La proposition est envoyée pour validation."
+            : "Même fiche que l'évaluation et la mise à jour des risques."}
+        </p>
       </div>
 
-      {/* Informations sur le risque */}
-      <Card className="border-0 shadow-xl bg-gradient-to-br from-purple-50 to-pink-50">
-        <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-2xl mb-2">{risk.title}</CardTitle>
-              <CardDescription className="text-base">{risk.site}</CardDescription>
-            </div>
-            <div className="flex flex-col md:items-end gap-2">
-              <Badge className={`bg-gradient-to-r ${getRiskLevelColor(risk.riskLevel)} text-white border-0 shadow-md text-lg px-4 py-1`}>
+      <article className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
+        <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
+        <div className="space-y-5 p-5">
+          <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              onClick={onBack}
+              variant="outline"
+              className="h-10 w-fit rounded-xl border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour à la fiche
+            </Button>
+            <div className="flex flex-wrap gap-2">
+              <span className={`inline-flex items-center rounded-xl bg-gradient-to-r ${getRiskLevelColor(risk.riskLevel)} px-2.5 py-1 text-xs font-semibold text-white`}>
                 {getRiskLevelLabel(risk.riskLevel)}
-              </Badge>
-              <Badge variant="outline" className="text-sm flex items-center gap-1">
-                {risk.status === 'a_traiter' ? (
-                  <>
-                    <AlertCircle className="h-3 w-3" />
-                    A traiter
-                  </>
-                ) : risk.status === 'en_traitement' ? (
-                  <>
-                    <Clock className="h-3 w-3" />
-                    En traitement
-                  </>
-                ) : risk.status === 'maitrise' ? (
-                  <>
-                    <CheckCircle className="h-3 w-3" />
-                    Maitrise
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-3 w-3" />
-                    Supprime
-                  </>
-                )}
-              </Badge>
+              </span>
+              <span className="inline-flex items-center rounded-xl bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                {getRiskWorkflowStatusLabel(risk.status)}
+              </span>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-semibold text-sm text-gray-600 mb-2 flex items-center gap-2">
-              <FileText className="h-4 w-4" />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex min-w-0 items-start gap-3">
+              {risk.numeroRisque ? (
+                <span className="inline-flex h-12 min-w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 px-2 text-sm font-semibold text-emerald-800 ring-1 ring-emerald-100">
+                  {risk.numeroRisque}
+                </span>
+              ) : null}
+              <div className="min-w-0">
+                <h2 className="text-xl font-semibold leading-snug text-slate-900">{ficheTitle}</h2>
+                <p className="mt-1 text-sm text-slate-500">{risk.service || "Service non renseigné"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white shadow-sm">
+                <MapPin className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Lieu</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{risk.site || "Non renseigné"}</p>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500 text-white shadow-sm">
+                <Calendar className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Détection</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{formatDate(risk.createdAt)}</p>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+                <User className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-500">Responsable</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{risk.responsable || "Non renseigné"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <FileText className="h-3.5 w-3.5" />
               Description
-            </h4>
-            <p className="text-gray-700 text-sm leading-relaxed">{risk.situation}</p>
+            </p>
+            <p className="text-sm leading-6 text-slate-700">{risk.situation || "Aucune description."}</p>
           </div>
-          
-          <Separator />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-semibold text-gray-500">Date de détection</p>
-              <p className="text-sm font-bold text-gray-800">
-                {new Date(risk.createdAt).toLocaleDateString('fr-FR', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                })}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-500">Responsable</p>
-              <p className="text-sm font-bold text-gray-800">{risk.responsable}</p>
-            </div>
-          </div>
-
-          <Separator />
 
           <div>
-            <h4 className="font-semibold text-sm text-gray-600 mb-3 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               Mesures existantes
-            </h4>
-            <div className="space-y-2">
-              {risk.existingMeasures.map((measure, idx) => (
-                <div key={idx} className="flex items-start gap-2 p-3 bg-white rounded-lg border">
-                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm text-gray-700">{measure}</span>
-                </div>
-              ))}
-            </div>
+            </p>
+            {measures.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                Aucune mesure enregistrée sur cette fiche.
+              </p>
+            ) : (
+              <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                {measures.map((measure, index) => (
+                  <div key={index} className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 shadow-sm">
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-xs font-semibold text-white">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-sm leading-6 text-slate-700">{measure}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </article>
 
       {/* Formulaire pour chef de service */}
-      {user.role === 'chef_service' && (
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50">
-            <CardTitle className="flex items-center gap-2">
-              <Send className="h-5 w-5 text-emerald-600" />
-              Proposer une nouvelle mesure
-            </CardTitle>
-            <CardDescription>
-              Proposez une mesure de prévention supplémentaire pour ce risque
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
+      {isProposal && (
+        <article className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
+          <div className="h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
+          <div className="space-y-4 p-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Mesure proposée <span className="text-red-500">*</span>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                <Send className="h-4 w-4 text-emerald-600" />
+                Proposer une mesure
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">Elle sera examinée dans les retours d'action.</p>
+            </div>
+            <div>
+              <label htmlFor="proposed-measure" className="mb-2 block text-sm font-semibold text-slate-800">
+                Mesure proposée
               </label>
               <Textarea
+                id="proposed-measure"
                 value={proposedMeasure}
                 onChange={(e) => setProposedMeasure(e.target.value)}
-                placeholder="Décrivez la mesure de prévention que vous proposez..."
-                className="min-h-[120px]"
+                placeholder="Décrivez la mesure de prévention"
+                className="min-h-[120px] rounded-xl border-slate-200"
               />
             </div>
-
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Justification <span className="text-red-500">*</span>
+              <label htmlFor="proposed-justification" className="mb-2 block text-sm font-semibold text-slate-800">
+                Justification
               </label>
               <Textarea
+                id="proposed-justification"
                 value={justification}
                 onChange={(e) => setJustification(e.target.value)}
-                placeholder="Expliquez pourquoi cette mesure est nécessaire..."
-                className="min-h-[100px]"
+                placeholder="Expliquez pourquoi cette mesure est nécessaire"
+                className="min-h-[100px] rounded-xl border-slate-200"
               />
             </div>
-
             <Button
               onClick={handleSubmit}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold"
-              size="lg"
+              className="h-10 w-full rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
             >
-              <Send className="h-4 w-4 mr-2" />
+              <Send className="mr-2 h-4 w-4" />
               Envoyer le retour d'action
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </article>
       )}
 
-      {/* Section validation pour admin */}
-      {user.role === 'admin' && pendingReturns.length > 0 && (
-        <Card className="border-0 shadow-xl bg-gradient-to-br from-amber-50 to-orange-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <AlertCircle className="h-6 w-6 text-amber-600" />
-              Retours d'action en attente de validation ({pendingReturns.length})
-            </CardTitle>
-            <CardDescription>
-              Validez, complétez ou refusez les propositions des chefs de service
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {paginatedPendingReturns.map((actionReturn) => (
-                  <Card key={actionReturn.id} className="border-2 border-amber-300 bg-white">
-                    <CardContent className="pt-6 space-y-4">
-                      {/* En-tête */}
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
-                            {actionReturn.proposedBy.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-800">{actionReturn.proposedBy}</p>
-                            <p className="text-xs text-gray-500 flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(actionReturn.proposedDate).toLocaleDateString('fr-FR', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        {getStatusBadge(actionReturn.status)}
+      {user.role === "admin" && pendingReturns.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Propositions en attente</h2>
+            <p className="mt-1 text-sm text-slate-500">{pendingReturns.length} à examiner sur cette fiche</p>
+          </div>
+          {paginatedPendingReturns.map((actionReturn) => (
+            <article key={actionReturn.id} className="overflow-hidden rounded-2xl border border-amber-100 bg-white shadow-sm">
+              <div className="h-1.5 bg-gradient-to-r from-amber-300 via-orange-200 to-amber-400" />
+              <div className="space-y-4 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 shadow-sm">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
+                        <User className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-emerald-800/70">Auteur</p>
+                        <p className="truncate text-sm font-semibold text-slate-900">{actionReturn.proposedBy}</p>
                       </div>
-
-                      <Separator />
-
-                      {/* Justification */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-600">Justification :</p>
-                        <div className="p-3 bg-gray-50 rounded-lg border">
-                          <p className="text-sm text-gray-700">{actionReturn.justification}</p>
-                        </div>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-teal-100 bg-white px-3 py-2.5 shadow-sm">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500 text-white shadow-sm">
+                        <Calendar className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-teal-800/70">Date</p>
+                        <p className="truncate text-sm font-semibold text-slate-900">{formatDateTime(actionReturn.proposedDate)}</p>
                       </div>
+                    </div>
+                  </div>
+                  {statusChip(actionReturn.status)}
+                </div>
 
-                      {/* Mesure proposée */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-emerald-600">Mesure proposée :</p>
-                        <div className="p-3 bg-emerald-50 rounded-lg border-2 border-emerald-300">
-                          <p className="text-sm font-bold text-gray-800">{actionReturn.proposedMeasure}</p>
-                        </div>
-                      </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <p className="text-xs font-semibold text-slate-500">Justification</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-700">{actionReturn.justification}</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <p className="text-xs font-semibold text-emerald-800">Mesure proposée</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{actionReturn.proposedMeasure}</p>
+                </div>
 
-                      <Separator />
+                {measures.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-slate-800">Mesure à remplacer</p>
+                    <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                      {measures.map((measure, index) => {
+                        const selected = selectedMeasureForReplace[actionReturn.id] === index;
+                        return (
+                          <button
+                            key={index}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setSelectedMeasureForReplace((prev) => ({
+                              ...prev,
+                              [actionReturn.id]: prev[actionReturn.id] === index ? -1 : index,
+                            }))}
+                            className={`flex w-full items-start gap-3 rounded-2xl border px-3 py-2.5 text-left shadow-sm transition ${
+                              selected
+                                ? "border-orange-300 bg-orange-50"
+                                : "border-slate-200 bg-white hover:border-orange-200"
+                            }`}
+                          >
+                            <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${
+                              selected ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600"
+                            }`}>
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className="text-sm leading-6 text-slate-700">{measure}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
 
-                      {/* Zone de sélection pour remplacement */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-600">
-                          Sélectionnez la mesure à remplacer (optionnel) :
-                        </p>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                          {risk.existingMeasures.map((measure, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => setSelectedMeasureForReplace(prev => ({
-                                ...prev,
-                                [actionReturn.id]: prev[actionReturn.id] === idx ? -1 : idx
-                              }))}
-                              className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                                selectedMeasureForReplace[actionReturn.id] === idx
-                                  ? 'border-orange-500 bg-orange-50'
-                                  : 'border-gray-200 bg-white hover:border-gray-300'
-                              }`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <input
-                                  type="radio"
-                                  checked={selectedMeasureForReplace[actionReturn.id] === idx}
-                                  onChange={() => {}}
-                                  className="mt-1"
-                                />
-                                <span className="text-sm text-gray-700">{measure}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                <div>
+                  <label htmlFor={`review-${actionReturn.id}`} className="mb-2 block text-sm font-semibold text-slate-800">
+                    Commentaire
+                  </label>
+                  <Textarea
+                    id={`review-${actionReturn.id}`}
+                    value={reviewComments[actionReturn.id] || ""}
+                    onChange={(e) => setReviewComments((prev) => ({
+                      ...prev,
+                      [actionReturn.id]: e.target.value,
+                    }))}
+                    placeholder="Commentaire pour la fiche"
+                    className="min-h-[80px] rounded-xl border-slate-200"
+                  />
+                </div>
 
-                      {/* Commentaire admin */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-gray-600">
-                          Commentaire (optionnel) :
-                        </label>
-                        <Textarea
-                          value={reviewComments[actionReturn.id] || ''}
-                          onChange={(e) => setReviewComments(prev => ({
-                            ...prev,
-                            [actionReturn.id]: e.target.value
-                          }))}
-                          placeholder="Ajoutez un commentaire si nécessaire..."
-                          className="min-h-[80px]"
-                        />
-                      </div>
-
-                      {/* Boutons d'action */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-                        <Button
-                          onClick={() => handleValidate(actionReturn.id, 'replace')}
-                          className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold whitespace-normal text-center h-auto py-2"
-                          disabled={selectedMeasureForReplace[actionReturn.id] === undefined || selectedMeasureForReplace[actionReturn.id] === -1}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Remplacer la mesure
-                        </Button>
-                        <Button
-                          onClick={() => handleValidate(actionReturn.id, 'add')}
-                          className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold whitespace-normal text-center h-auto py-2"
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Compléter la mesure
-                        </Button>
-                        <Button
-                          onClick={() => handleValidate(actionReturn.id, 'reject')}
-                          variant="destructive"
-                          className="w-full font-bold whitespace-normal text-center h-auto py-2"
-                        >
-                          <Ban className="h-4 w-4 mr-2" />
-                          Refuser
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-              ))}
-            </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <Button
+                    type="button"
+                    onClick={() => handleValidate(actionReturn.id, "replace")}
+                    disabled={replaceDisabled(actionReturn.id)}
+                    className="h-10 w-full rounded-xl bg-orange-500 text-white hover:bg-orange-600 disabled:bg-orange-200"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Remplacer
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => handleValidate(actionReturn.id, "add")}
+                    className="h-10 w-full rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Compléter
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleValidate(actionReturn.id, "reject")}
+                    className="h-10 w-full rounded-xl border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                  >
+                    <Ban className="mr-2 h-4 w-4" />
+                    Refuser
+                  </Button>
+                </div>
+              </div>
+            </article>
+          ))}
+          {pendingTotalPages > 1 ? (
             <ListPaginationBar
               currentPage={pendingPage}
               totalPages={pendingTotalPages}
               totalItems={pendingReturns.length}
               onPageChange={setPendingPage}
               itemLabel="retour(s) en attente"
-              className="mt-4"
             />
-          </CardContent>
-        </Card>
+          ) : null}
+        </section>
       )}
 
-      {/* Historique */}
       {historyReturns.length > 0 && (
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-purple-600" />
-              Historique des retours d'action ({historyReturns.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {paginatedHistoryReturns.map((actionReturn) => (
-                  <Card
-                    key={actionReturn.id}
-                    className={`border-2 ${
-                      actionReturn.status === 'rejected'
-                        ? 'border-red-200 bg-red-50'
-                        : 'border-green-200 bg-green-50'
-                    }`}
-                  >
-                    <CardContent className="pt-4 space-y-3">
-                      {/* En-tête */}
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold">
-                            {actionReturn.proposedBy.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-800">{actionReturn.proposedBy}</p>
-                            <p className="text-xs text-gray-500 flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(actionReturn.proposedDate).toLocaleDateString('fr-FR', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        {getStatusBadge(actionReturn.status)}
-                      </div>
-
-                      {/* Mesure proposée */}
-                      <div className="p-3 bg-white rounded-lg border">
-                        <p className="text-sm text-gray-700">{actionReturn.proposedMeasure}</p>
-                      </div>
-
-                      {/* Validation */}
-                      {actionReturn.reviewedBy && (
-                        <div className={`p-3 rounded-lg border ${
-                          actionReturn.status === 'rejected' 
-                            ? 'bg-red-100 border-red-300' 
-                            : 'bg-green-100 border-green-300'
-                        }`}>
-                          <div className="flex items-center gap-2 mb-1">
-                            {actionReturn.status === 'rejected' ? (
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            )}
-                            <span className="text-sm font-semibold">
-                              {actionReturn.status === 'rejected' ? 'Refusé' : 'Validé'} par {actionReturn.reviewedBy}
-                            </span>
-                            {actionReturn.reviewedDate && (
-                              <span className="text-xs text-gray-500 ml-auto">
-                                le {new Date(actionReturn.reviewedDate).toLocaleDateString('fr-FR', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            )}
-                          </div>
-                          {actionReturn.status === 'validated_replace' && actionReturn.targetMeasureText && (
-                            <div className="mt-2 text-xs text-gray-600">
-                              <span className="font-semibold">Mesure remplacée : </span>
-                              <span className="line-through">{actionReturn.targetMeasureText}</span>
-                            </div>
-                          )}
-                          {actionReturn.reviewComment && (
-                            <div className="mt-2 text-sm text-gray-700 bg-white/50 p-2 rounded">
-                              <MessageSquare className="h-3 w-3 inline mr-1" />
-                              {actionReturn.reviewComment}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-              ))}
-            </div>
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Historique</h2>
+          {paginatedHistoryReturns.map((actionReturn) => {
+            const refused = actionReturn.status === "rejected";
+            return (
+              <article
+                key={actionReturn.id}
+                className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${refused ? "border-rose-100" : "border-emerald-100"}`}
+              >
+                <div className={`h-1.5 ${refused ? "bg-gradient-to-r from-rose-300 to-rose-500" : "bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500"}`} />
+                <div className="space-y-3 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">{actionReturn.proposedBy}</p>
+                      <p className="mt-0.5 text-sm text-slate-500">{formatDateTime(actionReturn.proposedDate)}</p>
+                    </div>
+                    {statusChip(actionReturn.status)}
+                  </div>
+                  <p className="text-sm leading-6 text-slate-700">{actionReturn.proposedMeasure}</p>
+                  {actionReturn.reviewedBy ? (
+                    <div className={`rounded-2xl border p-3 ${refused ? "border-rose-100 bg-rose-50/70" : "border-emerald-100 bg-emerald-50/70"}`}>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {refused ? "Refusé" : "Validé"} par {actionReturn.reviewedBy}
+                        {actionReturn.reviewedDate ? ` le ${formatDateTime(actionReturn.reviewedDate)}` : ""}
+                      </p>
+                      {actionReturn.status === "validated_replace" && actionReturn.targetMeasureText ? (
+                        <p className="mt-2 text-sm text-slate-600">
+                          Mesure remplacée <span className="line-through">{actionReturn.targetMeasureText}</span>
+                        </p>
+                      ) : null}
+                      {actionReturn.reviewComment ? (
+                        <p className="mt-2 flex items-start gap-2 text-sm leading-6 text-slate-700">
+                          <MessageSquare className="mt-1 h-3.5 w-3.5 shrink-0" />
+                          {actionReturn.reviewComment}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+          {historyTotalPages > 1 ? (
             <ListPaginationBar
               currentPage={historyPage}
               totalPages={historyTotalPages}
               totalItems={historyReturns.length}
               onPageChange={setHistoryPage}
               itemLabel="retour(s) dans l'historique"
-              className="mt-4"
             />
-          </CardContent>
-        </Card>
+          ) : null}
+        </section>
       )}
 
-      {/* Message si aucun retour */}
-      {user.role === 'admin' && pendingReturns.length === 0 && historyReturns.length === 0 && (
-        <Card className="border-2 border-dashed border-gray-300">
+      {user.role === "admin" && pendingReturns.length === 0 && historyReturns.length === 0 && (
+        <Card className="border border-dashed border-slate-200 bg-white shadow-sm">
           <CardContent className="py-12 text-center">
-            <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 italic">Aucun retour d'action enregistré pour ce risque</p>
+            <MessageSquare className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+            <p className="text-sm text-slate-500">Aucun retour d'action sur cette fiche.</p>
           </CardContent>
         </Card>
       )}

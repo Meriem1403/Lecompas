@@ -94,13 +94,13 @@ export function computeRiskWorkflowStatus(
 export function getRiskWorkflowStatusLabel(status: RiskWorkflowStatus | string | undefined): string {
   switch (status) {
     case "a_traiter":
-      return "A traiter";
+      return "À traiter";
     case "en_traitement":
       return "En traitement";
     case "maitrise":
-      return "Maitrise";
+      return "Maîtrisé";
     case "supprime":
-      return "Supprime";
+      return "Supprimé";
     case "en_cours":
       return "En cours";
     case "identifié":

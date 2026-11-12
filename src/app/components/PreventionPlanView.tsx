@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLeaveGuard } from "@/app/components/leaveGuard";
 import { isBackendApiEnabled } from "@/app/config/dataBackend";
 import { isApiAccessToken } from "@/lib/apiClient";
 import {
@@ -13,6 +14,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
+import { ColumnFilterPopover } from "@/app/components/ui/column-filter-popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
 import { Separator } from "@/app/components/ui/separator";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -21,13 +23,17 @@ import {
   AlertTriangle,
   ArrowLeft,
   Building2,
+  Calendar,
   Check,
   ChevronsUpDown,
   ClipboardList,
   Download,
+  Edit,
+  Eye,
   FileText,
-  Filter,
   Info,
+  LayoutGrid,
+  MapPin,
   Paperclip,
   PhoneCall,
   PlusCircle,
@@ -36,12 +42,15 @@ import {
   Send,
   Shield,
   Signature,
-  Target,
+  SlidersHorizontal,
+  Table2,
   Trash2,
   Upload,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ListPaginationBar } from "@/app/components/ui/list-pagination-bar";
+import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "@/app/components/ui/list-pagination-bar";
+import { emptyColumnFilterState, type ColumnFilterKind, type ColumnFilterState } from "@/app/utils/riskManagementFilterLogic";
 import { loadPreventionPlans, savePreventionPlans } from "@/app/utils/lecompasStorage";
 import {
   AlertDialog,
@@ -69,6 +78,8 @@ import type {
   PlanAnnexAttachment,
   PlanProtocolFields,
   PlanRecord,
+  PlanStatus,
+  RiskInput,
 } from "@/app/types/preventionPlan";
 
 const PLAN_ANNEX_MAX_BYTES = 12 * 1024 * 1024;
@@ -129,32 +140,62 @@ interface PreventionPlanViewProps {
 }
 
 const statusLabel: Record<PlanStatus, string> = {
-  a_lancer: "A lancer",
+  a_lancer: "À lancer",
   en_cours: "En cours",
-  termine: "Termine",
+  termine: "Terminé",
 };
 
-const statusClass: Record<PlanStatus, string> = {
-  a_lancer: "bg-amber-100 text-amber-800 border-amber-300",
-  en_cours: "bg-teal-100 text-teal-800 border-teal-300",
-  termine: "bg-emerald-100 text-emerald-800 border-emerald-300",
+const statusTone: Record<PlanStatus, { chip: string; dot: string }> = {
+  a_lancer: { chip: "bg-amber-50 text-amber-950 ring-amber-300", dot: "bg-amber-500" },
+  en_cours: { chip: "bg-sky-50 text-sky-950 ring-sky-300", dot: "bg-sky-600" },
+  termine: { chip: "bg-emerald-50 text-emerald-950 ring-emerald-300", dot: "bg-emerald-600" },
 };
+
+function PlanStatusMark({ status }: { status: PlanStatus }) {
+  const tone = statusTone[status];
+  return (
+    <span className={cn("inline-flex items-center gap-2 rounded-lg px-2.5 py-1 text-xs font-semibold ring-1 ring-inset", tone.chip)}>
+      <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} aria-hidden />
+      {statusLabel[status]}
+    </span>
+  );
+}
+
+function PlanDateField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative w-full">
+      <input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="relative h-11 w-full rounded-xl border border-slate-200 bg-white pl-3 pr-10 text-sm text-stone-900 shadow-sm outline-none focus:border-rose-900 focus:ring-4 focus:ring-rose-100 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:top-1/2 [&::-webkit-calendar-picker-indicator]:h-5 [&::-webkit-calendar-picker-indicator]:w-5 [&::-webkit-calendar-picker-indicator]:-translate-y-1/2 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+      />
+      <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" aria-hidden />
+    </div>
+  );
+}
+
+const planSelectClass = "h-11 w-full rounded-xl border-slate-200 bg-white py-0 shadow-sm data-[size=default]:h-11";
+const planFileClass = "h-11 rounded-xl border-slate-200 bg-white px-3 py-1 text-sm shadow-sm file:mr-3 file:inline-flex file:h-8 file:items-center file:rounded-lg file:border-0 file:bg-stone-100 file:px-3 file:text-sm file:font-medium file:text-stone-800";
+
+function formatPlanDate(value: string | undefined): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value?.trim() || "");
+  if (!match) return value?.trim() || "Non définie";
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
 
 const priorityLabelUi: Record<"haute" | "moyenne" | "basse", string> = {
   haute: "Haute",
   moyenne: "Moyenne",
   basse: "Basse",
 };
-
-/** Sous-titre carte liste : évite la répétition du type d’opération (déjà dans le titre / nature). */
-function planCardSubtitle(plan: Pick<PlanRecord, "service" | "dueDate" | "priority" | "riskNumber">): string {
-  const parts: string[] = [];
-  if (plan.service?.trim()) parts.push(`Service : ${plan.service.trim()}`);
-  if (plan.dueDate?.trim()) parts.push(`Échéance : ${plan.dueDate.trim()}`);
-  if (parts.length > 0) return parts.join(" · ");
-  if (plan.riskNumber?.trim()) return plan.riskNumber.trim();
-  return `Priorité : ${priorityLabelUi[plan.priority]}`;
-}
 
 function newRiskEvaluationRow(): PlanRiskEvaluationRow {
   return {
@@ -267,25 +308,6 @@ function migrateCoIntervenantRows(protocol: Partial<PlanProtocolFields> & Record
   if (legacy.length > 0) return legacy;
   if (fromArray.length > 0) return fromArray;
   return [newCoIntervenantRow()];
-}
-
-function formatCoIntervenantsForPdf(rows: PlanCoIntervenantRow[]): string {
-  const filled = rows.filter(coIntervenantRowHasContent);
-  if (filled.length === 0) return "Aucun co-intervenant renseigne.";
-  return filled
-    .map((r, idx) => {
-      const parts: string[] = [];
-      const title = r.qualite.trim()
-        ? `${idx + 1}. [${r.qualite.trim()}] ${r.denomination.trim() || "—"}`
-        : `${idx + 1}. ${r.denomination.trim() || "—"}`;
-      parts.push(title);
-      if (r.adresse.trim()) parts.push(`Adresse : ${r.adresse.trim()}`);
-      const c = [r.contactNom.trim(), r.contactEmail.trim()].filter(Boolean).join(" — ");
-      if (c) parts.push(`Contact : ${c}`);
-      if (r.complements.trim()) parts.push(r.complements.trim());
-      return parts.join("\n");
-    })
-    .join("\n\n");
 }
 
 /** Garantit des ids distincts pour chaque ligne §4 ; des doublons font que plusieurs éditeurs partagent une même mise à jour d’état (saisie « qui ne reste pas »). */
@@ -474,14 +496,14 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
         <Label className="text-sm font-medium">Risque de l’évaluation interne (facultatif)</Label>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
           {linked ? (
-            <div className="flex min-h-9 flex-1 items-center gap-2 rounded-md border-2 border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+            <div className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
               <span className="min-w-0 flex-1 truncate text-left text-slate-900">
                 {linked.numeroRisque} — {linked.title}
               </span>
             </div>
           ) : (
             <Input
-              className="flex-1 border-2 border-slate-300 min-h-9"
+              className="h-11 flex-1 rounded-xl border-slate-200 bg-white shadow-sm"
               placeholder="Saisie libre : référence, intitulé ou mention hors liste du référentiel"
               value={row.evaluationRiskFreeText ?? ""}
               onChange={(e) => onPatch({ evaluationRiskFreeText: e.target.value })}
@@ -495,7 +517,7 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
                 variant="outline"
                 role="combobox"
                 aria-expanded={riskSearchOpen}
-                className="w-full shrink-0 justify-center gap-2 border-2 border-slate-300 font-normal sm:w-auto sm:min-w-[10rem]"
+                className="h-11 w-full shrink-0 justify-center gap-2 rounded-xl border-violet-200 bg-violet-50 font-normal text-violet-900 hover:bg-violet-100 sm:w-auto sm:min-w-[10rem]"
               >
                 <Search className="h-4 w-4 opacity-70" aria-hidden />
                 Référentiel
@@ -570,7 +592,7 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
                     }
                   }}
                 >
-                  <SelectTrigger className="bg-white border-violet-200">
+                  <SelectTrigger className="h-11 w-full rounded-xl border-violet-200 bg-white py-0 shadow-sm data-[size=default]:h-11">
                     <SelectValue placeholder="Insérer dans « Situation dangereuse »" />
                   </SelectTrigger>
                   <SelectContent>
@@ -596,7 +618,7 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
                     }
                   }}
                 >
-                  <SelectTrigger className="bg-white border-violet-200">
+                  <SelectTrigger className="h-11 w-full rounded-xl border-violet-200 bg-white py-0 shadow-sm data-[size=default]:h-11">
                     <SelectValue placeholder="Insérer dans « Dommages associés »" />
                   </SelectTrigger>
                   <SelectContent>
@@ -637,7 +659,7 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
                   onPatch({ mesuresPrevention: cur ? `${cur}\n${line}` : line });
                 }}
               >
-                <SelectTrigger className="bg-white border-violet-200 max-w-full">
+                <SelectTrigger className="h-11 w-full max-w-full rounded-xl border-violet-200 bg-white py-0 shadow-sm data-[size=default]:h-11">
                   <SelectValue placeholder="Insérer dans « Mesures de prévention »" />
                 </SelectTrigger>
                 <SelectContent>
@@ -670,7 +692,7 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
             value={row.domaine ?? ""}
             onChange={(e) => onPatch({ domaine: e.target.value })}
             placeholder="Description de la situation dangereuse (ou texte hors référentiel)…"
-            className="field-sizing-fixed min-h-[96px] resize-y border-2 border-slate-200"
+            className="field-sizing-fixed min-h-[96px] resize-y rounded-xl border-slate-200 bg-white shadow-sm"
           />
         </div>
         <div className="space-y-2">
@@ -680,7 +702,7 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
             value={row.natureRisques ?? ""}
             onChange={(e) => onPatch({ natureRisques: e.target.value })}
             placeholder="Dommages / conséquences possibles (ou texte libre)…"
-            className="field-sizing-fixed min-h-[96px] resize-y border-2 border-slate-200"
+            className="field-sizing-fixed min-h-[96px] resize-y rounded-xl border-slate-200 bg-white shadow-sm"
           />
         </div>
         <div className="space-y-2">
@@ -690,12 +712,165 @@ function RiskEvaluationLineEditor({ row, risks, onPatch }: RiskEvaluationLineEdi
             value={row.mesuresPrevention ?? ""}
             onChange={(e) => onPatch({ mesuresPrevention: e.target.value })}
             placeholder="Mesures existantes, compléments ou toute précision hors liste…"
-            className="field-sizing-fixed min-h-[96px] resize-y border-2 border-slate-200"
+            className="field-sizing-fixed min-h-[96px] resize-y rounded-xl border-slate-200 bg-white shadow-sm"
           />
         </div>
       </div>
     </div>
   );
+}
+
+type PlanColumnKey = "numero" | "title" | "service" | "status" | "priority" | "due" | "lieu" | "structures" | "owner";
+
+const PLAN_COLUMNS: Array<{ key: PlanColumnKey; label: string; kind: ColumnFilterKind }> = [
+  { key: "numero", label: "N°", kind: "number" },
+  { key: "title", label: "Plan", kind: "text" },
+  { key: "service", label: "Service", kind: "text" },
+  { key: "status", label: "Statut", kind: "text" },
+  { key: "priority", label: "Priorité", kind: "text" },
+  { key: "due", label: "Échéance", kind: "date" },
+  { key: "lieu", label: "Lieu", kind: "text" },
+  { key: "structures", label: "Structures", kind: "number" },
+  { key: "owner", label: "Responsable", kind: "text" },
+];
+
+type PlanColumnFacts = Record<PlanColumnKey, string>;
+
+function emptyPlanColumnFilters(): Record<PlanColumnKey, ColumnFilterState> {
+  return {
+    numero: emptyColumnFilterState(),
+    title: emptyColumnFilterState(),
+    service: emptyColumnFilterState(),
+    status: emptyColumnFilterState(),
+    priority: emptyColumnFilterState(),
+    due: emptyColumnFilterState(),
+    lieu: emptyColumnFilterState(),
+    structures: emptyColumnFilterState(),
+    owner: emptyColumnFilterState(),
+  };
+}
+
+function structuresLabel(count: number): string {
+  if (count <= 0) return "Aucune";
+  return `${count} co-intervenant${count > 1 ? "s" : ""}`;
+}
+
+function buildPlanColumnFacts(plan: PlanRecord, risks: RiskInput[], currentUserName: string): PlanColumnFacts {
+  const protocol = mergePlanProtocol(plan.protocol, risks.find((risk) => risk.id === plan.riskId), currentUserName);
+  const structures = protocol.coIntervenantRows.filter(coIntervenantRowHasContent).length;
+  return {
+    numero: plan.riskNumber?.trim() || "",
+    title: plan.riskTitle?.trim() || normalizeDocumentTitle(protocol.protocoleTitle, "Plan de prévention"),
+    service: plan.service?.trim() || "Service non renseigné",
+    status: statusLabel[plan.status],
+    priority: priorityLabelUi[plan.priority],
+    due: /^(\d{4})-(\d{2})-(\d{2})/.exec(plan.dueDate?.trim() || "")?.[0] || "",
+    lieu: protocol.lieuLivraison?.trim() || plan.location?.trim() || "Non renseigné",
+    structures: String(structures),
+    owner: plan.owner?.trim() || "non renseigné",
+  };
+}
+
+function planColumnLabel(key: PlanColumnKey, value: string): string {
+  if (key === "structures") return structuresLabel(Number(value) || 0);
+  if (key === "due") return formatPlanDate(value);
+  return value.trim() || "(vide)";
+}
+
+function parsePlanFilterDate(value: string): string {
+  const trimmed = value.trim();
+  const french = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (french) {
+    const [, day, month, year] = french;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+  return trimmed.slice(0, 10);
+}
+
+function planColumnFilterActive(filter: ColumnFilterState): boolean {
+  return filter.values !== null || (filter.operator !== "none" && filter.query.trim().length > 0);
+}
+
+function matchesPlanColumn(facts: PlanColumnFacts, key: PlanColumnKey, filter: ColumnFilterState): boolean {
+  const value = facts[key];
+  if (filter.values !== null && !filter.values.includes(value)) return false;
+  if (filter.operator === "none" || !filter.query.trim()) return true;
+  const kind = PLAN_COLUMNS.find((column) => column.key === key)?.kind ?? "text";
+  const displayed = planColumnLabel(key, value).toLocaleLowerCase("fr");
+  const query = filter.query.trim().toLocaleLowerCase("fr");
+  if (kind === "number") {
+    const current = Number(value.replace(",", "."));
+    const min = Number(filter.query.trim().replace(",", "."));
+    const max = Number(filter.queryTo.trim().replace(",", "."));
+    if (!Number.isFinite(current) || !Number.isFinite(min)) return false;
+    switch (filter.operator) {
+      case "equals":
+        return current === min;
+      case "notEquals":
+        return current !== min;
+      case "gt":
+        return current > min;
+      case "gte":
+        return current >= min;
+      case "lt":
+        return current < min;
+      case "lte":
+        return current <= min;
+      case "between":
+        return Number.isFinite(max) && current >= Math.min(min, max) && current <= Math.max(min, max);
+      default:
+        return displayed.includes(query);
+    }
+  }
+  if (kind === "date") {
+    const current = parsePlanFilterDate(value);
+    const min = parsePlanFilterDate(filter.query);
+    const max = parsePlanFilterDate(filter.queryTo);
+    if (!current || !min) return false;
+    switch (filter.operator) {
+      case "equals":
+        return current === min;
+      case "notEquals":
+        return current !== min;
+      case "gt":
+        return current > min;
+      case "lt":
+        return current < min;
+      case "between":
+        return Boolean(max) && current >= (min < max ? min : max) && current <= (min < max ? max : min);
+      default:
+        return displayed.includes(query);
+    }
+  }
+  switch (filter.operator) {
+    case "equals":
+      return displayed === query;
+    case "notEquals":
+      return displayed !== query;
+    case "startsWith":
+      return displayed.startsWith(query);
+    case "endsWith":
+      return displayed.endsWith(query);
+    case "notContains":
+      return !displayed.includes(query);
+    case "contains":
+      return displayed.includes(query);
+    default:
+      return true;
+  }
+}
+
+function comparePlanColumn(left: string, right: string, key: PlanColumnKey): number {
+  const kind = PLAN_COLUMNS.find((column) => column.key === key)?.kind ?? "text";
+  if (kind === "number") {
+    const leftNumber = Number(left.replace(",", "."));
+    const rightNumber = Number(right.replace(",", "."));
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && leftNumber !== rightNumber) {
+      return leftNumber - rightNumber;
+    }
+  }
+  if (kind === "date") return parsePlanFilterDate(left).localeCompare(parsePlanFilterDate(right));
+  return planColumnLabel(key, left).localeCompare(planColumnLabel(key, right), "fr", { numeric: true, sensitivity: "base" });
 }
 
 export function PreventionPlanView({
@@ -712,9 +887,12 @@ export function PreventionPlanView({
   const [statusFilter, setStatusFilter] = useState<"all" | PlanStatus>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | "haute" | "moyenne" | "basse">("all");
   const [serviceFilter, setServiceFilter] = useState("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [displayMode, setDisplayMode] = useState<"cards" | "table">("cards");
+  const [columnFilters, setColumnFilters] = useState(emptyPlanColumnFilters);
+  const [columnSort, setColumnSort] = useState<{ key: PlanColumnKey; direction: "asc" | "desc" } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 6;
-  const annexFilesInputRef = useRef<HTMLInputElement>(null);
+  const pageSize = displayMode === "table" ? TABLE_LIST_PAGE_SIZE : 6;
   const [planPendingDelete, setPlanPendingDelete] = useState<PlanRecord | null>(null);
   const [form, setForm] = useState({
     owner: "",
@@ -875,11 +1053,41 @@ export function PreventionPlanView({
     [plans],
   );
 
+  const planFacts = useMemo(() => {
+    const facts = new Map<string, PlanColumnFacts>();
+    plans.forEach((plan) => {
+      facts.set(plan.id, buildPlanColumnFacts(plan, risks, currentUserName));
+    });
+    return facts;
+  }, [plans, risks, currentUserName]);
+
+  const columnOptions = useMemo(() => {
+    return Object.fromEntries(
+      PLAN_COLUMNS.map((column) => {
+        const seen = new Map<string, string>();
+        plans.forEach((plan) => {
+          const value = planFacts.get(plan.id)?.[column.key] ?? "";
+          if (!seen.has(value)) seen.set(value, planColumnLabel(column.key, value));
+        });
+        return [
+          column.key,
+          [...seen.entries()]
+            .map(([value, label]) => ({ value, label }))
+            .sort((left, right) => left.label.localeCompare(right.label, "fr", { numeric: true })),
+        ];
+      }),
+    ) as Record<PlanColumnKey, Array<{ value: string; label: string }>>;
+  }, [plans, planFacts]);
+
   const visiblePlans = useMemo(() => {
-    return plans.filter((plan) => {
+    const filtered = plans.filter((plan) => {
       if (statusFilter !== "all" && plan.status !== statusFilter) return false;
       if (priorityFilter !== "all" && plan.priority !== priorityFilter) return false;
       if (serviceFilter !== "all" && plan.service !== serviceFilter) return false;
+      const facts = planFacts.get(plan.id);
+      if (facts && !PLAN_COLUMNS.every((column) => matchesPlanColumn(facts, column.key, columnFilters[column.key]))) {
+        return false;
+      }
       const lower = query.trim().toLowerCase();
       if (!lower) return true;
       const annexBlob = Array.isArray(plan.protocol.annexAttachments)
@@ -890,11 +1098,20 @@ export function PreventionPlanView({
         plan.riskTitle.toLowerCase().includes(lower) ||
         plan.owner.toLowerCase().includes(lower) ||
         plan.objective.toLowerCase().includes(lower) ||
+        (facts?.lieu ?? "").toLowerCase().includes(lower) ||
         annexBlob.includes(lower)
       );
     });
-  }, [plans, query, priorityFilter, serviceFilter, statusFilter]);
+    if (!columnSort) return filtered;
+    return [...filtered].sort((left, right) => {
+      const leftValue = planFacts.get(left.id)?.[columnSort.key] ?? "";
+      const rightValue = planFacts.get(right.id)?.[columnSort.key] ?? "";
+      const compared = comparePlanColumn(leftValue, rightValue, columnSort.key);
+      return columnSort.direction === "asc" ? compared : -compared;
+    });
+  }, [plans, planFacts, query, priorityFilter, serviceFilter, statusFilter, columnFilters, columnSort]);
 
+  const columnFiltersActive = PLAN_COLUMNS.some((column) => planColumnFilterActive(columnFilters[column.key]));
   const totalPages = Math.max(1, Math.ceil(visiblePlans.length / pageSize));
   const paginatedPlans = useMemo(
     () => visiblePlans.slice((currentPage - 1) * pageSize, currentPage * pageSize),
@@ -1259,117 +1476,17 @@ export function PreventionPlanView({
     const mergedProtocol = mergePlanProtocol(plan.protocol, risks.find((r) => r.id === plan.riskId), currentUserName);
     try {
       const { downloadPreventionPlanVisualPdf } = await import("./preventionPlanVisualPdf");
-      const visualOk = await downloadPreventionPlanVisualPdf(plan, mergedProtocol, risks);
-      if (visualOk) {
-        toast.success("PDF téléchargé (mise en page proche de la fiche à l’écran).");
-        return;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-
-    try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "mm", format: "a4" });
-      const pageHeight = 297;
-      const margin = 14;
-      const contentWidth = 182;
-      let y = 16;
-
-      const ensureSpace = (needed = 14) => {
-        if (y + needed > pageHeight - 14) {
-          doc.addPage();
-          y = 16;
-        }
-      };
-
-      const addTitle = (title: string) => {
-        ensureSpace(10);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(13);
-        doc.text(title, margin, y);
-        y += 7;
-      };
-
-      const addBlock = (label: string, value: string) => {
-        ensureSpace(10);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text(label, margin, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        const lines = doc.splitTextToSize(value || "-", contentWidth);
-        doc.text(lines, margin, y);
-        y += lines.length * 4 + 2;
-      };
-
-      doc.setFillColor(15, 118, 110);
-      doc.rect(0, 0, 210, 14, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text("PLAN DE PREVENTION", margin, 9);
-      doc.setTextColor(0, 0, 0);
-      y = 20;
-
-      addTitle(`${plan.riskNumber} - ${plan.riskTitle}`);
-      addBlock("Reference", mergedProtocol.codeTravailReference);
-      addBlock("Objectif", plan.objective);
-      addBlock(
-        "1) Co-intervenants (entreprises / administrations / organismes)",
-        formatCoIntervenantsForPdf(mergedProtocol.coIntervenantRows),
-      );
-      addBlock("2) Nature de la prestation (ensemble de l'operation)", mergedProtocol.prestationNature);
-      addBlock("3) Organisation du chargement/dechargement", `Lieu: ${mergedProtocol.lieuLivraison}\nMateriels: ${mergedProtocol.materielsSpecifiques}\nConsignes site: ${mergedProtocol.consignesSite}\nConsignes operation: ${mergedProtocol.consignesOperation}`);
-      const riskLines = mergedProtocol.riskEvaluationRows
-        .map((r, idx) => {
-          const refRisk = r.linkedEvaluationRiskId
-            ? risks.find((x) => x.id === r.linkedEvaluationRiskId)
-            : undefined;
-          const refNote = refRisk ? `\nReference evaluation interne : ${refRisk.numeroRisque}` : "";
-          const freeNote =
-            !refRisk && (r.evaluationRiskFreeText ?? "").trim().length > 0
-              ? `\nRisque (mention hors référentiel) : ${(r.evaluationRiskFreeText ?? "").trim()}`
-              : "";
-          return `Ligne ${idx + 1} — Situation dangereuse: ${r.domaine || "-"}\nDommages associés: ${r.natureRisques || "-"}\nMesures de prevention: ${r.mesuresPrevention || "-"}${refNote}${freeNote}`;
-        })
-        .join("\n\n");
-      addBlock(
-        "4) Evaluation des risques (CT R4515-5)",
-        `${riskLines || "Aucune ligne renseignee."}\n\nComplement libre:\n${mergedProtocol.evaluationRisques || "-"}`,
-      );
-      addBlock("5) Premiers secours (CT R4515-6)", `Personnes a prevenir: ${mergedProtocol.personnesAPrevenir}\nMesures urgence: ${mergedProtocol.mesuresUrgence}`);
-      addBlock("6) Plan de prevention transmis a (CT R4515-11)", `${mergedProtocol.planTransmis}\nCellule securite: ${mergedProtocol.transmissionCelluleSecuriteStatus} - ${mergedProtocol.transmissionCelluleSecuriteNom} (${mergedProtocol.transmissionCelluleSecuriteObs})\nCorrespondant site: ${mergedProtocol.transmissionCorrespondantSiteStatus} - ${mergedProtocol.transmissionCorrespondantSiteNom} (${mergedProtocol.transmissionCorrespondantSiteObs})\nCorrespondant APB: ${mergedProtocol.transmissionCorrespondantAPBStatus} - ${mergedProtocol.transmissionCorrespondantAPBNom} (${mergedProtocol.transmissionCorrespondantAPBObs})`);
-      addBlock("7) Observations / remarques", mergedProtocol.observationsRemarques);
-      addBlock("8) Signatures", `${mergedProtocol.signatureEntite1} - ${mergedProtocol.signatureNom1} ${mergedProtocol.signaturePrenom1} - ${mergedProtocol.signatureDate1}\n${mergedProtocol.signatureEntite2} - ${mergedProtocol.signatureNom2} ${mergedProtocol.signaturePrenom2} - ${mergedProtocol.signatureDate2}\n${mergedProtocol.signatureEntite3} - ${mergedProtocol.signatureNom3} ${mergedProtocol.signaturePrenom3} - ${mergedProtocol.signatureDate3}`);
-      addBlock("10) Plan de circulation et de dechargement", mergedProtocol.planCirculation);
-      addBlock("Materiel a remplacer", mergedProtocol.materielRemplacer);
-      const annexFilesBlock =
-        mergedProtocol.annexAttachments.length > 0
-          ? mergedProtocol.annexAttachments
-              .map((a, idx) => `${idx + 1}. ${a.fileName} (${formatByteSize(a.sizeBytes)})`)
-              .join("\n")
-          : "";
-      const annexComplement =
-        mergedProtocol.annexesDocuments.trim().length > 0 ? mergedProtocol.annexesDocuments.trim() : "";
-      addBlock(
-        "Annexes et documents joints",
-        [annexFilesBlock && `Fichiers (${mergedProtocol.annexAttachments.length}) :\n${annexFilesBlock}`, annexComplement]
-          .filter(Boolean)
-          .join("\n\n") || "-",
-      );
-
-      doc.save(`plan-prevention-${plan.riskNumber || plan.id}.pdf`);
-      toast.success("PDF téléchargé (version texte simplifiée, fallback).");
+      await downloadPreventionPlanVisualPdf(plan, mergedProtocol, risks);
+      toast.success("PDF téléchargé.");
     } catch (error) {
-      toast.error("Impossible de generer le PDF.");
+      console.error(error);
+      toast.error("Impossible de générer le PDF.");
     }
   };
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [query, statusFilter, priorityFilter, serviceFilter]);
-
+  }, [query, statusFilter, priorityFilter, serviceFilter, columnFilters, displayMode]);
   React.useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -1380,79 +1497,92 @@ export function PreventionPlanView({
     return (
       <>
       <div className="space-y-6 p-3 sm:p-6">
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={() => handleDownloadPlan(selectedPlan)}
-              className="w-full sm:w-auto border-teal-300 text-teal-700 hover:bg-teal-50"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Télécharger
-            </Button>
-            {canEdit ? (
-              <Button
-                onClick={() => openEdit(selectedPlan)}
-                className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
-              >
-                Modifier
-              </Button>
-            ) : null}
-            {canEdit ? (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Consultation du plan de prévention</h1>
+          <p className="mt-1 text-sm text-slate-500">Même fiche pour la lecture, la modification et l'export.</p>
+        </div>
+
+        <article className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="space-y-5 p-4 sm:p-5">
+            <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
               <Button
                 variant="outline"
-                onClick={() => setPlanPendingDelete(selectedPlan)}
-                className="w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-900"
+                onClick={() => requestLeave(() => {
+                  setViewMode("list");
+                  setSelectedPlanSnapshot(null);
+                })}
+                className="h-10 w-full rounded-lg border-slate-300 bg-white text-slate-700 hover:bg-slate-50 sm:w-fit"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Supprimer
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Retour
               </Button>
-            ) : null}
-          </div>
-          <div className="flex justify-end pt-3 border-t border-slate-200">
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => {
-                setViewMode("list");
-                setSelectedPlanSnapshot(null);
-              }}
-              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
-            </Button>
-          </div>
-        </div>
-
-        <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-emerald-900 to-teal-900 text-white">
-          <CardHeader>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center">
-                  <Shield className="h-7 w-7" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">Plan de prevention</p>
-                  <CardTitle className="text-2xl mt-1">{selectedPlan.riskNumber} — {selectedPlan.riskTitle}</CardTitle>
-                  <CardDescription className="text-emerald-100 mt-2">{selectedProtocol.codeTravailReference}</CardDescription>
-                </div>
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => handleDownloadPlan(selectedPlan)}
+                  className="h-10 rounded-lg border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Télécharger
+                </Button>
+                {canEdit ? (
+                  <Button
+                    onClick={() => openEdit(selectedPlan)}
+                    className="h-10 rounded-lg bg-rose-900 text-white hover:bg-rose-950"
+                  >
+                    Modifier
+                  </Button>
+                ) : null}
+                {canEdit ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setPlanPendingDelete(selectedPlan)}
+                    className="h-10 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer
+                  </Button>
+                ) : null}
               </div>
-              <Badge className={statusClass[selectedPlan.status]}>{statusLabel[selectedPlan.status]}</Badge>
             </div>
-          </CardHeader>
-        </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <Card className="border-2 border-indigo-100 bg-indigo-50/70"><CardContent className="p-4"><p className="text-xs text-indigo-700 font-semibold uppercase">Service</p><p className="font-semibold text-indigo-900 mt-1">{selectedPlan.service}</p></CardContent></Card>
-          <Card className="border-2 border-teal-100 bg-teal-50/70"><CardContent className="p-4"><p className="text-xs text-teal-700 font-semibold uppercase">Domaine</p><p className="font-semibold text-teal-900 mt-1">{selectedPlan.domain}</p></CardContent></Card>
-          <Card className="border-2 border-cyan-100 bg-cyan-50/70"><CardContent className="p-4"><p className="text-xs text-cyan-700 font-semibold uppercase">Lieu</p><p className="font-semibold text-cyan-900 mt-1">{selectedPlan.location}</p></CardContent></Card>
-          <Card className="border-2 border-emerald-100 bg-emerald-50/70"><CardContent className="p-4"><p className="text-xs text-emerald-700 font-semibold uppercase">Responsable</p><p className="font-semibold text-emerald-900 mt-1">{selectedPlan.owner}</p></CardContent></Card>
-        </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm text-slate-500">Risque n° {selectedPlan.riskNumber || "—"}</p>
+                <h2 className="mt-1 text-xl font-semibold leading-snug text-slate-950">{selectedPlan.riskTitle}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">{selectedProtocol.codeTravailReference || "Référence non renseignée"}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <PlanStatusMark status={selectedPlan.status} />
+                <span className="text-sm text-slate-600">Priorité {priorityLabelUi[selectedPlan.priority].toLowerCase()}</span>
+              </div>
+            </div>
 
-        <Card className="border-0 shadow-xl bg-white">
+            <dl className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="min-w-0">
+                <dt className="text-xs text-slate-500">Service</dt>
+                <dd className="mt-1 break-words text-sm font-medium text-slate-900">{selectedPlan.service || "Non renseigné"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-slate-500">Domaine</dt>
+                <dd className="mt-1 break-words text-sm font-medium text-slate-900">{selectedPlan.domain || "Non renseigné"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-slate-500">Lieu de l'opération</dt>
+                <dd className="mt-1 break-words text-sm font-medium text-slate-900">{selectedPlan.location || "Non renseigné"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-slate-500">Responsable</dt>
+                <dd className="mt-1 break-words text-sm font-medium text-slate-900">{selectedPlan.owner || "Non renseigné"}</dd>
+              </div>
+            </dl>
+          </div>
+        </article>
+
+        <Card className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Actions de prevention</CardTitle>
+            <CardTitle className="text-lg">Actions de prévention</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {selectedPlan.actions.map((action, index) => (
@@ -1463,7 +1593,7 @@ export function PreventionPlanView({
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-indigo-100 shadow-sm">
+        <Card className="overflow-hidden rounded-2xl border border-indigo-100 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base text-indigo-900">1) Co-intervenants (entreprises, administrations, organismes)</CardTitle>
             <CardDescription>Ajoutez autant de structures que nécessaire.</CardDescription>
@@ -1511,14 +1641,14 @@ export function PreventionPlanView({
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-slate-200 shadow-sm">
+        <Card className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
           <CardHeader><CardTitle className="text-base">2) Nature de la prestation</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm text-slate-800 whitespace-pre-wrap">{selectedProtocol.prestationNature || "-"}</p>
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-slate-200 shadow-sm">
+        <Card className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
           <CardHeader><CardTitle className="text-base">3) Organisation du chargement ou déchargement</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-500 font-semibold uppercase">Lieu de livraison ou prise en charge</p><p className="text-slate-800 mt-1 whitespace-pre-wrap">{selectedProtocol.lieuLivraison || "-"}</p></div>
@@ -1528,7 +1658,7 @@ export function PreventionPlanView({
           </CardContent>
         </Card>
 
-        <Card className="border-2 border-slate-200 shadow-sm overflow-hidden">
+        <Card className="overflow-hidden rounded-2xl border border-violet-100 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">4) Évaluation des risques (CT R4515-5)</CardTitle>
             <CardDescription>
@@ -1587,14 +1717,14 @@ export function PreventionPlanView({
         </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card className="border-2 border-emerald-100 shadow-sm">
+          <Card className="overflow-hidden rounded-2xl border border-emerald-100 shadow-sm">
             <CardHeader><CardTitle className="text-base text-emerald-900">5) Premiers secours (CT R4515-6)</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="rounded-lg bg-emerald-50 p-3"><p className="text-xs text-emerald-700 font-semibold uppercase">Personne(s) à prévenir</p><p className="text-slate-800 mt-1 whitespace-pre-wrap">{selectedProtocol.personnesAPrevenir || "-"}</p></div>
               <div className="rounded-lg bg-red-50 border border-red-200 p-3"><p className="text-xs text-red-700 font-semibold uppercase">Mesure(s) en cas d'accident ou incendie</p><p className="text-slate-800 mt-1 whitespace-pre-wrap">{selectedProtocol.mesuresUrgence || "-"}</p></div>
             </CardContent>
           </Card>
-          <Card className="border-2 border-orange-100 shadow-sm">
+          <Card className="overflow-hidden rounded-2xl border border-orange-100 shadow-sm">
             <CardHeader><CardTitle className="text-base text-orange-900">6) Plan transmis + 7) Observations</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-lg bg-orange-50 p-3 text-sm"><p className="text-xs text-orange-700 font-semibold uppercase">Plan de prévention transmis à</p><p className="text-slate-800 mt-1 whitespace-pre-wrap">{selectedProtocol.planTransmis || "-"}</p></div>
@@ -1621,7 +1751,7 @@ export function PreventionPlanView({
           </Card>
         </div>
 
-        <Card className="border-2 border-rose-100 shadow-sm">
+        <Card className="overflow-hidden rounded-2xl border border-rose-100 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base text-rose-900">8) Signatures</CardTitle>
             <CardDescription>
@@ -1663,16 +1793,16 @@ export function PreventionPlanView({
         </Card>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Card className="border-2 border-sky-100 shadow-sm">
+          <Card className="overflow-hidden rounded-2xl border border-sky-100 shadow-sm">
             <CardHeader><CardTitle className="text-base text-sky-900">10) Plan de circulation et de déchargement</CardTitle></CardHeader>
             <CardContent><p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedProtocol.planCirculation || "-"}</p></CardContent>
           </Card>
-          <Card className="border-2 border-sky-100 shadow-sm">
+          <Card className="overflow-hidden rounded-2xl border border-sky-100 shadow-sm">
             <CardHeader><CardTitle className="text-base text-sky-900">Matériel à remplacer</CardTitle></CardHeader>
             <CardContent><p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedProtocol.materielRemplacer || "-"}</p></CardContent>
           </Card>
         </div>
-        <Card className="border-2 border-slate-200 shadow-sm">
+        <Card className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
           <CardHeader><CardTitle className="text-base">Annexes et documents joints</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             {selectedProtocol.annexAttachments.length > 0 ? (
@@ -1710,6 +1840,7 @@ export function PreventionPlanView({
           </CardContent>
         </Card>
       </div>
+      </div>
       {planDeleteConfirmDialog}
     </>
     );
@@ -1718,61 +1849,49 @@ export function PreventionPlanView({
   if ((viewMode === "create" || viewMode === "edit") && canEdit) {
     return (
       <>
-      <div className="space-y-6 p-3 sm:p-6">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              {viewMode === "create" ? "Nouveau plan de prevention" : "Modifier le plan de prevention"}
-            </h2>
-            <p className="text-slate-600 mt-1">Edition en page complete, style premium.</p>
-          </div>
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="default"
-              onClick={() => {
-                setViewMode("list");
-                setSelectedPlanSnapshot(null);
-              }}
-              className="w-full sm:w-auto font-semibold shadow-sm border-2 border-slate-300"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
-            </Button>
-          </div>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-stone-950">
+            {viewMode === "create" ? "Nouveau plan de prévention" : "Modifier le plan de prévention"}
+          </h1>
+          <p className="mt-1 max-w-3xl text-sm leading-relaxed text-stone-500">
+            {form.protocol.protocoleTitle || "Plan de prévention"}
+            {form.protocol.codeTravailReference ? ` · ${form.protocol.codeTravailReference}` : ""}
+          </p>
         </div>
 
-        <Card className="border-0 shadow-2xl bg-white">
-          <div className="h-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
-          <CardContent className="p-5 sm:p-8 space-y-5">
-            <Card className="border-0 bg-gradient-to-r from-slate-900 via-emerald-900 to-teal-900 text-white">
-              <CardContent className="p-5">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">Plan de prévention</p>
-                    <p className="text-lg font-semibold mt-1">{form.protocol.protocoleTitle}</p>
-                    <p className="text-emerald-100 text-sm mt-1">{form.protocol.codeTravailReference}</p>
-                  </div>
-                  <Badge className="bg-white text-slate-900 border-white/20">
-                    {viewMode === "create" ? "Création du plan" : "Modification du plan"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+        <Card className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+          <CardContent className="space-y-5 p-4 sm:p-8">
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <section className="space-y-4 rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-stone-800">Pilotage</h2>
+              <PlanStatusMark status={form.status} />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
                 <Label>Responsable</Label>
-                <Input value={form.owner} onChange={(e) => setForm((prev) => ({ ...prev, owner: e.target.value }))} className="border-2 border-slate-300" />
+                <Input value={form.owner} onChange={(e) => setForm((prev) => ({ ...prev, owner: e.target.value }))} className="h-11 rounded-xl border-slate-200 bg-white shadow-sm" />
               </div>
               <div className="space-y-2">
-                <Label>Echeance</Label>
-                <Input type="date" value={form.dueDate} onChange={(e) => setForm((prev) => ({ ...prev, dueDate: e.target.value }))} className="border-2 border-slate-300" />
+                <Label>Échéance</Label>
+                <PlanDateField value={form.dueDate} onChange={(value) => setForm((prev) => ({ ...prev, dueDate: value }))} />
               </div>
               <div className="space-y-2">
-                <Label>Priorite</Label>
+                <Label>Statut</Label>
+                <Select value={form.status} onValueChange={(value: PlanStatus) => setForm((prev) => ({ ...prev, status: value }))}>
+                  <SelectTrigger className={planSelectClass}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="a_lancer">À lancer</SelectItem>
+                    <SelectItem value="en_cours">En cours</SelectItem>
+                    <SelectItem value="termine">Terminé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Priorité</Label>
                 <Select value={form.priority} onValueChange={(value: "haute" | "moyenne" | "basse") => setForm((prev) => ({ ...prev, priority: value }))}>
-                  <SelectTrigger className="border-2 border-slate-300"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className={planSelectClass}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="haute">Haute</SelectItem>
                     <SelectItem value="moyenne">Moyenne</SelectItem>
@@ -1783,19 +1902,20 @@ export function PreventionPlanView({
             </div>
 
             <div className="space-y-2">
-              <Label>Objectif de prevention *</Label>
-              <Textarea rows={4} value={form.objective} onChange={(e) => setForm((prev) => ({ ...prev, objective: e.target.value }))} className="border-2 border-slate-300" />
+              <Label>Objectif de prévention *</Label>
+              <Textarea rows={4} value={form.objective} onChange={(e) => setForm((prev) => ({ ...prev, objective: e.target.value }))} className="rounded-xl border-slate-200 bg-white shadow-sm" />
             </div>
 
             <div className="space-y-2">
               <Label>Actions (une par ligne)</Label>
-              <Textarea rows={6} value={form.actionsText} onChange={(e) => setForm((prev) => ({ ...prev, actionsText: e.target.value }))} className="border-2 border-slate-300" />
+              <Textarea rows={6} value={form.actionsText} onChange={(e) => setForm((prev) => ({ ...prev, actionsText: e.target.value }))} className="rounded-xl border-slate-200 bg-white shadow-sm" />
             </div>
+            </section>
 
             <Separator />
 
-            <div className="rounded-lg border border-teal-200 bg-teal-50/80 p-4 flex gap-3">
-              <Info className="h-5 w-5 shrink-0 text-teal-700 mt-0.5" aria-hidden />
+            <div className="flex gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+              <Info className="mt-0.5 h-5 w-5 shrink-0 text-stone-500" aria-hidden />
               <p className="text-sm text-slate-800">
                 Vous éditez un <strong className="font-semibold">plan de prévention</strong> (coactivité, art. R4515-4 à R4515-11). Le document dédié au{" "}
                 <strong className="font-semibold">chargement / déchargement</strong> se saisit dans l’autre onglet de l’application.
@@ -1806,13 +1926,13 @@ export function PreventionPlanView({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Titre du plan de prévention</Label>
-                <Input value={form.protocol.protocoleTitle} onChange={(e) => updateProtocol("protocoleTitle", e.target.value)} className="border-2 border-slate-300" />
+                <Input value={form.protocol.protocoleTitle} onChange={(e) => updateProtocol("protocoleTitle", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
               </div>
-              <div className="space-y-2"><Label>Référence (code du Travail)</Label><Input value={form.protocol.codeTravailReference} onChange={(e) => updateProtocol("codeTravailReference", e.target.value)} className="border-2 border-slate-300" /></div>
-              <div className="space-y-2 md:col-span-2"><Label>Type operation</Label><Input value={form.protocol.operationType} onChange={(e) => updateProtocol("operationType", e.target.value)} className="border-2 border-slate-300" /></div>
+              <div className="space-y-2"><Label>Référence (code du Travail)</Label><Input value={form.protocol.codeTravailReference} onChange={(e) => updateProtocol("codeTravailReference", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
+              <div className="space-y-2 md:col-span-2"><Label>Type d'opération</Label><Input value={form.protocol.operationType} onChange={(e) => updateProtocol("operationType", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
             </div>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-indigo-100 shadow-sm">
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1834,9 +1954,12 @@ export function PreventionPlanView({
               </CardHeader>
               <CardContent className="space-y-4">
                 {form.protocol.coIntervenantRows.map((row, idx) => (
-                  <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div key={row.id} className="space-y-3 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-800">Structure {idx + 1}</p>
+                      <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-xl bg-indigo-50 px-2 text-xs font-semibold text-indigo-800">{String(idx + 1).padStart(2, "0")}</span>
+                        Structure
+                      </p>
                       <Button
                         type="button"
                         variant="ghost"
@@ -1884,7 +2007,7 @@ export function PreventionPlanView({
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-sky-100 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base">2) Nature de la prestation</CardTitle>
                 <CardDescription>Objet de l’opération pour l’ensemble des co-intervenants.</CardDescription>
@@ -1894,17 +2017,17 @@ export function PreventionPlanView({
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Route className="h-4 w-4 text-cyan-600" />3) Organisation chargement / dechargement</CardTitle></CardHeader>
+            <Card className="overflow-hidden rounded-2xl border border-cyan-100 shadow-sm">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Route className="h-4 w-4 text-cyan-600" />3) Organisation du chargement ou déchargement</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2"><Label>Lieu de livraison / prise en charge</Label><Textarea rows={2} value={form.protocol.lieuLivraison} onChange={(e) => updateProtocol("lieuLivraison", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Materiels specifiques utilises</Label><Textarea rows={2} value={form.protocol.materielsSpecifiques} onChange={(e) => updateProtocol("materielsSpecifiques", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Consignes de securite site</Label><Textarea rows={2} value={form.protocol.consignesSite} onChange={(e) => updateProtocol("consignesSite", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Consignes operation</Label><Textarea rows={2} value={form.protocol.consignesOperation} onChange={(e) => updateProtocol("consignesOperation", e.target.value)} /></div>
+                <div className="space-y-2"><Label>Lieu de livraison ou prise en charge</Label><Textarea rows={2} value={form.protocol.lieuLivraison} onChange={(e) => updateProtocol("lieuLivraison", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
+                <div className="space-y-2"><Label>Matériels spécifiques utilisés</Label><Textarea rows={2} value={form.protocol.materielsSpecifiques} onChange={(e) => updateProtocol("materielsSpecifiques", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
+                <div className="space-y-2"><Label>Consignes de sécurité sur le site</Label><Textarea rows={2} value={form.protocol.consignesSite} onChange={(e) => updateProtocol("consignesSite", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
+                <div className="space-y-2"><Label>Consignes concernant l'opération</Label><Textarea rows={2} value={form.protocol.consignesOperation} onChange={(e) => updateProtocol("consignesOperation", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-violet-100 shadow-sm">
               <CardHeader>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -1922,9 +2045,12 @@ export function PreventionPlanView({
               <CardContent className="space-y-4">
                 <div className="space-y-4">
                   {form.protocol.riskEvaluationRows.map((row, idx) => (
-                    <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                    <div key={row.id} className="space-y-3 rounded-2xl border border-violet-100 bg-white p-4 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800">Risque ligne {idx + 1}</p>
+                        <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                          <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-xl bg-violet-50 px-2 text-xs font-semibold text-violet-800">{String(idx + 1).padStart(2, "0")}</span>
+                          Risque
+                        </p>
                         <Button
                           type="button"
                           variant="ghost"
@@ -1948,7 +2074,7 @@ export function PreventionPlanView({
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-emerald-100 shadow-sm">
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><PhoneCall className="h-4 w-4 text-emerald-600" />5) Premiers secours (CT R4515-6)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2"><Label>Personne(s) à prévenir</Label><Textarea rows={2} value={form.protocol.personnesAPrevenir} onChange={(e) => updateProtocol("personnesAPrevenir", e.target.value)} /></div>
@@ -1956,7 +2082,7 @@ export function PreventionPlanView({
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-orange-100 shadow-sm">
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4 text-orange-600" />6) Plan de prévention transmis à (CT R4515-11)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2"><Label>Liste de diffusion</Label><Textarea rows={2} value={form.protocol.planTransmis} onChange={(e) => updateProtocol("planTransmis", e.target.value)} /></div>
@@ -1966,8 +2092,8 @@ export function PreventionPlanView({
                       <Label className="text-xs">Cellule Sécurité Prévention DIRM MED</Label>
                       <Input placeholder="Nom" value={form.protocol.transmissionCelluleSecuriteNom} onChange={(e) => updateProtocol("transmissionCelluleSecuriteNom", e.target.value)} />
                       <Select value={form.protocol.transmissionCelluleSecuriteStatus} onValueChange={(value: "non_renseigne" | "oui" | "non") => updateProtocol("transmissionCelluleSecuriteStatus", value)}>
-                        <SelectTrigger><SelectValue placeholder="oui / non" /></SelectTrigger>
-                        <SelectContent><SelectItem value="non_renseigne">Non renseigne</SelectItem><SelectItem value="oui">Oui</SelectItem><SelectItem value="non">Non</SelectItem></SelectContent>
+                        <SelectTrigger className={planSelectClass}><SelectValue placeholder="oui / non" /></SelectTrigger>
+                        <SelectContent><SelectItem value="non_renseigne">Non renseigné</SelectItem><SelectItem value="oui">Oui</SelectItem><SelectItem value="non">Non</SelectItem></SelectContent>
                       </Select>
                       <Input placeholder="Observation" value={form.protocol.transmissionCelluleSecuriteObs} onChange={(e) => updateProtocol("transmissionCelluleSecuriteObs", e.target.value)} />
                     </CardContent>
@@ -1977,8 +2103,8 @@ export function PreventionPlanView({
                       <Label className="text-xs">Correspondant Hygiène et Sécurité du site</Label>
                       <Input placeholder="Nom" value={form.protocol.transmissionCorrespondantSiteNom} onChange={(e) => updateProtocol("transmissionCorrespondantSiteNom", e.target.value)} />
                       <Select value={form.protocol.transmissionCorrespondantSiteStatus} onValueChange={(value: "non_renseigne" | "oui" | "non") => updateProtocol("transmissionCorrespondantSiteStatus", value)}>
-                        <SelectTrigger><SelectValue placeholder="oui / non" /></SelectTrigger>
-                        <SelectContent><SelectItem value="non_renseigne">Non renseigne</SelectItem><SelectItem value="oui">Oui</SelectItem><SelectItem value="non">Non</SelectItem></SelectContent>
+                        <SelectTrigger className={planSelectClass}><SelectValue placeholder="oui / non" /></SelectTrigger>
+                        <SelectContent><SelectItem value="non_renseigne">Non renseigné</SelectItem><SelectItem value="oui">Oui</SelectItem><SelectItem value="non">Non</SelectItem></SelectContent>
                       </Select>
                       <Input placeholder="Observation" value={form.protocol.transmissionCorrespondantSiteObs} onChange={(e) => updateProtocol("transmissionCorrespondantSiteObs", e.target.value)} />
                     </CardContent>
@@ -1988,15 +2114,15 @@ export function PreventionPlanView({
                       <Label className="text-xs">Correspondant Hygiène et Sécurité APB</Label>
                       <Input placeholder="Nom" value={form.protocol.transmissionCorrespondantAPBNom} onChange={(e) => updateProtocol("transmissionCorrespondantAPBNom", e.target.value)} />
                       <Select value={form.protocol.transmissionCorrespondantAPBStatus} onValueChange={(value: "non_renseigne" | "oui" | "non") => updateProtocol("transmissionCorrespondantAPBStatus", value)}>
-                        <SelectTrigger><SelectValue placeholder="oui / non" /></SelectTrigger>
-                        <SelectContent><SelectItem value="non_renseigne">Non renseigne</SelectItem><SelectItem value="oui">Oui</SelectItem><SelectItem value="non">Non</SelectItem></SelectContent>
+                        <SelectTrigger className={planSelectClass}><SelectValue placeholder="oui / non" /></SelectTrigger>
+                        <SelectContent><SelectItem value="non_renseigne">Non renseigné</SelectItem><SelectItem value="oui">Oui</SelectItem><SelectItem value="non">Non</SelectItem></SelectContent>
                       </Select>
                       <Input placeholder="Observation" value={form.protocol.transmissionCorrespondantAPBObs} onChange={(e) => updateProtocol("transmissionCorrespondantAPBObs", e.target.value)} />
                     </CardContent>
                   </Card>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-2"><Label>Texte libre cellule securite</Label><Input value={form.protocol.transmissionCelluleSecurite} onChange={(e) => updateProtocol("transmissionCelluleSecurite", e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Texte libre, cellule sécurité</Label><Input value={form.protocol.transmissionCelluleSecurite} onChange={(e) => updateProtocol("transmissionCelluleSecurite", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
                   <div className="space-y-2"><Label>Texte libre correspondant site</Label><Input value={form.protocol.transmissionCorrespondantSite} onChange={(e) => updateProtocol("transmissionCorrespondantSite", e.target.value)} /></div>
                   <div className="space-y-2"><Label>Texte libre correspondant APB</Label><Input value={form.protocol.transmissionCorrespondantAPB} onChange={(e) => updateProtocol("transmissionCorrespondantAPB", e.target.value)} /></div>
                 </div>
@@ -2004,12 +2130,12 @@ export function PreventionPlanView({
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base">7) Observations / remarques</CardTitle></CardHeader>
+            <Card className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+              <CardHeader><CardTitle className="text-base">7) Observations et remarques</CardTitle></CardHeader>
               <CardContent><Textarea rows={3} value={form.protocol.observationsRemarques} onChange={(e) => updateProtocol("observationsRemarques", e.target.value)} /></CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-rose-100 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Signature className="h-4 w-4 text-rose-600" />
@@ -2023,10 +2149,10 @@ export function PreventionPlanView({
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-rose-900">Signataire 1</p>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <Input placeholder="Entite 1" value={form.protocol.signatureEntite1} onChange={(e) => updateProtocol("signatureEntite1", e.target.value)} />
-                    <Input placeholder="Nom" value={form.protocol.signatureNom1} onChange={(e) => updateProtocol("signatureNom1", e.target.value)} />
-                    <Input placeholder="Prenom" value={form.protocol.signaturePrenom1} onChange={(e) => updateProtocol("signaturePrenom1", e.target.value)} />
-                    <Input type="date" value={form.protocol.signatureDate1} onChange={(e) => updateProtocol("signatureDate1", e.target.value)} />
+                    <Input placeholder="Entité 1" value={form.protocol.signatureEntite1} onChange={(e) => updateProtocol("signatureEntite1", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <Input placeholder="Nom" value={form.protocol.signatureNom1} onChange={(e) => updateProtocol("signatureNom1", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <Input placeholder="Prénom" value={form.protocol.signaturePrenom1} onChange={(e) => updateProtocol("signaturePrenom1", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <PlanDateField value={form.protocol.signatureDate1} onChange={(value) => updateProtocol("signatureDate1", value)} />
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <div className="space-y-1 flex-1">
@@ -2034,7 +2160,7 @@ export function PreventionPlanView({
                       <Input
                         type="file"
                         accept="image/*"
-                        className="border-2 border-slate-300"
+                        className={planFileClass}
                         onChange={(e) => void applySignatureDematerialisee(1, e.target.files)}
                       />
                     </div>
@@ -2051,10 +2177,10 @@ export function PreventionPlanView({
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-rose-900">Signataire 2</p>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <Input placeholder="Entite 2" value={form.protocol.signatureEntite2} onChange={(e) => updateProtocol("signatureEntite2", e.target.value)} />
-                    <Input placeholder="Nom" value={form.protocol.signatureNom2} onChange={(e) => updateProtocol("signatureNom2", e.target.value)} />
-                    <Input placeholder="Prenom" value={form.protocol.signaturePrenom2} onChange={(e) => updateProtocol("signaturePrenom2", e.target.value)} />
-                    <Input type="date" value={form.protocol.signatureDate2} onChange={(e) => updateProtocol("signatureDate2", e.target.value)} />
+                    <Input placeholder="Entité 2" value={form.protocol.signatureEntite2} onChange={(e) => updateProtocol("signatureEntite2", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <Input placeholder="Nom" value={form.protocol.signatureNom2} onChange={(e) => updateProtocol("signatureNom2", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <Input placeholder="Prénom" value={form.protocol.signaturePrenom2} onChange={(e) => updateProtocol("signaturePrenom2", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <PlanDateField value={form.protocol.signatureDate2} onChange={(value) => updateProtocol("signatureDate2", value)} />
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <div className="space-y-1 flex-1">
@@ -2062,7 +2188,7 @@ export function PreventionPlanView({
                       <Input
                         type="file"
                         accept="image/*"
-                        className="border-2 border-slate-300"
+                        className={planFileClass}
                         onChange={(e) => void applySignatureDematerialisee(2, e.target.files)}
                       />
                     </div>
@@ -2079,10 +2205,10 @@ export function PreventionPlanView({
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-rose-900">Signataire 3</p>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <Input placeholder="Entite 3" value={form.protocol.signatureEntite3} onChange={(e) => updateProtocol("signatureEntite3", e.target.value)} />
-                    <Input placeholder="Nom" value={form.protocol.signatureNom3} onChange={(e) => updateProtocol("signatureNom3", e.target.value)} />
-                    <Input placeholder="Prenom" value={form.protocol.signaturePrenom3} onChange={(e) => updateProtocol("signaturePrenom3", e.target.value)} />
-                    <Input type="date" value={form.protocol.signatureDate3} onChange={(e) => updateProtocol("signatureDate3", e.target.value)} />
+                    <Input placeholder="Entité 3" value={form.protocol.signatureEntite3} onChange={(e) => updateProtocol("signatureEntite3", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <Input placeholder="Nom" value={form.protocol.signatureNom3} onChange={(e) => updateProtocol("signatureNom3", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <Input placeholder="Prénom" value={form.protocol.signaturePrenom3} onChange={(e) => updateProtocol("signaturePrenom3", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" />
+                    <PlanDateField value={form.protocol.signatureDate3} onChange={(value) => updateProtocol("signatureDate3", value)} />
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <div className="space-y-1 flex-1">
@@ -2090,7 +2216,7 @@ export function PreventionPlanView({
                       <Input
                         type="file"
                         accept="image/*"
-                        className="border-2 border-slate-300"
+                        className={planFileClass}
                         onChange={(e) => void applySignatureDematerialisee(3, e.target.files)}
                       />
                     </div>
@@ -2107,18 +2233,18 @@ export function PreventionPlanView({
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Route className="h-4 w-4 text-sky-600" />10) Plan de circulation / dechargement</CardTitle></CardHeader>
+            <Card className="overflow-hidden rounded-2xl border border-sky-100 shadow-sm">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><Route className="h-4 w-4 text-sky-600" />10) Plan de circulation et de déchargement</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2"><Label>Plan de circulation et de dechargement</Label><Textarea rows={3} value={form.protocol.planCirculation} onChange={(e) => updateProtocol("planCirculation", e.target.value)} /></div>
-                <div className="space-y-2"><Label>Materiel a remplacer</Label><Textarea rows={2} value={form.protocol.materielRemplacer} onChange={(e) => updateProtocol("materielRemplacer", e.target.value)} /></div>
+                <div className="space-y-2"><Label>Plan de circulation et de déchargement</Label><Textarea rows={3} value={form.protocol.planCirculation} onChange={(e) => updateProtocol("planCirculation", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
+                <div className="space-y-2"><Label>Matériel à remplacer</Label><Textarea rows={2} value={form.protocol.materielRemplacer} onChange={(e) => updateProtocol("materielRemplacer", e.target.value)} className="rounded-xl border-slate-200 bg-white shadow-sm" /></div>
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 shadow-sm">
+            <Card className="overflow-hidden rounded-2xl border border-violet-100 shadow-sm">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Paperclip className="h-4 w-4 text-slate-700" aria-hidden />
+                  <Paperclip className="h-4 w-4 text-violet-700" aria-hidden />
                   Annexes et documents joints
                 </CardTitle>
                 <CardDescription>
@@ -2138,7 +2264,7 @@ export function PreventionPlanView({
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-2 border-slate-300"
+                    className="rounded-xl border-slate-200 bg-white shadow-sm"
                     onClick={() => annexFilesInputRef.current?.click()}
                   >
                     <Upload className="h-4 w-4 mr-2" />
@@ -2191,47 +2317,46 @@ export function PreventionPlanView({
                     placeholder="Précisions sur les pièces jointes, références internes, liens, etc."
                     value={form.protocol.annexesDocuments}
                     onChange={(e) => updateProtocol("annexesDocuments", e.target.value)}
-                    className="border-2 border-slate-200"
+                    className="rounded-xl border-slate-200 bg-white shadow-sm"
                   />
                 </div>
               </CardContent>
             </Card>
 
-            <Separator />
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+          </CardContent>
+          <div className="flex flex-col gap-3 border-t border-stone-200 bg-stone-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => requestLeave(() => {
+                setViewMode("list");
+                setSelectedPlanSnapshot(null);
+              })}
+              className="h-11 w-full rounded-xl border-stone-300 bg-white text-stone-800 hover:bg-stone-50 sm:w-auto"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour à la liste
+            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               {viewMode === "edit" && selectedPlan ? (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setPlanPendingDelete(selectedPlan)}
-                  className="w-full sm:w-auto border-red-200 text-red-700 hover:bg-red-50 hover:text-red-900"
+                  className="h-11 w-full rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-900 sm:w-auto"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Supprimer le plan
                 </Button>
-              ) : (
-                <span className="hidden sm:inline sm:flex-1" aria-hidden />
-              )}
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setViewMode("list");
-                    setSelectedPlanSnapshot(null);
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  Annuler
-                </Button>
-                <Button
-                  onClick={saveForm}
-                  className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700"
-                >
-                  Enregistrer
-                </Button>
-              </div>
+              ) : null}
+              <Button
+                onClick={saveForm}
+                className="h-11 w-full rounded-lg bg-rose-900 text-white hover:bg-rose-950 sm:w-auto"
+              >
+                Enregistrer
+              </Button>
             </div>
-          </CardContent>
+          </div>
         </Card>
       </div>
       {planDeleteConfirmDialog}
@@ -2242,108 +2367,122 @@ export function PreventionPlanView({
   const doneCount = visiblePlans.filter((plan) => plan.status === "termine").length;
   const inProgressCount = visiblePlans.filter((plan) => plan.status === "en_cours").length;
 
+  const filtersActive =
+    Boolean(query.trim()) || statusFilter !== "all" || priorityFilter !== "all" || serviceFilter !== "all";
+
+  const renderFilterableTh = (key: PlanColumnKey) => {
+    const column = PLAN_COLUMNS.find((item) => item.key === key);
+    if (!column) return null;
+    return (
+      <th key={key} className="px-4 py-3 text-left text-sm font-semibold text-stone-600">
+        <div className="flex items-center gap-1">
+          <span>{column.label}</span>
+          {columnSort?.key === key ? (
+            <span className="text-xs font-bold text-rose-900" aria-hidden>
+              {columnSort.direction === "asc" ? "↑" : "↓"}
+            </span>
+          ) : null}
+          <ColumnFilterPopover
+            options={columnOptions[key]}
+            filter={columnFilters[key]}
+            kind={column.kind}
+            sorted={columnSort?.key === key ? columnSort.direction : null}
+            onApply={(filter) => setColumnFilters((current) => ({ ...current, [key]: filter }))}
+            onSort={(direction) => setColumnSort({ key, direction })}
+            ariaLabel={`Filtrer la colonne ${column.label}`}
+          />
+        </div>
+      </th>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800 via-emerald-800 to-teal-800 text-white overflow-hidden">
-        <CardHeader className="py-8 sm:py-10">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center shadow-lg">
-                <Target className="h-8 w-8" />
-              </div>
-              <div>
-                <CardTitle className="text-3xl sm:text-4xl font-bold">Plan de prévention</CardTitle>
-                <p className="text-emerald-100 text-lg mt-1">Pilotage des actions de prevention par risque, service et priorite.</p>
-              </div>
-            </div>
-            <Badge className="w-full lg:w-auto justify-center bg-white text-slate-900 border border-slate-200 text-lg px-5 py-2">
-              {visiblePlans.length} plan(s)
-            </Badge>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-slate-950 sm:text-3xl">Plan de prévention</h1>
+          <p className="mt-1 text-sm text-slate-600 sm:text-base">
+            {visiblePlans.length} plan(s), {inProgressCount} en cours, {doneCount} terminé(s).
+          </p>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div
+            className="inline-flex w-full rounded-xl border border-stone-200 bg-stone-50 p-1 sm:w-auto"
+            role="group"
+            aria-label="Mode d'affichage"
+          >
+            <button
+              type="button"
+              aria-pressed={displayMode === "cards"}
+              onClick={() => setDisplayMode("cards")}
+              className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium sm:flex-none ${
+                displayMode === "cards" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"
+              }`}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+              Cartes
+            </button>
+            <button
+              type="button"
+              aria-pressed={displayMode === "table"}
+              onClick={() => setDisplayMode("table")}
+              className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium sm:flex-none ${
+                displayMode === "table" ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"
+              }`}
+            >
+              <Table2 className="h-4 w-4" aria-hidden />
+              Tableau
+            </button>
           </div>
-        </CardHeader>
-      </Card>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50"><CardContent className="p-4"><p className="text-xs text-indigo-700 uppercase font-semibold">Plans visibles</p><p className="text-2xl font-bold text-indigo-900 mt-1">{visiblePlans.length}</p></CardContent></Card>
-        <Card className="border-2 border-teal-100 bg-gradient-to-br from-teal-50 to-cyan-50"><CardContent className="p-4"><p className="text-xs text-teal-700 uppercase font-semibold">En cours</p><p className="text-2xl font-bold text-teal-900 mt-1">{inProgressCount}</p></CardContent></Card>
-        <Card className="border-2 border-emerald-100 bg-gradient-to-br from-emerald-50 to-green-50"><CardContent className="p-4"><p className="text-xs text-emerald-700 uppercase font-semibold">Termines</p><p className="text-2xl font-bold text-emerald-900 mt-1">{doneCount}</p></CardContent></Card>
+          {canEdit ? (
+            <Button
+              onClick={openCreate}
+              className="h-11 w-full rounded-lg bg-rose-900 text-white hover:bg-rose-950 sm:w-auto"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nouveau plan
+            </Button>
+          ) : null}
+        </div>
       </div>
 
-      <div className="rounded-lg border border-teal-200 bg-teal-50/80 p-3 flex gap-3">
-        <Info className="h-5 w-5 shrink-0 text-teal-700 mt-0.5" aria-hidden />
-        <p className="text-sm text-slate-800">
+      <div className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" aria-hidden />
+        <p className="text-sm text-slate-700">
           Cet onglet concerne le <strong className="font-semibold">plan de prévention</strong> (coactivité, modèle type héliportage / opérations). Le document{" "}
           <strong className="font-semibold">chargement / déchargement</strong> est saisi à part, dans l’onglet correspondant.
         </p>
       </div>
 
-      <Card className="border-2 bg-white/95">
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-col md:flex-row gap-3 w-full xl:flex-1">
-              <div className="relative w-full xl:max-w-md">
-                <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <Input
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    resetPagination();
-                  }}
-                  placeholder="Rechercher un plan..."
-                  className="pl-10 border-2 border-slate-300"
-                />
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(value: "all" | PlanStatus) => {
-                  setStatusFilter(value);
+      <Card className="border-0 bg-white/80 shadow-xl backdrop-blur" role="region" aria-label="Filtres plan de prévention">
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
                   resetPagination();
                 }}
-              >
-                <SelectTrigger className="w-full md:w-56 border-2 border-slate-300"><SelectValue placeholder="Statut" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous statuts</SelectItem>
-                  <SelectItem value="a_lancer">A lancer</SelectItem>
-                  <SelectItem value="en_cours">En cours</SelectItem>
-                  <SelectItem value="termine">Termine</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={priorityFilter}
-                onValueChange={(value: "all" | "haute" | "moyenne" | "basse") => {
-                  setPriorityFilter(value);
-                  resetPagination();
-                }}
-              >
-                <SelectTrigger className="w-full md:w-48 border-2 border-slate-300"><SelectValue placeholder="Priorite" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes priorites</SelectItem>
-                  <SelectItem value="haute">Haute</SelectItem>
-                  <SelectItem value="moyenne">Moyenne</SelectItem>
-                  <SelectItem value="basse">Basse</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={serviceFilter}
-                onValueChange={(value) => {
-                  setServiceFilter(value);
-                  resetPagination();
-                }}
-              >
-                <SelectTrigger className="w-full md:w-52 border-2 border-slate-300"><SelectValue placeholder="Service" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous services</SelectItem>
-                  {serviceOptions.map((service) => (
-                    <SelectItem key={service} value={service}>{service}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Rechercher (plan, lieu, responsable, co-intervenant...)"
+                className="h-11 rounded-xl border-slate-200 bg-white pl-10 shadow-sm"
+              />
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="hidden xl:flex items-center gap-2 text-sm text-slate-500"><Filter className="h-4 w-4" />Filtres</div>
+            <p className="shrink-0 text-sm font-semibold text-slate-600">{visiblePlans.length} plan(s)</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="h-11 w-full rounded-lg border-slate-300 bg-white px-4 text-slate-800 hover:bg-slate-50 sm:w-auto"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {filtersOpen ? "Masquer les filtres" : "Filtres"}
+            </Button>
+            {filtersActive ? (
               <Button
-                variant="outline"
-                size="sm"
+                type="button"
+                variant="ghost"
                 onClick={() => {
                   setQuery("");
                   setStatusFilter("all");
@@ -2351,144 +2490,279 @@ export function PreventionPlanView({
                   setServiceFilter("all");
                   resetPagination();
                 }}
+                className="h-11 rounded-xl text-slate-600"
               >
-                Réinitialiser les filtres
-              </Button>
-            </div>
-            {canEdit ? (
-              <Button onClick={openCreate} className="w-full xl:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700">
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Nouveau plan
+                Réinitialiser
               </Button>
             ) : null}
           </div>
+
+          {filtersOpen ? (
+            <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 lg:grid-cols-3">
+              <section className="space-y-3 rounded-lg border border-slate-200 p-4">
+                <h2 className="text-sm font-semibold text-slate-800">Statut</h2>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ["all", "Tous"],
+                    ["a_lancer", "À lancer"],
+                    ["en_cours", "En cours"],
+                    ["termine", "Terminé"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={statusFilter === value}
+                      onClick={() => {
+                        setStatusFilter(value);
+                        resetPagination();
+                      }}
+                      className={cn(
+                        "flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-sm font-medium",
+                        statusFilter === value
+                          ? "border-rose-900 bg-rose-900 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="space-y-3 rounded-lg border border-slate-200 p-4">
+                <h2 className="text-sm font-semibold text-slate-800">Priorité</h2>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ["all", "Toutes"],
+                    ["haute", "Haute"],
+                    ["moyenne", "Moyenne"],
+                    ["basse", "Basse"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={priorityFilter === value}
+                      onClick={() => {
+                        setPriorityFilter(value);
+                        resetPagination();
+                      }}
+                      className={cn(
+                        "flex min-h-11 items-center justify-center rounded-lg border px-2 text-center text-sm font-medium",
+                        priorityFilter === value
+                          ? "border-rose-900 bg-rose-900 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
+              <section className="space-y-3 rounded-lg border border-slate-200 p-4">
+                <h2 className="text-sm font-semibold text-slate-800">Service</h2>
+                <Select
+                  value={serviceFilter}
+                  onValueChange={(value) => {
+                    setServiceFilter(value);
+                    resetPagination();
+                  }}
+                >
+                  <SelectTrigger className="h-11 w-full rounded-lg border-slate-200 bg-white">
+                    <SelectValue placeholder="Service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les services</SelectItem>
+                    {serviceOptions.map((service) => (
+                      <SelectItem key={service} value={service}>{service}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      {columnFiltersActive ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-rose-100 bg-white px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium text-rose-900">Des filtres de colonnes sont actifs dans le tableau.</p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9 rounded-xl text-stone-600"
+            onClick={() => setColumnFilters(emptyPlanColumnFilters())}
+          >
+            Réinitialiser les colonnes
+          </Button>
+        </div>
+      ) : null}
+
+      {displayMode === "cards" && visiblePlans.length > 0 ? (
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {paginatedPlans.map((plan) => {
           const listProtocol = mergePlanProtocol(plan.protocol, risks.find((r) => r.id === plan.riskId), currentUserName);
-          const orgsFilled = listProtocol.coIntervenantRows.filter(coIntervenantRowHasContent);
-          const orgsSummary =
-            orgsFilled.length === 0
-              ? "—"
-              : `${orgsFilled
-                  .slice(0, 2)
-                  .map((r) => r.denomination.trim() || r.qualite.trim() || "(sans nom)")
-                  .join(" · ")}${orgsFilled.length > 2 ? ` · +${orgsFilled.length - 2}` : ""}`;
+          const orgsCount = listProtocol.coIntervenantRows.filter(coIntervenantRowHasContent).length;
+          const lieu = listProtocol.lieuLivraison || plan.location || "Non renseigné";
           return (
-          <Card key={plan.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur overflow-hidden relative">
-            <div className="h-2 bg-gradient-to-r from-teal-500 to-emerald-500"></div>
-            <CardContent className="p-5 space-y-4">
-              {(() => {
-                const totalActions = Math.max(1, plan.actions.length);
-                const completedActions =
-                  plan.status === "termine"
-                    ? totalActions
-                    : plan.status === "en_cours"
-                      ? Math.max(1, Math.floor(totalActions / 2))
-                      : 0;
-                const progress = (completedActions / totalActions) * 100;
-                return (
-                  <>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex items-center gap-3">
-                  <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                    <Target className="h-7 w-7 text-white" />
+            <article
+              key={plan.id}
+              className="flex h-full flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-stone-100 bg-stone-50 px-5 py-3">
+                <PlanStatusMark status={plan.status} />
+                <p className="text-xs font-medium text-stone-600">Priorité {priorityLabelUi[plan.priority].toLowerCase()}</p>
+              </div>
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                <div>
+                  <p className="text-xs text-stone-500">Risque n° {plan.riskNumber || "—"} · {plan.service || "Service non renseigné"}</p>
+                  <h2 className="mt-1 text-xl font-semibold leading-snug text-stone-950">
+                    {plan.riskTitle || normalizeDocumentTitle(listProtocol.protocoleTitle, "Plan de prévention")}
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="min-w-0 rounded-xl bg-stone-50 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Échéance</p>
+                    <p className="mt-1 text-sm font-medium leading-snug text-stone-900">{formatPlanDate(plan.dueDate)}</p>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                      {planCardSubtitle(plan)}
-                    </p>
-                    <p className="text-lg font-semibold text-slate-900 leading-snug break-words">
-                      {normalizeDocumentTitle(listProtocol.protocoleTitle, "PLAN DE PREVENTION")}
-                    </p>
+                  <div className="min-w-0 rounded-xl bg-stone-50 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Lieu</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-stone-900">{lieu}</p>
                   </div>
-                </div>
-                <Badge className={statusClass[plan.status]}>{statusLabel[plan.status]}</Badge>
-              </div>
-              <p className="text-sm text-slate-700 line-clamp-2">{listProtocol.prestationNature || plan.objective}</p>
-
-              <div className="space-y-2 text-xs text-slate-600">
-                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-emerald-700">Lieu :</span>
-                  <span className="text-sm font-semibold text-emerald-700">{listProtocol.lieuLivraison || plan.location}</span>
-                </div>
-                <div className="flex items-center gap-2 bg-cyan-50 border border-cyan-200 rounded-lg px-3 py-2">
-                  <span className="font-bold uppercase tracking-wide text-cyan-700">Plan transmis :</span>
-                  <span className="text-sm font-semibold text-cyan-700">{listProtocol.planTransmis || "-"}</span>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-gray-600 font-semibold">Avancement actions</span>
-                  <span className="font-bold text-teal-700">{completedActions}/{totalActions}</span>
-                </div>
-                <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full transition-all duration-500 shadow-md" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs text-gray-600 font-semibold">Date signature</Label>
-                  <div className="w-full text-center py-3 rounded-lg font-bold text-base border-2 bg-indigo-50 border-indigo-400 text-indigo-700">
-                    {listProtocol.signatureDate1 || listProtocol.signatureDate2 || listProtocol.signatureDate3 || "-"}
+                  <div className="min-w-0 rounded-xl bg-stone-50 px-3 py-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-stone-500">Structures</p>
+                    <p className="mt-1 text-sm font-medium leading-snug text-stone-900">{orgsCount === 0 ? "Aucune" : `${orgsCount} co-intervenant${orgsCount > 1 ? "s" : ""}`}</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-gray-600 font-semibold">Co-intervenants</Label>
-                  <div className="w-full rounded-lg border-2 bg-sky-50 border-sky-300 px-3 py-3 text-left">
-                    <p className="text-xs font-semibold text-sky-950 whitespace-normal break-words line-clamp-4">
-                      {orgsFilled.length === 0 ? "—" : orgsSummary}
-                    </p>
-                    {orgsFilled.length > 0 ? (
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-sky-700 mt-2">
-                        {orgsFilled.length} structure(s)
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full rounded-xl px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md border border-teal-400/40">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-teal-100">Responsable du plan</p>
-                <p className="text-base font-bold leading-snug break-words">{plan.owner?.trim() || "—"}</p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
-                <Button variant="outline" className="w-full sm:flex-1" onClick={() => openDetail(plan)}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  Consulter
-                </Button>
-                {canEdit ? (
-                  <Button className="w-full sm:flex-1 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700" onClick={() => openEdit(plan)}>
-                    Modifier
-                  </Button>
-                ) : null}
-                {canEdit ? (
+                <p className="text-sm text-stone-600">
+                  Responsable <span className="font-medium text-stone-900">{plan.owner?.trim() || "non renseigné"}</span>
+                </p>
+                <div className="mt-auto grid grid-cols-1 gap-2 border-t border-stone-100 pt-4 sm:grid-cols-3">
                   <Button
+                    type="button"
                     variant="outline"
-                    className="w-full sm:flex-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-900"
-                    onClick={() => setPlanPendingDelete(plan)}
+                    className="h-10 w-full rounded-lg border-stone-300 text-stone-800 hover:bg-stone-50"
+                    onClick={() => openDetail(plan)}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Supprimer
+                    <FileText className="h-4 w-4" />
+                    Consulter
                   </Button>
-                ) : null}
+                  {canEdit ? (
+                    <Button
+                      type="button"
+                      className="h-10 w-full rounded-lg bg-rose-900 text-white hover:bg-rose-950"
+                      onClick={() => openEdit(plan)}
+                    >
+                      Modifier
+                    </Button>
+                  ) : null}
+                  {canEdit ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-full rounded-lg border-rose-200 text-rose-800 hover:bg-rose-50"
+                      onClick={() => setPlanPendingDelete(plan)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Supprimer
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-                  </>
-                );
-              })()}
-            </CardContent>
-          </Card>
+            </article>
           );
         })}
       </div>
+      ) : null}
 
+      {displayMode === "table" && visiblePlans.length > 0 ? (
+        <Card className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+          <div className="h-1 bg-rose-900" />
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1180px]">
+                <thead className="border-b border-rose-100 bg-rose-50/70">
+                  <tr>
+                    {PLAN_COLUMNS.map((column) => renderFilterableTh(column.key))}
+                    <th className="w-36 px-4 py-3 text-left text-sm font-semibold text-stone-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {paginatedPlans.map((plan) => {
+                    const facts = planFacts.get(plan.id);
+                    if (!facts) return null;
+                    return (
+                      <tr
+                        key={plan.id}
+                        className="cursor-pointer align-middle transition-colors hover:bg-rose-50/40"
+                        onClick={() => openDetail(plan)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") openDetail(plan);
+                        }}
+                        tabIndex={0}
+                        aria-label={`Consulter ${facts.title}`}
+                      >
+                        <td className="px-4 py-4 text-sm font-semibold tabular-nums text-stone-900">{facts.numero || "—"}</td>
+                        <td className="px-4 py-4">
+                          <p className="max-w-xs text-sm font-semibold leading-snug text-stone-950">{facts.title}</p>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-stone-700">{facts.service}</td>
+                        <td className="px-4 py-4"><PlanStatusMark status={plan.status} /></td>
+                        <td className="px-4 py-4 text-sm text-stone-700">{facts.priority}</td>
+                        <td className="px-4 py-4 text-sm text-stone-700">{formatPlanDate(facts.due)}</td>
+                        <td className="px-4 py-4">
+                          <p className="line-clamp-2 max-w-xs text-sm leading-snug text-stone-700">{facts.lieu}</p>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-stone-700">{structuresLabel(Number(facts.structures) || 0)}</td>
+                        <td className="px-4 py-4 text-sm text-stone-700">{facts.owner}</td>
+                        <td className="px-4 py-4">
+                          <div
+                            className="flex flex-nowrap items-center gap-1.5"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              aria-label="Consulter"
+                              title="Consulter"
+                              onClick={() => openDetail(plan)}
+                              className="h-9 w-9 shrink-0 rounded-xl border-stone-300 bg-white p-0 text-stone-800 shadow-sm hover:bg-stone-50"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {canEdit ? (
+                              <Button
+                                type="button"
+                                aria-label="Modifier"
+                                title="Modifier"
+                                onClick={() => openEdit(plan)}
+                                className="h-9 w-9 shrink-0 rounded-xl bg-rose-900 p-0 text-white shadow-sm hover:bg-rose-950"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                            {canEdit ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                aria-label="Supprimer"
+                                title="Supprimer"
+                                onClick={() => setPlanPendingDelete(plan)}
+                                className="h-9 w-9 shrink-0 rounded-xl border-rose-200 bg-white p-0 text-rose-800 shadow-sm hover:bg-rose-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
       <ListPaginationBar
         currentPage={currentPage}
         totalPages={totalPages}
@@ -2501,8 +2775,8 @@ export function PreventionPlanView({
         <Card className="border-2 border-dashed border-gray-300 bg-white/80">
           <CardContent className="py-14 text-center">
             <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
-            <p className="text-gray-700 font-semibold">Aucun plan de prevention</p>
-            <p className="text-gray-500 text-sm mt-1">Ajuste les filtres ou cree un nouveau plan.</p>
+            <p className="text-gray-700 font-semibold">Aucun plan de prévention</p>
+            <p className="text-gray-500 text-sm mt-1">Ajustez les filtres ou créez un nouveau plan.</p>
           </CardContent>
         </Card>
       ) : null}

@@ -257,7 +257,7 @@ export function NotificationSettings({
               <div className="space-y-3 p-4 bg-red-50 rounded-lg border-2 border-red-200">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <h4 className="font-bold text-gray-900">Gestion des risques</h4>
+                  <h4 className="font-bold text-gray-900">Mise à jour des risques</h4>
                 </div>
                 <div className="space-y-2 ml-7">
                   <div className="flex items-center justify-between">

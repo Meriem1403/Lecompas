@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -248,6 +249,7 @@ export function AccidentCreateView({
               variant="outline"
               size="default"
               onClick={onCancel}
+              onClick={() => requestLeave(onCancel)}
               className="w-full sm:w-auto font-semibold shadow-sm border-2 border-gray-300"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -256,8 +258,7 @@ export function AccidentCreateView({
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:flex-wrap pt-4 border-t border-gray-200">
-          <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
-            <X className="h-4 w-4 mr-2" />
+          <Button type="button" variant="outline" onClick={() => requestLeave(onCancel)} className="w-full sm:w-auto">
             Annuler
           </Button>
           <Button

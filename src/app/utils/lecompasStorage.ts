@@ -112,6 +112,10 @@ export function saveSuppressedAwarenessKeys(keys: string[]) {
   writeJson(SUPPRESSED_AWARENESS_KEY, keys);
 }
 
+export function normalizeRiskTitle(title: string) {
+  return title.trim().toLocaleLowerCase("fr");
+}
+
 export function buildRiskAwarenessKey(risk: {
   numeroRisque: string;
   title: string;

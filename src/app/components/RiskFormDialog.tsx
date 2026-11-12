@@ -8,6 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ScrollArea } from './ui/scroll-area';
 import { PlusCircle, X, Save, Edit, FileText, BarChart3, Calendar, Droplet, Zap, Bug, Brain, Armchair, Cog, Search, Clock, CheckCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  ChoicePills,
+  DirectoryUserPills,
+  DirectoryUserSelect,
+  namesOutsideDirectory,
+} from '@/app/components/risks/RiskFormControls';
 import { computeRiskValues, computeRiskWorkflowStatus, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
 
 interface Risk {
@@ -70,6 +76,7 @@ interface RiskFormDialogProps {
     domain: string;
     location: string;
   }>;
+  suggestedNumber?: string;
 }
 
 export function RiskFormDialog({
@@ -83,6 +90,7 @@ export function RiskFormDialog({
   serviceCatalog = [],
   riskReferences = [],
   concernedPersons = [],
+  suggestedNumber = "1",
 }: RiskFormDialogProps) {
   const [formData, setFormData] = useState({
     numeroRisque: '',
@@ -143,7 +151,7 @@ export function RiskFormDialog({
       });
     } else {
       setFormData({
-        numeroRisque: '',
+        numeroRisque: suggestedNumber,
         title: '',
         unite: '',
         domain: '',
@@ -170,7 +178,7 @@ export function RiskFormDialog({
         }]
       });
     }
-  }, [risk, open]);
+  }, [risk, open, suggestedNumber]);
 
   const splitCsv = (value?: string) =>
     (value || '')
@@ -181,26 +189,6 @@ export function RiskFormDialog({
   const selectedServices = splitCsv(formData.service);
   const selectedDomains = splitCsv(formData.domain || formData.unite);
   const selectedLocations = splitCsv(formData.site);
-
-  const matchesScope = (personValue: string, selectedValues: string[]) => {
-    if (selectedValues.length === 0) return true;
-    const personValues = splitCsv(personValue).map((value) =>
-      value.toLowerCase(),
-    );
-    return selectedValues.some((value) =>
-      personValues.includes(value.toLowerCase()),
-    );
-  };
-
-  const filteredResponsibleOptions = concernedPersons
-    .filter(
-      (person) =>
-        matchesScope(person.service, selectedServices) &&
-        matchesScope(person.domain, selectedDomains) &&
-        matchesScope(person.location, selectedLocations),
-    )
-    .map((person) => person.fullName)
-    .filter(Boolean);
 
   const availableDomainsForSelection =
     selectedServices.length === 0
@@ -288,6 +276,22 @@ export function RiskFormDialog({
       return;
     }
 
+    const measureNames = formData.plannedMeasures.flatMap((measure) =>
+      measure.responsible.split(',').map((name) => name.trim()).filter(Boolean),
+    );
+    const unknownNames = namesOutsideDirectory(
+      [formData.responsable, ...measureNames],
+      concernedPersons,
+    );
+    if (!formData.responsable.trim() || unknownNames.length > 0) {
+      toast.error(
+        unknownNames.length > 0
+          ? `Ces responsables ne sont pas dans Utilisateurs : ${unknownNames.join(', ')}`
+          : 'Choisissez un responsable dans Utilisateurs',
+      );
+      return;
+    }
+
     const computed = computeRiskValues(
       formData.severity,
       formData.probability,
@@ -296,7 +300,7 @@ export function RiskFormDialog({
     
     const riskData = {
       ...(risk && { id: risk.id }),
-      numeroRisque: formData.numeroRisque || `RISK-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+      numeroRisque: risk ? risk.numeroRisque : suggestedNumber,
       title: formData.title,
       unite: formData.domain || formData.unite,
       domain: formData.domain || formData.unite,
@@ -413,19 +417,14 @@ export function RiskFormDialog({
                 <FileText className="h-5 w-5" /> Identification du Risque
               </h3>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="numeroRisque">Numéro de risque</Label>
                   {riskReferences.length > 0 && (
                     <Select
                       value={
-                        riskReferences.some(
-                          (ref) =>
-                            ref.numeroRisque ===
-                              formData.numeroRisque &&
-                            ref.title === formData.title,
-                        )
-                          ? formData.numeroRisque
+                        riskReferences.some((ref) => ref.title === formData.title)
+                          ? riskReferences.find((ref) => ref.title === formData.title)?.numeroRisque ?? "__custom__"
                           : "__custom__"
                       }
                       onValueChange={(value) => {
@@ -437,8 +436,6 @@ export function RiskFormDialog({
                         if (!selectedReference) return;
                         setFormData((prev) => ({
                           ...prev,
-                          numeroRisque:
-                            selectedReference.numeroRisque,
                           title: selectedReference.title,
                         }));
                       }}
@@ -464,88 +461,53 @@ export function RiskFormDialog({
                   )}
                   <Input
                     id="numeroRisque"
-                    value={formData.numeroRisque}
-                    onChange={(e) => setFormData(prev => ({ ...prev, numeroRisque: e.target.value }))}
-                    placeholder="Ex: RISK-2026-001"
+                    value={risk ? risk.numeroRisque : suggestedNumber}
+                    readOnly
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="unite">Domaine *</Label>
-                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                    {availableDomainsForSelection.map((domain) => (
-                      <label key={domain} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedDomains.includes(domain)}
-                          onChange={(e) => handleDomainsChange(domain, e.target.checked)}
-                        />
-                        {domain}
-                      </label>
-                    ))}
-                  </div>
+                  <ChoicePills
+                    legend="Domaine"
+                    options={availableDomainsForSelection}
+                    selected={selectedDomains}
+                    onToggle={handleDomainsChange}
+                    emptyHint="Aucun domaine pour le service choisi."
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="service">Service *</Label>
-                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                    {serviceOptions.map((service) => (
-                      <label key={service} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedServices.includes(service)}
-                          onChange={(e) => handleServicesChange(service, e.target.checked)}
-                        />
-                        {service}
-                      </label>
-                    ))}
-                  </div>
+                  <ChoicePills
+                    legend="Service"
+                    options={serviceOptions}
+                    selected={selectedServices}
+                    onToggle={handleServicesChange}
+                    emptyHint="Aucun service n'est configuré."
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="site">Lieux *</Label>
-                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                    {availableLocationsForSelection.map((location) => (
-                      <label key={location} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedLocations.includes(location)}
-                          onChange={(e) => handleLocationsChange(location, e.target.checked)}
-                        />
-                        {location}
-                      </label>
-                    ))}
-                  </div>
+                  <ChoicePills
+                    legend="Lieux"
+                    options={availableLocationsForSelection}
+                    selected={selectedLocations}
+                    onToggle={handleLocationsChange}
+                    emptyHint="Aucun lieu pour le service choisi."
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="responsable">Responsable *</Label>
-                  <Select
-                    value={formData.responsable || "__empty__"}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        responsable:
-                          value === "__empty__" ? "" : value,
-                      }))
+                  <DirectoryUserSelect
+                    id="responsable"
+                    value={formData.responsable}
+                    users={concernedPersons}
+                    onChange={(fullName) =>
+                      setFormData((prev) => ({ ...prev, responsable: fullName }))
                     }
-                  >
-                    <SelectTrigger id="responsable">
-                      <SelectValue placeholder="Sélectionner un responsable" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__empty__">
-                        Non renseigné
-                      </SelectItem>
-                      {filteredResponsibleOptions.map((person) => (
-                        <SelectItem key={person} value={person}>
-                          {person}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
               </div>
 
@@ -777,30 +739,14 @@ export function RiskFormDialog({
                     rows={2}
                   />
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2 rounded-md border border-gray-200 bg-white p-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="space-y-2">
                       <Label className="text-xs">Responsables de l'action</Label>
-                      <div className="max-h-28 space-y-1 overflow-y-auto">
-                        {filteredResponsibleOptions.map((person) => {
-                          const selectedResponsible = splitCsv(measure.responsible);
-                          const isChecked = selectedResponsible.includes(person);
-                          return (
-                            <label key={person} className="flex items-center gap-2 text-sm text-gray-700">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  const nextValues = e.target.checked
-                                    ? [...selectedResponsible, person]
-                                    : selectedResponsible.filter((value) => value !== person);
-                                  updatePlannedMeasure(index, "responsible", nextValues.join(", "));
-                                }}
-                              />
-                              {person}
-                            </label>
-                          );
-                        })}
-                      </div>
+                      <DirectoryUserPills
+                        users={concernedPersons}
+                        selected={splitCsv(measure.responsible)}
+                        onChange={(next) => updatePlannedMeasure(index, "responsible", next.join(", "))}
+                      />
                     </div>
                     <Input
                       type="date"

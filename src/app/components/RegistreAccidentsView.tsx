@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -550,6 +551,7 @@ function CreateAccidentView({
   domainOptions: string[];
   locationOptions: string[];
 }) {
+  const requestLeave = useLeaveGuard();
   const [formData, setFormData] = useState({
     nomVictime: '',
     prenomVictime: '',
@@ -607,7 +609,7 @@ function CreateAccidentView({
           <h3 className="text-2xl font-bold text-gray-900">Nouvel accident bénin</h3>
           <p className="text-gray-600">Inscription au registre des accidents du travail</p>
         </div>
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
+        <Button variant="outline" onClick={() => requestLeave(onBack)} className="w-full sm:w-auto">
           Retour
         </Button>
       </div>
@@ -838,7 +840,7 @@ function CreateAccidentView({
 
           {/* Actions */}
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onBack} className="w-full sm:w-auto">
+            <Button type="button" variant="outline" onClick={() => requestLeave(onBack)} className="w-full sm:w-auto">
               Annuler
             </Button>
             <Button type="submit" className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
@@ -1099,6 +1101,7 @@ function EditAccidentView({
   domainOptions: string[];
   locationOptions: string[];
 }) {
+  const requestLeave = useLeaveGuard();
   const hasSoignantSignature = (acc: AccidentBenin) => Boolean(acc.signatureSoignantImage) || Boolean(acc.signatureSoignantDate) || acc.signatureSoignant;
   const hasVictimeSignature = (acc: AccidentBenin) => Boolean(acc.signatureVictimeImage) || Boolean(acc.signatureVictimeDate) || acc.signatureVictime;
 
@@ -1161,7 +1164,7 @@ function EditAccidentView({
             })}
           </p>
         </div>
-        <Button variant="outline" onClick={onBack} className="w-full sm:w-auto">
+        <Button variant="outline" onClick={() => requestLeave(onBack)} className="w-full sm:w-auto">
           Retour
         </Button>
       </div>
@@ -1382,8 +1385,7 @@ function EditAccidentView({
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onBack} className="w-full sm:w-auto">
-              Annuler
+            <Button type="button" variant="outline" onClick={() => requestLeave(onBack)} className="w-full sm:w-auto">
             </Button>
             <Button type="submit" className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
               Enregistrer les modifications

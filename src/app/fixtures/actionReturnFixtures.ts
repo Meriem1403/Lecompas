@@ -104,3 +104,52 @@ export const ACTION_RETURN_FIXTURES: ActionReturnFixture[] = [
     status: "pending",
   },
 ];
+
+export function previewActionReturnsForRisks(
+  risks: Array<{ id: string; title: string; detachedFromReference?: boolean }>,
+): ActionReturnFixture[] {
+  const available = risks.filter((risk) => risk.id);
+  if (available.length === 0) return [];
+  const primary =
+    available.find((risk) => risk.title.trim() && !risk.detachedFromReference) ??
+    available[0];
+  const secondary = available.find((risk) => risk.id !== primary.id) ?? primary;
+  const titleOf = (risk: { title: string; detachedFromReference?: boolean }) =>
+    risk.detachedFromReference || !risk.title.trim() ? "Lié à aucun risque" : risk.title.trim();
+
+  return [
+    {
+      id: "ar-preview-1",
+      riskId: primary.id,
+      riskTitle: titleOf(primary),
+      proposedBy: "Bernard Lemoine",
+      proposedDate: "2026-11-10T09:30:00",
+      proposedMeasure: "Port de chaussures antidérapantes obligatoire lors des déplacements internes",
+      justification:
+        "Les circulations internes restent glissantes par temps humide. Le balisage seul ne suffit pas à éviter les glissades.",
+      status: "pending",
+    },
+    {
+      id: "ar-preview-2",
+      riskId: primary.id,
+      riskTitle: titleOf(primary),
+      proposedBy: "Chef de Service Maritime",
+      proposedDate: "2026-11-07T14:15:00",
+      proposedMeasure: "Balisage des couloirs et retrait des obstacles sur les itinéraires de déplacement",
+      justification:
+        "Des cartons et du matériel sont laissés dans les passages. Un itinéraire dégagé réduirait les heurts et les chutes.",
+      status: "pending",
+    },
+    {
+      id: "ar-preview-3",
+      riskId: secondary.id,
+      riskTitle: titleOf(secondary),
+      proposedBy: "Bernard Lemoine",
+      proposedDate: "2026-11-04T11:00:00",
+      proposedMeasure: "Afficher une consigne de prévention à jour sur le poste concerné",
+      justification:
+        "La fiche n'a plus de mesure clairement visible pour les agents. Une consigne affichée permet d'appliquer la prévention au quotidien.",
+      status: "pending",
+    },
+  ];
+}

@@ -32,8 +32,8 @@ export function AdministrationModulesView({ onSelectModule, onGoBack }: Administ
   const modules: Module[] = [
     {
       id: "risks-management",
-      title: "Gestion des risques",
-      description: "Administration des types de risques et catégories",
+      title: "Mise à jour des risques",
+      description: "Création et modification du registre, réservées à l'administration",
       icon: Database,
       color: "text-red-600",
       gradient: "from-red-600 via-rose-500 to-pink-500",

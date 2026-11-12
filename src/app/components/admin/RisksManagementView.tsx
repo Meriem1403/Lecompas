@@ -18,26 +18,50 @@ import {
 } from '@/app/components/ui/alert-dialog';
 import { AlertTriangle, PlusCircle, Edit, Trash2, Eye, ArrowLeft, Target, TrendingUp, Clock, AlertCircle, Calendar, Calculator, Shield, Tag, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  ChoicePills,
+  DirectoryUserPills,
+  DirectoryUserSelect,
+  namesOutsideDirectory,
+} from '@/app/components/risks/RiskFormControls';
 import * as XLSX from 'xlsx';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 import { ColumnFilterPopover } from '@/app/components/ui/column-filter-popover';
 import {
   buildColumnFilterOptions,
+  columnFilterKind,
+  compareRiskColumn,
   emptyRiskManagementColumnFilters,
   formatMoyenMaitriseLabel,
   hasActiveRiskManagementColumnFilters,
   matchesRiskManagementColumnFilters,
-  matchesRiskManagementSearch,
   RISK_MANAGEMENT_FILTERABLE_COLUMNS,
+  type ColumnFilterState,
   type RiskManagementColumnKey,
   type RiskManagementColumnFilters,
 } from '@/app/utils/riskManagementFilterLogic';
 import { computeRiskValues, computeRiskWorkflowStatus, getPriorityBandFromGfm, getRiskWorkflowStatusLabel, type RiskWorkflowStatus } from '@/app/services/riskPriority';
+import { nextRiskNumber } from '@/app/utils/riskSequence';
+import { RiskEditView } from '@/app/components/RiskEditView';
+import { RiskEvaluationFiltersPanel } from '@/app/components/RiskEvaluationFiltersPanel';
+import {
+  emptyRiskEvaluationFilters,
+  matchesRiskEvaluationFilters,
+  type RiskEvaluationFilters,
+} from '@/app/utils/riskFilterLogic';
+import { RiskConsultationDetail } from '@/app/components/risks/RiskConsultationDetail';
+import type { ActionReturnFixture } from '@/app/fixtures/actionReturnFixtures';
+import { RiskEvaluationFacts, RiskProgress } from '@/app/components/risks/RiskEvaluationFacts';
+
+const fieldClass = "h-11 rounded-xl border-slate-200 bg-white shadow-sm data-[size=default]:h-11";
+const severityWords = ["", "Faible", "Moyen", "Élevé", "Très élevé"];
+const frequencyWords = ["", "Rare", "Peu probable", "Probable", "Très probable"];
 
 export interface Risk {
   id: string;
   numeroRisque: string;
   title: string;
+  detachedFromReference?: boolean;
   unite: string;
   domain?: string;
   service: string;
@@ -92,6 +116,15 @@ interface RisksManagementViewProps {
     domain: string;
     location: string;
   }>;
+  onDeleteRisk?: (id: string) => void;
+  actionReturns?: ActionReturnFixture[];
+  onManageActionReturns?: () => void;
+  onProposeReturn?: (risk: Risk) => void;
+  onLearnMore?: (risk: Risk) => void;
+  getCategoryIcon: (category: string) => React.ComponentType<{ className?: string }>;
+  getCategoryColor: (category: string) => string;
+  riskLevelGradient: (level: number) => string;
+  getRiskLevelLabel: (level: number) => string;
 }
 
 type ViewMode = 'list' | 'view' | 'edit' | 'create';
@@ -105,26 +138,41 @@ export function RisksManagementView({
   serviceCatalog = [],
   riskReferences = [],
   concernedPersons = [],
+  onDeleteRisk,
+  actionReturns = [],
+  onManageActionReturns,
+  onProposeReturn,
+  onLearnMore,
+  getCategoryIcon,
+  getCategoryColor,
+  riskLevelGradient,
+  getRiskLevelLabel,
 }: RisksManagementViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [riskToDelete, setRiskToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [evaluationFilters, setEvaluationFilters] = useState<RiskEvaluationFilters>(
+    emptyRiskEvaluationFilters(),
+  );
   const [columnFilters, setColumnFilters] = useState<RiskManagementColumnFilters>(
     emptyRiskManagementColumnFilters,
   );
+  const [columnSort, setColumnSort] = useState<{
+    key: RiskManagementColumnKey;
+    direction: "asc" | "desc";
+  } | null>(null);
   const [listPage, setListPage] = useState(1);
 
   // Form state pour création/édition
   const [formData, setFormData] = useState<Partial<Risk>>({});
 
-  const selectedRiskReferenceValue = riskReferences.some(
-    (ref) =>
-      ref.numeroRisque === (formData.numeroRisque || "") &&
-      ref.title === (formData.title || ""),
-  )
-    ? `${formData.numeroRisque}::${formData.title}`
+  const matchedRiskReference = riskReferences.find(
+    (ref) => ref.title === (formData.title || ""),
+  );
+  const selectedRiskReferenceValue = matchedRiskReference
+    ? `${matchedRiskReference.numeroRisque}::${matchedRiskReference.title}`
     : "__custom__";
 
   const splitCsv = (value?: string) =>
@@ -136,26 +184,6 @@ export function RisksManagementView({
   const selectedServices = splitCsv(formData.service);
   const selectedDomains = splitCsv(formData.domain || formData.unite);
   const selectedLocations = splitCsv(formData.site);
-
-  const matchesScope = (personValue: string, selectedValues: string[]) => {
-    if (selectedValues.length === 0) return true;
-    const personValues = splitCsv(personValue).map((value) =>
-      value.toLowerCase(),
-    );
-    return selectedValues.some((value) =>
-      personValues.includes(value.toLowerCase()),
-    );
-  };
-
-  const filteredResponsibleOptions = concernedPersons
-    .filter(
-      (person) =>
-        matchesScope(person.service, selectedServices) &&
-        matchesScope(person.domain, selectedDomains) &&
-        matchesScope(person.location, selectedLocations),
-    )
-    .map((person) => person.fullName)
-    .filter(Boolean);
 
   const availableDomainsForSelection =
     selectedServices.length === 0
@@ -270,7 +298,7 @@ export function RisksManagementView({
   const handleCreate = () => {
     setSelectedRisk(null);
     setFormData({
-      numeroRisque: `RISK-${new Date().getFullYear()}-${String(risks.length + 1).padStart(3, '0')}`,
+      numeroRisque: nextRiskNumber(risks.map((risk) => risk.numeroRisque)),
       severity: 1,
       probability: 1,
       riskLevel: 1,
@@ -293,10 +321,18 @@ export function RisksManagementView({
   const confirmDelete = () => {
     if (riskToDelete) {
       const targetId = String(riskToDelete);
-      setRisks(risks.filter(r => String(r.id) !== targetId));
-      toast.success('Risque supprimé avec succès');
+      if (onDeleteRisk) {
+        onDeleteRisk(targetId);
+      } else {
+        setRisks(risks.filter((risk) => String(risk.id) !== targetId));
+        toast.success('Risque supprimé avec succès');
+      }
       setDeleteDialogOpen(false);
       setRiskToDelete(null);
+      if (String(selectedRisk?.id) === targetId) {
+        setViewMode('list');
+        setSelectedRisk(null);
+      }
     }
   };
 
@@ -307,10 +343,25 @@ export function RisksManagementView({
   };
 
   const handleSave = () => {
+    const measureNames = (formData.plannedMeasures || []).flatMap((measure) =>
+      String(measure.responsible || "").split(",").map((name) => name.trim()).filter(Boolean),
+    );
+    const unknownNames = namesOutsideDirectory(
+      [String(formData.responsable || ""), ...measureNames],
+      concernedPersons,
+    );
+    if (!String(formData.responsable || "").trim() || unknownNames.length > 0) {
+      toast.error(
+        unknownNames.length > 0
+          ? `Ces responsables ne sont pas dans Utilisateurs : ${unknownNames.join(", ")}`
+          : "Choisissez un responsable dans Utilisateurs",
+      );
+      return;
+    }
     if (viewMode === 'create') {
       const newRisk: Risk = {
         id: `risk-${Date.now()}`,
-        numeroRisque: formData.numeroRisque || `R-${String(risks.length + 1).padStart(3, '0')}`,
+        numeroRisque: nextRiskNumber(risks.map((risk) => risk.numeroRisque)),
         title: formData.title || '',
         unite: formData.unite || '',
         service: formData.service || '',
@@ -360,6 +411,7 @@ export function RisksManagementView({
       const updatedRisk = {
         ...selectedRisk,
         ...formData,
+        numeroRisque: selectedRisk.numeroRisque,
         category: formData.category || selectedRisk.category,
         riskLevel: computeRiskValues(
           formData.severity || selectedRisk.severity,
@@ -422,7 +474,7 @@ export function RisksManagementView({
       // Créer le fichier Excel
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Gestion des risques');
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Mise à jour des risques');
 
       // Ajuster la largeur des colonnes
       const colWidths = [
@@ -497,8 +549,8 @@ export function RisksManagementView({
     ) as Record<RiskManagementColumnKey, ReturnType<typeof buildColumnFilterOptions>>;
   }, [risks]);
 
-  const patchColumnFilter = (key: RiskManagementColumnKey, values: string[]) => {
-    setColumnFilters((previous) => ({ ...previous, [key]: values }));
+  const patchColumnFilter = (key: RiskManagementColumnKey, filter: ColumnFilterState) => {
+    setColumnFilters((previous) => ({ ...previous, [key]: filter }));
   };
 
   const renderFilterableTh = (
@@ -512,12 +564,20 @@ export function RisksManagementView({
       className={`px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider ${extraClassName}`}
       style={{ minWidth }}
     >
-      <div className="flex items-center gap-0.5 min-w-0">
+      <div className="flex items-center gap-1 min-w-0">
         <span className="truncate">{label}</span>
+        {columnSort?.key === key ? (
+          <span className="text-[10px] font-bold text-sky-700" aria-hidden>
+            {columnSort.direction === "asc" ? "↑" : "↓"}
+          </span>
+        ) : null}
         <ColumnFilterPopover
           options={columnOptionsByKey[key]}
-          selected={columnFilters[key]}
-          onChange={(values) => patchColumnFilter(key, values)}
+          filter={columnFilters[key]}
+          kind={columnFilterKind(key)}
+          sorted={columnSort?.key === key ? columnSort.direction : null}
+          onApply={(filter) => patchColumnFilter(key, filter)}
+          onSort={(direction) => setColumnSort({ key, direction })}
           ariaLabel={`Filtrer la colonne ${label}`}
         />
       </div>
@@ -526,20 +586,27 @@ export function RisksManagementView({
 
   // Filtrer les risques
   const filteredRisks = risks.filter((risk) =>
-    matchesRiskManagementSearch(risk, searchQuery) &&
+    matchesRiskEvaluationFilters(risk, evaluationFilters, searchQuery) &&
     matchesRiskManagementColumnFilters(risk, columnFilters),
   );
 
+  const sortedRisks = useMemo(() => {
+    if (!columnSort) return filteredRisks;
+    return [...filteredRisks].sort((left, right) =>
+      compareRiskColumn(left, right, columnSort.key, columnSort.direction),
+    );
+  }, [filteredRisks, columnSort]);
+
   const listPageSize = TABLE_LIST_PAGE_SIZE;
-  const listTotalPages = Math.max(1, Math.ceil(filteredRisks.length / listPageSize));
+  const listTotalPages = Math.max(1, Math.ceil(sortedRisks.length / listPageSize));
   const paginatedRisks = useMemo(() => {
     const start = (listPage - 1) * listPageSize;
-    return filteredRisks.slice(start, start + listPageSize);
-  }, [filteredRisks, listPage, listPageSize]);
+    return sortedRisks.slice(start, start + listPageSize);
+  }, [sortedRisks, listPage, listPageSize]);
 
   useEffect(() => {
     setListPage(1);
-  }, [searchQuery, columnFilters]);
+  }, [searchQuery, columnFilters, evaluationFilters]);
 
   useEffect(() => {
     if (listPage > listTotalPages) setListPage(listTotalPages);
@@ -552,27 +619,29 @@ export function RisksManagementView({
         <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center shadow-lg">
-                <AlertTriangle className="h-6 w-6 text-white" />
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-xl">
+                <Shield className="h-8 w-8 text-white" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-2xl font-bold text-gray-900 break-words">Gestion des risques</h2>
-                <p className="text-gray-600">{risks.length} risque{risks.length > 1 ? 's' : ''} répertorié{risks.length > 1 ? 's' : ''}</p>
+                <h2 className="text-3xl font-bold text-gray-900 break-words">Mise à jour des risques</h2>
+                <p className="text-gray-600 mt-1">
+                  Création et modification, réservées à l'administration. Même liste que Évaluation des risques.
+                </p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={handleExportExcel}
                 variant="outline"
-                className="w-full sm:w-auto border-green-600 text-green-600 hover:bg-green-50"
+                className="h-11 w-full rounded-xl border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 sm:w-auto"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Exporter Excel
               </Button>
               <Button
                 onClick={handleCreate}
-                className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 shadow-lg"
+                className="h-11 w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 shadow-lg hover:from-purple-700 hover:to-indigo-700 sm:w-auto"
               >
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Nouveau risque
@@ -580,39 +649,29 @@ export function RisksManagementView({
             </div>
           </div>
 
-          {/* Filtres */}
-          <Card className="border-2 border-slate-200 shadow-lg bg-gradient-to-r from-slate-50 to-slate-100">
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-3">
-                <Input
-                  placeholder="Recherche globale (numéro, titre, service, situation...)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white border-2 border-slate-400 text-slate-900 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-                />
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-gray-600">
-                    {filteredRisks.length} risque(s) affiché(s) sur {risks.length}
-                    {hasActiveRiskManagementColumnFilters(columnFilters)
-                      ? " — filtres colonnes actifs (icône entonnoir dans le tableau)"
-                      : ""}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto bg-white"
-                    onClick={() => {
-                      setColumnFilters(emptyRiskManagementColumnFilters());
-                      setSearchQuery("");
-                    }}
-                  >
-                    Réinitialiser tous les filtres
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <RiskEvaluationFiltersPanel
+            filters={evaluationFilters}
+            onChange={setEvaluationFilters}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            visibleRisks={risks}
+            resultCount={filteredRisks.length}
+          />
+          {hasActiveRiskManagementColumnFilters(columnFilters) ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-purple-100 bg-white px-4 py-2">
+              <p className="text-xs font-medium text-purple-700">
+                Des filtres de colonnes sont actifs dans le tableau.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 rounded-xl text-slate-600"
+                onClick={() => setColumnFilters(emptyRiskManagementColumnFilters())}
+              >
+                Réinitialiser les colonnes
+              </Button>
+            </div>
+          ) : null}
 
           {/* Tableau des risques */}
           <Card className="border-0 shadow-xl overflow-hidden">
@@ -640,12 +699,12 @@ export function RisksManagementView({
                         {renderFilterableTh('riskLevel', 'Niveau GFM', '120px')}
                         {renderFilterableTh('priorityBand', 'P1/P2/P3', '90px')}
                         {renderFilterableTh('prioriteFinale', 'Priorité finale', '120px')}
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Mesures existantes</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Actions planifiées</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[130px]">Avancement</th>
+                        {renderFilterableTh('existingMeasures', 'Mesures existantes', '200px')}
+                        {renderFilterableTh('plannedMeasures', 'Actions planifiées', '200px')}
+                        {renderFilterableTh('progress', 'Avancement', '130px')}
                         {renderFilterableTh('echeance', 'Échéance', '110px')}
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Retour d'action</th>
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider min-w-[200px]">Observation</th>
+                        {renderFilterableTh('retourAction', 'Retour d\'action', '200px')}
+                        {renderFilterableTh('observation', 'Observation', '200px')}
                         {renderFilterableTh('status', 'Statut', '100px')}
                         <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-gray-50 to-slate-50 min-w-[150px] shadow-lg">Actions</th>
                       </tr>
@@ -666,7 +725,9 @@ export function RisksManagementView({
                             </td>
                             <td className="px-4 py-4">
                               <div className="max-w-[200px]">
-                                <p className="text-sm font-medium text-gray-900 truncate">{risk.title}</p>
+                                <p className={`text-sm font-medium truncate ${risk.detachedFromReference ? "text-amber-800" : "text-gray-900"}`}>
+                                  {risk.detachedFromReference ? "Lié à aucun risque" : risk.title}
+                                </p>
                               </div>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
@@ -860,7 +921,7 @@ export function RisksManagementView({
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
               <AlertDialogDescription>
-                Êtes-vous sûr de vouloir supprimer ce risque ? Cette action est irréversible.
+                Êtes-vous sûr de vouloir supprimer ce risque ? La fiche reste dans le référentiel, avec la mention « Lié à aucun risque ».
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -878,308 +939,113 @@ export function RisksManagementView({
     );
   }
 
-  // Vue détail
-  if (viewMode === 'view' && selectedRisk) {
+  const openedRisk = selectedRisk
+    ? risks.find((risk) => String(risk.id) === String(selectedRisk.id)) ?? null
+    : null;
+
+  if (viewMode === 'view' && openedRisk) {
     return (
-        <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button variant="outline" size="sm" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
-            </Button>
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-xl font-bold text-gray-900">{selectedRisk.numeroRisque}</h2>
-              <p className="text-sm text-gray-600 break-words">{selectedRisk.title}</p>
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            {getStatusBadge(selectedRisk.status)}
-            <Button onClick={() => handleEdit(selectedRisk)} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700">
-              <Edit className="h-4 w-4 mr-2" />
-              Modifier
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-            {/* Informations générales */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Target className="h-5 w-5 text-blue-600" />
-                  Informations générales
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-600">Numéro de risque</Label>
-                    <p className="font-mono font-semibold text-gray-900">{selectedRisk.numeroRisque}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Services</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {(selectedRisk.service || '')
-                        .split(',')
-                        .map((item) => item.trim())
-                        .filter(Boolean)
-                        .map((service) => (
-                          <Badge key={service} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                            {service}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Lieux</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {(selectedRisk.site || '')
-                        .split(',')
-                        .map((item) => item.trim())
-                        .filter(Boolean)
-                        .map((location) => (
-                          <Badge key={location} variant="outline" className="bg-cyan-50 text-cyan-700 border-cyan-200">
-                            {location}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Domaines</Label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {(selectedRisk.domain || selectedRisk.unite || '')
-                        .split(',')
-                        .map((item) => item.trim())
-                        .filter(Boolean)
-                        .map((domain) => (
-                          <Badge key={domain} variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-                            {domain}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Responsable</Label>
-                    <p className="font-semibold text-gray-900">{selectedRisk.responsable}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Description du risque */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Description du risque</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-gray-600 font-semibold">Risque</Label>
-                    <p className="text-gray-900 mt-1 font-medium">{selectedRisk.title}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600 font-semibold flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-orange-500" />
-                      Situation dangereuse
-                    </Label>
-                    <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-500 mt-2">
-                      <p className="text-gray-700">{selectedRisk.situation}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600 font-semibold flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-red-500" />
-                      Dommages associés
-                    </Label>
-                    <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500 mt-2">
-                      <p className="text-gray-700">{selectedRisk.associatedRisk}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Évaluation */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Target className="h-5 w-5 text-purple-600" />
-                  Évaluation
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-red-50 rounded-lg border-2 border-red-200 text-center">
-                    <Label className="text-gray-600 text-xs font-semibold">Gravité</Label>
-                    <p className="text-4xl font-bold text-red-600 mt-2">{selectedRisk.severity}/4</p>
-                  </div>
-                  <div className="p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200 text-center">
-                    <Label className="text-gray-600 text-xs font-semibold">Probabilité</Label>
-                    <p className="text-4xl font-bold text-yellow-600 mt-2">{selectedRisk.probability}/4</p>
-                  </div>
-                </div>
-                <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-300 text-center">
-                  <Label className="text-gray-600 text-xs font-semibold mb-1">Niveau de risque (calculé)</Label>
-                  <p className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent mt-2">{selectedRisk.riskLevel}</p>
-                  <p className="text-sm font-semibold text-gray-600 mt-2">
-                    {selectedRisk.riskLevel > 9 ? 'P1' : selectedRisk.riskLevel >= 4 ? 'P2' : 'P3'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Statut */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                  Statut du risque
-                </h3>
-                <Badge className={`w-full justify-center font-bold text-base py-3 ${
-                  selectedRisk.status === 'maitrise' ? 'bg-green-100 text-green-800 border-green-300' :
-                  selectedRisk.status === 'en_traitement' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                  selectedRisk.status === 'supprime' ? 'bg-slate-200 text-slate-800 border-slate-300' :
-                  'bg-blue-100 text-blue-800 border-blue-300'
-                }`}>
-                  {getRiskWorkflowStatusLabel(selectedRisk.status)}
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Mesures existantes */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Mesures de prévention existantes</h3>
-                {selectedRisk.existingMeasures && selectedRisk.existingMeasures.length > 0 ? (
-                  <ul className="space-y-2">
-                    {selectedRisk.existingMeasures.map((measure, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          {idx + 1}
-                        </Badge>
-                        <span className="text-gray-700">{measure}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500 italic">Aucune mesure existante</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Mesures planifiées */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                  Actions planifiées
-                </h3>
-                {selectedRisk.plannedMeasures && selectedRisk.plannedMeasures.length > 0 ? (
-                  <div className="space-y-3">
-                    {selectedRisk.plannedMeasures.map((measure, idx) => (
-                      <div key={idx} className="p-4 border-2 border-gray-300 rounded-lg bg-gray-50">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-2">
-                          <div className="flex-1">
-                            <Badge className="bg-blue-500 text-white mb-2">Action {idx + 1}</Badge>
-                            <p className="font-medium text-gray-900">{measure.description}</p>
-                          </div>
-                          <Badge className={
-                            measure.status === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
-                            measure.status === 'in_progress' ? 'bg-orange-100 text-orange-800 border-orange-300' :
-                            'bg-gray-100 text-gray-800 border-gray-300'
-                          }>
-                            {measure.status === 'completed' ? 'Terminée' : measure.status === 'in_progress' ? 'En cours' : 'En attente'}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-sm text-gray-600 mt-2">
-                          <span>{measure.responsible}</span>
-                          <span>{measure.deadline ? new Date(measure.deadline).toLocaleDateString('fr-FR') : 'Pas de date'}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">Aucune action planifiée</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Évaluation Avancée */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-cyan-600" />
-                  Évaluation avancée
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-gray-600">Moyen de maîtrise</Label>
-                    <p className="text-gray-900 mt-1 font-semibold">{selectedRisk.moyenMaitrise || 'Non défini'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Priorité finale</Label>
-                    <p className="text-gray-900 mt-1 font-semibold">{selectedRisk.prioriteFinale}</p>
-                  </div>
-                </div>
-                <div className="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
-                  <p className="text-xs text-gray-600 font-semibold mb-1">Calcul de la priorité</p>
-                  <p className="text-3xl font-bold text-yellow-800">{selectedRisk.calculPriorite || selectedRisk.riskLevel}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Suivi et échéances */}
-            <Card className="border-0 shadow-lg">
-              <CardContent className="pt-6 space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-pink-600" />
-                  Suivi et échéances
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-gray-600">Échéance globale</Label>
-                    <p className="text-gray-900 mt-1 font-semibold">
-                      {selectedRisk.echeance ? new Date(selectedRisk.echeance).toLocaleDateString('fr-FR') : 'Non définie'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Retour d&apos;action</Label>
-                    <div className="bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500 mt-1">
-                      <p className="text-gray-700">{selectedRisk.retourAction || 'Aucun retour'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-gray-600">Observation</Label>
-                    <div className="bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500 mt-1">
-                      <p className="text-gray-700">{selectedRisk.observation || 'Aucune observation'}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-      </div>
+      <>
+        <RiskConsultationDetail
+          risk={openedRisk}
+          riskLevelGradient={riskLevelGradient}
+          riskLevelLabel={getRiskLevelLabel}
+          onBack={handleBack}
+          onEdit={() => handleEdit(openedRisk)}
+          onDelete={() => handleDelete(openedRisk.id)}
+          canManage
+          canProposeReturn={Boolean(onProposeReturn)}
+          onProposeReturn={onProposeReturn ? () => onProposeReturn(openedRisk) : undefined}
+          actionReturns={actionReturns.filter((item) => item.riskId === openedRisk.id)}
+          userRole="admin"
+          onManageActionReturns={onManageActionReturns}
+          onLearnMore={onLearnMore ? () => onLearnMore(openedRisk) : undefined}
+        />
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+              <AlertDialogDescription>
+                Êtes-vous sûr de vouloir supprimer ce risque ? La fiche reste dans le référentiel, avec la mention « Lié à aucun risque ».
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
     );
   }
 
-  // Vue création/édition
+  // Même fiche que Consultation des risques : une modification est visible dans les deux onglets.
+  const editingRisk = viewMode === 'edit' ? openedRisk : null;
+  if (viewMode === 'edit' && !editingRisk) {
+    return null;
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <RiskEditView
+      risk={editingRisk}
+      existingRisks={risks}
+      serviceOptions={serviceOptions}
+      domainOptions={domainOptions}
+      locationOptions={locationOptions}
+      serviceCatalog={serviceCatalog}
+      riskReferences={riskReferences}
+      concernedPersons={concernedPersons}
+      getCategoryIcon={getCategoryIcon}
+      getCategoryColor={getCategoryColor}
+      getRiskLevelColor={riskLevelGradient}
+      getRiskLevelLabel={getRiskLevelLabel}
+      onCancel={handleBack}
+      onSave={(saved) => {
+        if (editingRisk) {
+          const updatedRisk: Risk = {
+            ...editingRisk,
+            ...saved,
+            id: editingRisk.id,
+            numeroRisque: editingRisk.numeroRisque,
+            createdAt: editingRisk.createdAt,
+            updatedAt: new Date().toISOString(),
+          };
+          setRisks((previous) =>
+            previous.map((risk) => (String(risk.id) === String(editingRisk.id) ? updatedRisk : risk)),
+          );
+          toast.success('Risque modifié avec succès');
+        } else {
+          const newRisk: Risk = {
+            ...saved,
+            id: `risk-${Date.now()}`,
+            numeroRisque: nextRiskNumber(risks.map((risk) => risk.numeroRisque)),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          setRisks((previous) => [...previous, newRisk]);
+          toast.success('Risque créé avec succès');
+        }
+        handleBack();
+      }}
+    />
+  );
+
+  return (
+    <div className="space-y-6 [&_label]:mb-2.5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <Button variant="outline" size="sm" onClick={handleBack}>
+        <div className="flex min-w-0 items-center gap-3">
+          <Button variant="outline" onClick={handleBack} className="h-11 shrink-0 rounded-xl border-slate-200 bg-white">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
-            <AlertTriangle className="h-5 w-5 text-white" />
-          </div>
           <div className="min-w-0">
             <h2 className="text-xl font-bold text-gray-900">
               {viewMode === 'create' ? 'Nouveau risque' : 'Modifier le risque'}
             </h2>
             <p className="text-sm text-gray-600 break-words">
-              {viewMode === 'create' ? 'Créer un nouveau risque professionnel' : `Modification de ${formData.numeroRisque}`}
+              {viewMode === 'create' ? 'Créer un nouveau risque professionnel' : `N° ${formData.numeroRisque}`}
             </p>
           </div>
         </div>
@@ -1206,26 +1072,23 @@ export function RisksManagementView({
                         if (!selectedReference) return;
                         setFormData({
                           ...formData,
-                          numeroRisque:
-                            selectedReference.numeroRisque,
                           title: selectedReference.title,
                         });
                       }}
                     >
-                      <SelectTrigger className="mb-2">
-                        <SelectValue placeholder="Sélectionner dans le référentiel" />
+                      <SelectTrigger className={`mb-2 ${fieldClass}`}>
+                        <SelectValue placeholder="Intitulé du référentiel" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__custom__">
-                          Saisie manuelle
+                          Saisie libre
                         </SelectItem>
                         {riskReferences.map((reference) => (
                           <SelectItem
                             key={reference.id}
                             value={`${reference.numeroRisque}::${reference.title}`}
                           >
-                            {reference.numeroRisque} -{" "}
-                            {reference.title}
+                            {`N° ${reference.numeroRisque} · ${reference.title}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1233,81 +1096,40 @@ export function RisksManagementView({
                   )}
                   <Input
                     value={formData.numeroRisque || ''}
-                    onChange={(e) => setFormData({ ...formData, numeroRisque: e.target.value })}
+                    readOnly
                     placeholder="R-001"
+                    className={fieldClass}
                   />
                 </div>
-                <div>
-                  <Label>Service *</Label>
-                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                    {serviceOptions.map((service) => (
-                      <label key={service} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedServices.includes(service)}
-                          onChange={(e) => handleServicesChange(service, e.target.checked)}
-                        />
-                        {service}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Lieux *</Label>
-                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                    {availableLocationsForSelection.map((location) => (
-                      <label key={location} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedLocations.includes(location)}
-                          onChange={(e) => handleLocationsChange(location, e.target.checked)}
-                        />
-                        {location}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Domaine</Label>
-                  <div className="w-full min-h-[120px] rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                    {availableDomainsForSelection.map((domain) => (
-                      <label key={domain} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={selectedDomains.includes(domain)}
-                          onChange={(e) => handleDomainsChange(domain, e.target.checked)}
-                        />
-                        {domain}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                <ChoicePills
+                  legend="Service *"
+                  options={serviceOptions}
+                  selected={selectedServices}
+                  onToggle={handleServicesChange}
+                  emptyHint="Aucun service n'est configuré."
+                />
+                <ChoicePills
+                  legend="Lieux *"
+                  options={availableLocationsForSelection}
+                  selected={selectedLocations}
+                  onToggle={handleLocationsChange}
+                  emptyHint="Aucun lieu pour le service choisi."
+                />
+                <ChoicePills
+                  legend="Domaine"
+                  options={availableDomainsForSelection}
+                  selected={selectedDomains}
+                  onToggle={handleDomainsChange}
+                  emptyHint="Aucun domaine pour le service choisi."
+                />
                 <div>
                   <Label>Responsable *</Label>
-                  <Select
-                    value={(formData.responsable as string) || "__empty__"}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        responsable:
-                          value === "__empty__" ? "" : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un responsable" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__empty__">
-                        Non renseigné
-                      </SelectItem>
-                      {filteredResponsibleOptions.map((person) => (
-                        <SelectItem key={person} value={person}>
-                          {person}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <DirectoryUserSelect
+                    id="gestion-responsable"
+                    value={String(formData.responsable || "")}
+                    users={concernedPersons}
+                    onChange={(fullName) => setFormData({ ...formData, responsable: fullName })}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -1333,26 +1155,23 @@ export function RisksManagementView({
                         if (!selectedReference) return;
                         setFormData({
                           ...formData,
-                          numeroRisque:
-                            selectedReference.numeroRisque,
                           title: selectedReference.title,
                         });
                       }}
                     >
-                      <SelectTrigger className="mb-2">
-                        <SelectValue placeholder="Sélectionner dans le référentiel" />
+                      <SelectTrigger className={`mb-2 ${fieldClass}`}>
+                        <SelectValue placeholder="Intitulé du référentiel" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__custom__">
-                          Saisie manuelle
+                          Saisie libre
                         </SelectItem>
                         {riskReferences.map((reference) => (
                           <SelectItem
                             key={reference.id}
                             value={`${reference.numeroRisque}::${reference.title}`}
                           >
-                            {reference.numeroRisque} -{" "}
-                            {reference.title}
+                            {`N° ${reference.numeroRisque} · ${reference.title}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1362,6 +1181,7 @@ export function RisksManagementView({
                     value={formData.title || ''}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="Ex: Risque de chute de hauteur"
+                    className={fieldClass}
                   />
                 </div>
                 <div>
@@ -1390,47 +1210,45 @@ export function RisksManagementView({
           <Card className="border-0 shadow-lg">
             <CardContent className="pt-6 space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Évaluation du risque</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Gravité (1-4) *</Label>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="space-y-2 rounded-2xl border border-orange-200 bg-orange-50/50 p-4">
+                  <Label className="text-sm font-bold text-orange-950">Gravité *</Label>
                   <Select
                     value={formData.severity?.toString() || '1'}
                     onValueChange={(value) => setFormData({ ...formData, severity: parseInt(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 - Mineure</SelectItem>
-                      <SelectItem value="2">2 - Significative</SelectItem>
-                      <SelectItem value="3">3 - Grave</SelectItem>
-                      <SelectItem value="4">4 - Très grave</SelectItem>
+                      <SelectItem value="1">1. Faible</SelectItem>
+                      <SelectItem value="2">2. Moyen</SelectItem>
+                      <SelectItem value="3">3. Élevé</SelectItem>
+                      <SelectItem value="4">4. Très élevé</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Probabilité (1-4) *</Label>
+                <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+                  <Label className="text-sm font-bold text-sky-950">Fréquence *</Label>
                   <Select
                     value={formData.probability?.toString() || '1'}
                     onValueChange={(value) => setFormData({ ...formData, probability: parseInt(value) })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">1 - Rare</SelectItem>
-                      <SelectItem value="2">2 - Possible</SelectItem>
-                      <SelectItem value="3">3 - Probable</SelectItem>
-                      <SelectItem value="4">4 - Très probable</SelectItem>
+                      <SelectItem value="1">1. Rare</SelectItem>
+                      <SelectItem value="2">2. Peu probable</SelectItem>
+                      <SelectItem value="3">3. Probable</SelectItem>
+                      <SelectItem value="4">4. Très probable</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="p-4 bg-purple-50 rounded-lg border-2 border-purple-200 mt-4">
-                <p className="text-sm text-gray-700 mb-2">
-                  <strong>Niveau de Risque (Calculé) :</strong>
-                </p>
-                <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-4">
+                <p className="text-sm font-bold text-violet-950">Niveau</p>
+                <p className="mt-1 text-3xl font-bold text-slate-900">
                   {(formData.severity || 1) * (formData.probability || 1)}
                 </p>
               </div>
@@ -1443,7 +1261,7 @@ export function RisksManagementView({
                       setFormData({ ...formData, moyenMaitrise: value })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1602,31 +1420,15 @@ export function RisksManagementView({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs">Responsables</Label>
-                          <div className="space-y-2 rounded-md border border-gray-200 bg-white p-3">
-                            <div className="max-h-28 space-y-1 overflow-y-auto">
-                              {filteredResponsibleOptions.map((person) => {
-                                const selectedResponsible = splitCsv(measure.responsible);
-                                const isChecked = selectedResponsible.includes(person);
-                                return (
-                                  <label key={person} className="flex items-center gap-2 text-sm text-gray-700">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        const nextValues = e.target.checked
-                                          ? [...selectedResponsible, person]
-                                          : selectedResponsible.filter((value) => value !== person);
-                                        const newMeasures = [...(formData.plannedMeasures || [])];
-                                        newMeasures[idx] = { ...newMeasures[idx], responsible: nextValues.join(", ") };
-                                        setFormData({ ...formData, plannedMeasures: newMeasures });
-                                      }}
-                                    />
-                                    {person}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
+                          <DirectoryUserPills
+                            users={concernedPersons}
+                            selected={splitCsv(measure.responsible)}
+                            onChange={(next) => {
+                              const newMeasures = [...(formData.plannedMeasures || [])];
+                              newMeasures[idx] = { ...newMeasures[idx], responsible: next.join(", ") };
+                              setFormData({ ...formData, plannedMeasures: newMeasures });
+                            }}
+                          />
                         </div>
                         <div>
                           <Label className="text-xs">Échéance</Label>
@@ -1682,14 +1484,14 @@ export function RisksManagementView({
                     value={formData.status || 'a_traiter'}
                     onValueChange={(value: any) => setFormData({ ...formData, status: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={fieldClass}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="a_traiter">A traiter</SelectItem>
+                      <SelectItem value="a_traiter">À traiter</SelectItem>
                       <SelectItem value="en_traitement">En traitement</SelectItem>
-                      <SelectItem value="maitrise">Maitrise</SelectItem>
-                      <SelectItem value="supprime">Supprime</SelectItem>
+                      <SelectItem value="maitrise">Maîtrisé</SelectItem>
+                      <SelectItem value="supprime">Supprimé</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1730,7 +1532,7 @@ export function RisksManagementView({
             </Button>
             <Button
               onClick={handleSave}
-              className="w-full sm:w-auto bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 whitespace-normal text-center h-auto py-2"
+              className="h-11 w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 sm:w-auto"
             >
               {viewMode === 'create' ? 'Créer le risque' : 'Enregistrer les modifications'}
             </Button>

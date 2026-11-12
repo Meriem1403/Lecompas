@@ -32,16 +32,16 @@ export function DUERPModulesView({ onSelectModule, onGoBack }: DUERPModulesViewP
   const modules: Module[] = [
     {
       id: "risks",
-      title: "Évaluation des risques",
-      description: "Identification et évaluation des risques professionnels",
+      title: "Consultation des risques",
+      description: "Vue de lecture pour les chefs de service et les agents",
       icon: Shield,
       color: "text-purple-500",
       gradient: "from-purple-500 via-indigo-500 to-blue-500",
     },
     {
-      id: "risk-awareness",
-      title: "Sensibilisation aux risques",
-      description: "Fiches de sensibilisation pour les collaborateurs, liées à l'évaluation (DUERP)",
+      id: "risk-references",
+      title: "Référentiel des risques",
+      description: "Une fiche par risque, avec le contenu à partager et le lien INRS",
       icon: Info,
       color: "text-orange-500",
       gradient: "from-orange-500 via-amber-500 to-yellow-500",

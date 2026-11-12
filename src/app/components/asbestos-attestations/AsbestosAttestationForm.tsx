@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLeaveGuard } from '@/app/components/leaveGuard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -31,6 +32,7 @@ interface AsbestosAttestationFormProps {
 }
 
 export function AsbestosAttestationForm({ attestation, currentUserName, onSave, onCancel }: AsbestosAttestationFormProps) {
+  const requestLeave = useLeaveGuard();
   // Type d'attestation
   const [type, setType] = useState<AttestationType>(attestation?.type || 'intermediaire');
   
@@ -212,7 +214,7 @@ export function AsbestosAttestationForm({ attestation, currentUserName, onSave, 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={() => requestLeave(onCancel)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Retour
           </Button>
@@ -659,8 +661,7 @@ export function AsbestosAttestationForm({ attestation, currentUserName, onSave, 
       <Card className="border-0 shadow-lg">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:justify-end md:gap-4">
-            <Button variant="outline" onClick={onCancel} className="w-full sm:w-auto">
-              Annuler
+            <Button variant="outline" onClick={() => requestLeave(onCancel)} className="w-full sm:w-auto">
             </Button>
             <Button
               variant="outline"
