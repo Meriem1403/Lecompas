@@ -603,6 +603,7 @@ const APP_DATA_REGISTRY = {
   accidentSuiviIndicateurs: { adminOnlyWrite: false },
   papripactProgram: { adminOnlyWrite: false },
   transportCoverageRequests: { adminOnlyWrite: false },
+  rpsSignalements: { adminOnlyWrite: false },
   workflowAssignments: { adminOnlyWrite: true },
   agentProfiles: { adminOnlyWrite: false },
 };

@@ -31,6 +31,8 @@ export interface AppUser {
   location: string;
   category: string;
   role: string;
+  /** Désignation métier : un seul directeur signe le DUERP, un conseiller de prévention le transmet. */
+  signatureDuty?: "directeur" | "conseiller_prevention";
   /** Mot de passe (démo locale) — défini à la création par l'administrateur */
   password?: string;
   /** Indice majoré (INM) — sert au calcul de la subvention interministérielle. */
@@ -158,6 +160,7 @@ export function UserManagementView({
         location: userData.location || '',
         category: userData.category || '',
         role: userData.role || '',
+        signatureDuty: userData.signatureDuty,
         inm: userData.inm,
         createdAt: new Date().toISOString(),
         createdBy: createdByName,
@@ -575,6 +578,27 @@ function UserFormView({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="signatureDuty">Désignation DUERP</Label>
+                <Select
+                  value={formData.signatureDuty || "aucune"}
+                  onValueChange={(value) => setFormData({
+                    ...formData,
+                    signatureDuty: value === "aucune" ? undefined : value as AppUser["signatureDuty"],
+                  })}
+                >
+                  <SelectTrigger id="signatureDuty" className="bg-white border-2 border-slate-300">
+                    <SelectValue placeholder="Aucune désignation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="aucune">Aucune</SelectItem>
+                    <SelectItem value="directeur">Directeur, seul signataire du DUERP</SelectItem>
+                    <SelectItem value="conseiller_prevention">Conseiller de prévention</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">Une fois le directeur désigné, lui seul peut signer. Le conseiller de prévention crée la version et l'envoie.</p>
               </div>
 
               <div className="space-y-2 md:col-span-2">

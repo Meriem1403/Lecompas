@@ -30,6 +30,7 @@ export const VIEW_TO_PATH: Record<string, string> = {
   "sst-registry": "/registre-sst",
   "arrivees-departs": "/arrivees-departs",
   "transport-coverage": "/prise-en-charge-transports",
+  signalements: "/signalements-rps",
   accidents: "/accidentologie",
   registre: "/registre-accidents",
   archives: "/archives",
@@ -65,6 +66,10 @@ export function resolveViewFromPathname(pathname: string): {
 
   if (path === "/" || path === "/accueil") {
     return { viewId: "categories", categoryId: null };
+  }
+
+  if (path === "/signature-directeur") {
+    return { viewId: "signature-duerp", categoryId: null };
   }
 
   const categoryMatch = path.match(CATEGORY_MODULE_PATH);

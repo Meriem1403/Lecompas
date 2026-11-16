@@ -13,15 +13,20 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Tag as TagIcon
+  Tag as TagIcon,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Document } from './DocumentsView';
+import { DocumentFileViewer } from './DocumentFileViewer';
+import { downloadDocumentExcel } from '@/app/utils/documentLibraryExport';
+import { documentColor, DOCUMENT_STATUS_STYLES } from '@/app/components/documentBadges';
 
 interface DocumentDetailViewProps {
   document: Document;
   onBack: () => void;
   onEdit: (document: Document) => void;
   onDownload: (document: Document) => void;
+  onDownloadExcel?: (document: Document) => void;
   isArchive?: boolean;
 }
 
@@ -30,6 +35,7 @@ export function DocumentDetailView({
   onBack,
   onEdit,
   onDownload,
+  onDownloadExcel,
   isArchive = false
 }: DocumentDetailViewProps) {
   const getTypeColor = (type: Document['type']) => {
@@ -79,6 +85,20 @@ export function DocumentDetailView({
           bgColor: 'bg-red-50',
           textColor: 'text-red-700'
         };
+      case 'Envoyé pour signature':
+        return {
+          icon: Clock,
+          gradient: 'from-violet-600 to-indigo-700',
+          bgColor: 'bg-violet-50',
+          textColor: 'text-violet-800',
+        };
+      case 'Signé':
+        return {
+          icon: CheckCircle2,
+          gradient: 'from-emerald-600 to-teal-700',
+          bgColor: 'bg-emerald-50',
+          textColor: 'text-emerald-800',
+        };
     }
   };
 
@@ -89,57 +109,64 @@ export function DocumentDetailView({
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  const StatusIcon = getStatusConfig(document.status).icon;
-  const statusConfig = getStatusConfig(document.status);
-  const typeGradient = getTypeColor(document.type);
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Button 
-          variant="ghost" 
-          onClick={onBack}
-          className="hover:bg-purple-50"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Retour à la liste
-        </Button>
-        <div className="flex space-x-2">
-          <Button 
-            onClick={() => onDownload(document)}
-            className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Télécharger
-          </Button>
-          {!isArchive && (
-            <Button 
-              onClick={() => onEdit(document)}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Modifier
-            </Button>
-          )}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Consultation du document</h1>
+        <p className="text-gray-600">Fichier conservé dans la bibliothèque.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
         <Card className="lg:col-span-2 border-0 shadow-xl bg-white/80 backdrop-blur">
           <CardHeader>
+            <div className="mb-4 flex flex-col gap-3 border-b border-violet-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                variant="outline"
+                onClick={onBack}
+                className="h-10 w-full rounded-xl border-violet-200 sm:w-auto"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Retour
+              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={() => onDownload(document)}
+                  className="rounded-lg border-slate-200"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => (onDownloadExcel ?? downloadDocumentExcel)(document)}
+                  className="rounded-lg border-slate-200"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+                {!isArchive && (
+                  <Button
+                    onClick={() => onEdit(document)}
+                    className="rounded-lg bg-violet-700 text-white hover:bg-violet-800"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Modifier
+                  </Button>
+                )}
+              </div>
+            </div>
             <div className="flex items-start space-x-4">
-              <div className={`h-16 w-16 rounded-2xl bg-gradient-to-br ${typeGradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
+              <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl ${documentColor(document.badgeColor).tile} shadow-lg`}>
                 <FileText className="h-8 w-8 text-white" />
               </div>
               <div className="flex-1">
                 <CardTitle className="text-2xl mb-2">{document.title}</CardTitle>
                 <div className="flex flex-wrap gap-2">
-                  <Badge className={`bg-gradient-to-r ${typeGradient} text-white border-0 shadow-md`}>
+                  <Badge className={`border ${documentColor(document.badgeColor).badge}`}>
                     {document.type}
                   </Badge>
-                  <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0`}>
-                    <StatusIcon className="h-3 w-3 mr-1" />
+                  <Badge className={`border ${DOCUMENT_STATUS_STYLES[document.status]}`}>
                     {document.status}
                   </Badge>
                   <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
@@ -209,27 +236,42 @@ export function DocumentDetailView({
             )}
 
             {/* File info */}
-            {document.fileSize && (
+            {(document.fileDataUrl || document.fileSize) && (
               <>
                 <Separator />
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-xl border-l-4 border-purple-500">
-                  <h3 className="text-sm font-bold text-purple-900 mb-3 flex items-center">
-                    <Download className="h-4 w-4 mr-2" />
-                    Fichier joint
+                <div className="space-y-4 rounded-xl border-l-4 border-purple-500 bg-gradient-to-br from-purple-50 to-indigo-50 p-5">
+                  <h3 className="mb-3 flex items-center text-sm font-bold text-purple-900">
+                    <Download className="mr-2 h-4 w-4" />
+                    Pièce jointe
                   </h3>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm text-purple-700">Taille du fichier</p>
-                      <p className="font-bold text-xl text-purple-800">{formatFileSize(document.fileSize)}</p>
+                      <p className="text-sm text-purple-700">{document.fileName || "Fichier joint"}</p>
+                      <p className="text-xl font-bold text-purple-800">{formatFileSize(document.fileSize)}</p>
                     </div>
-                    <Button 
-                      onClick={() => onDownload(document)}
-                      className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Télécharger
-                    </Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        onClick={() => onDownload(document)}
+                        className="bg-violet-700 text-white hover:bg-violet-800"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        PDF
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => (onDownloadExcel ?? downloadDocumentExcel)(document)}
+                        className="border-violet-200"
+                      >
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        Excel
+                      </Button>
+                    </div>
                   </div>
+                  {document.fileDataUrl ? (
+                    <DocumentFileViewer name={document.fileName} dataUrl={document.fileDataUrl} />
+                  ) : (
+                    <p className="text-sm text-slate-600">Aucune pièce jointe à afficher.</p>
+                  )}
                 </div>
               </>
             )}
@@ -245,7 +287,7 @@ export function DocumentDetailView({
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {document.tags.map((tag, idx) => (
-                      <Badge key={idx} className="bg-pink-100 text-pink-800 border-pink-300">
+                      <Badge key={idx} className={`border ${documentColor(document.tagColors?.[tag]).badge}`}>
                         {tag}
                       </Badge>
                     ))}

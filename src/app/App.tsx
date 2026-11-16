@@ -62,6 +62,8 @@ import {
 import { Role } from "./components/admin/RoleManagementView";
 import { AppUser } from "./components/admin/UserManagementView";
 import { DocumentsView } from "./components/DocumentsView";
+import { DirectorSignatureView } from "./components/DirectorSignatureView";
+import { SignalementsView } from "./components/SignalementsView";
 import { ArchivesView } from "./components/ArchivesView";
 import { RegistreAccidentsView } from "./components/RegistreAccidentsView";
 import { SettingsView } from "./components/SettingsView";
@@ -74,7 +76,6 @@ import { ArriveesDepartsView } from "./components/ArriveesDepartsView";
 import { TransportCoverageView } from "./components/TransportCoverageView";
 import { RetourActionView } from "./components/RetourActionView";
 import { DashboardView } from "./components/DashboardView";
-import { DUERPSignatureManagement } from "./components/DUERPSignatureManagement";
 import { RisksManagementView } from "./components/admin/RisksManagementView";
 import {
   RiskReference,
@@ -219,6 +220,7 @@ import {
   FileCheck,
   Car,
   Bus,
+  HeartHandshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -280,7 +282,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "chef_service" | "agent" | "prestataire" | "rh";
+  role: "admin" | "chef_service" | "agent" | "prestataire" | "rh" | "directeur";
   service: string;
   domain?: string;
   location?: string;
@@ -1391,27 +1393,27 @@ export default function App() {
         });
       }
 
-      const sourceByKey = new Map<
-        string,
-        { riskNumber: string; riskTitle: string }
-      >();
+    const sourceByKey = new Map<
+      string,
+      { riskNumber: string; riskTitle: string }
+    >();
 
-      riskReferences.forEach((reference) => {
-        const key = `${reference.numeroRisque}::${reference.title}`;
-        sourceByKey.set(key, {
-          riskNumber: reference.numeroRisque,
-          riskTitle: reference.title,
-        });
+    riskReferences.forEach((reference) => {
+      const key = `${reference.numeroRisque}::${reference.title}`;
+      sourceByKey.set(key, {
+        riskNumber: reference.numeroRisque,
+        riskTitle: reference.title,
       });
+    });
 
-      risks.forEach((risk) => {
+    risks.forEach((risk) => {
         if (!risk.title.trim() || risk.detachedFromReference) return;
-        const key = `${risk.numeroRisque}::${risk.title}`;
-        sourceByKey.set(key, {
-          riskNumber: risk.numeroRisque,
-          riskTitle: risk.title,
-        });
+      const key = `${risk.numeroRisque}::${risk.title}`;
+      sourceByKey.set(key, {
+        riskNumber: risk.numeroRisque,
+        riskTitle: risk.title,
       });
+    });
 
       const previousByRiskKey = new Map<string, RiskAwarenessRecord[]>();
       records.forEach((record) => {
@@ -1430,11 +1432,11 @@ export default function App() {
           );
           nextRecords.push(
             ...existingRecords.map((existing) => ({
-              ...existing,
+            ...existing,
               riskNumber: titleInCatalog
                 ? source.riskNumber
                 : existing.riskNumber.trim() || source.riskNumber,
-              riskTitle: source.riskTitle,
+            riskTitle: source.riskTitle,
             })),
           );
           return;
@@ -1445,17 +1447,17 @@ export default function App() {
         }
 
         nextRecords.push({
-          id: crypto.randomUUID(),
-          riskKey,
-          riskNumber: source.riskNumber,
-          riskTitle: source.riskTitle,
-          summary: "",
-          content: "",
-          links: [],
-          documents: [],
-          status: "a_completer",
-        });
+            id: crypto.randomUUID(),
+            riskKey,
+            riskNumber: source.riskNumber,
+            riskTitle: source.riskTitle,
+            summary: "",
+            content: "",
+            links: [],
+            documents: [],
+            status: "a_completer",
       });
+    });
 
       records.forEach((record) => {
         if (!sourceByKey.has(record.riskKey) && record.riskTitle.trim()) {
@@ -1674,7 +1676,7 @@ export default function App() {
           hydrateAdminRolesFromApi(access_token),
           hydratePapripactSignaturesFromApi(access_token),
         ]);
-        return true;
+    return true;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           return false;
@@ -1764,19 +1766,19 @@ export default function App() {
       }
 
       restoreDemoSession({
-        id: userData.id ?? `user-${Date.now()}`,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        service: userData.service ?? "",
-        domain: userData.domain,
-        location: userData.location,
+            id: userData.id ?? `user-${Date.now()}`,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            service: userData.service ?? "",
+            domain: userData.domain,
+            location: userData.location,
       });
-    } catch (error) {
-      console.error(
-        "Erreur lors de la récupération des données utilisateur",
-        error,
-      );
+      } catch (error) {
+        console.error(
+          "Erreur lors de la récupération des données utilisateur",
+          error,
+        );
       clearAuthSession();
       setStoredAccessToken(null);
     }
@@ -1803,7 +1805,7 @@ export default function App() {
     if (!sessionUsersMatch(user, synced)) {
       setUser(synced);
       updateStoredSessionUser(synced);
-    }
+      }
   }, [adminUsers, isAuthenticated, user]);
 
   React.useEffect(() => {
@@ -2143,10 +2145,10 @@ export default function App() {
         prev.map((key) => numberChanges.get(key)?.key ?? key),
       );
     }
-    toast.success("Risque supprimé avec succès");
-    if (String(selectedRisk?.id) === targetId) {
-      setSelectedRisk(null);
-    }
+      toast.success("Risque supprimé avec succès");
+      if (String(selectedRisk?.id) === targetId) {
+        setSelectedRisk(null);
+      }
   };
 
   const handleDeleteRiskConfirm = () => {
@@ -2707,6 +2709,12 @@ export default function App() {
           color: "text-teal-600",
         },
         {
+          id: "signalements",
+          label: "Signalements",
+          icon: HeartHandshake,
+          color: "text-rose-700",
+        },
+        {
           id: "transport-coverage",
           label: "Transports",
           icon: Bus,
@@ -3069,6 +3077,7 @@ export default function App() {
                   agent: "Agent",
                   prestataire: "Prestataire",
                   rh: "RH",
+                  directeur: "Directeur",
                 };
                 toast.success(`Rôle changé : ${roleLabels[newRole]}`);
               }}
@@ -3078,6 +3087,7 @@ export default function App() {
               <option value="rh">RH</option>
               <option value="admin">Administrateur</option>
               <option value="chef_service">Chef de service</option>
+              <option value="directeur">Directeur</option>
             </select>
             <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5 flex-wrap">
               <UserCheck className="h-3.5 w-3.5 text-indigo-600 shrink-0" aria-hidden />
@@ -3146,6 +3156,8 @@ export default function App() {
                     ? "Administrateur"
                     : user?.role === "chef_service"
                       ? "Chef de service"
+                      : user?.role === "directeur"
+                        ? "Directeur"
                       : user?.role === "rh"
                         ? "RH"
                         : user?.role === "prestataire"
@@ -3226,7 +3238,7 @@ export default function App() {
                           ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200 text-amber-700"
                           : user?.role === "rh"
                             ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200 text-amber-800"
-                            : "bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200 text-gray-700"
+                          : "bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200 text-gray-700"
                     }`}
                   >
                     <UserCog className="h-3 w-3 mr-1" />
@@ -3234,9 +3246,11 @@ export default function App() {
                       ? "Administrateur"
                       : user?.role === "chef_service"
                         ? "Chef de service"
+                        : user?.role === "directeur"
+                          ? "Directeur"
                         : user?.role === "rh"
                           ? "RH"
-                          : "Agent"}
+                        : "Agent"}
                   </Badge>
                 </div>
               </div>
@@ -3377,6 +3391,37 @@ export default function App() {
               currentUser={{
                 name: user?.name || "Utilisateur",
                 role: user?.role || "agent",
+              }}
+            />
+          )}
+
+          {activeView === "signalements" && (
+            <SignalementsView
+              accessToken={accessToken}
+              currentUserId={user?.id || user?.email || ""}
+              currentUserName={user?.name || ""}
+              currentUserEmail={user?.email || ""}
+              isAdmin={user?.role === "admin"}
+              directory={adminUsers.map((person) => ({
+                id: person.id,
+                name: `${person.firstName} ${person.lastName}`.trim(),
+                email: person.email,
+                service: person.service,
+              }))}
+              serviceOptions={serviceOptions}
+              onNotify={(notice) => {
+                setNotifications((prev) => [
+                  {
+                    id: crypto.randomUUID(),
+                    titre: notice.titre,
+                    contenu: notice.contenu,
+                    type: "alerte",
+                    dateCreation: new Date().toISOString(),
+                    isRead: false,
+                    recipientEmail: notice.recipientEmail,
+                  },
+                  ...prev,
+                ]);
               }}
             />
           )}
@@ -3541,7 +3586,7 @@ export default function App() {
                                   <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">Priorité finale</p>
                                   <p className="mt-1 text-3xl font-extrabold leading-none">{getRiskLevelLabel(risk.riskLevel)}</p>
                                   <p className="mt-1 text-xs opacity-90">GFM {risk.riskLevel}</p>
-                                </div>
+                              </div>
                                 <div className="min-w-0 pt-1">
                                   <p className="text-xs font-semibold text-violet-700">N° {risk.numeroRisque}</p>
                                   <CardTitle className="mt-1 text-lg font-bold leading-snug text-slate-900">
@@ -3563,25 +3608,25 @@ export default function App() {
                                   <div className="flex min-w-0 items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
                                     <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
                                     <span className="min-w-0 break-words text-sm font-semibold text-blue-800">{risk.service}</span>
-                                  </div>
+                                    </div>
                                 ) : null}
                                 {risk.unite ? (
                                   <div className="flex min-w-0 items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
                                     <Tag className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                                     <span className="min-w-0 break-words text-sm font-semibold text-amber-800">{risk.unite}</span>
-                                  </div>
+                                    </div>
                                 ) : null}
                                 {risk.domain ? (
                                   <div className="flex min-w-0 items-start gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2">
                                     <Layers className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
                                     <span className="min-w-0 break-words text-sm font-semibold text-indigo-800">{risk.domain}</span>
-                                  </div>
+                                    </div>
                                 ) : null}
                                 {risk.site ? (
                                   <div className="flex min-w-0 items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
                                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                                     <span className="min-w-0 break-words text-sm font-semibold text-emerald-800">{risk.site}</span>
-                                  </div>
+                                </div>
                                 ) : null}
                                 <div className="mt-auto space-y-3">
                                 <RiskScalePair severity={risk.severity} probability={risk.probability} />
@@ -3673,9 +3718,9 @@ export default function App() {
                   riskLevelGradient={getRiskLevelColor}
                   riskLevelLabel={getRiskLevelLabel}
                   onBack={() => {
-                    setSelectedRisk(null);
-                    setIsEditingRisk(false);
-                  }}
+                        setSelectedRisk(null);
+                        setIsEditingRisk(false);
+                      }}
                   onEdit={() => setIsEditingRisk(true)}
                   onDelete={() => {
                     setRiskToDelete(selectedRisk.id);
@@ -3685,7 +3730,7 @@ export default function App() {
                   canProposeReturn={user?.role === "chef_service"}
                   onProposeReturn={() => goToView("retour_action")}
                   actionReturns={actionReturns.filter((item) => item.riskId === selectedRisk.id)}
-                  userRole={user?.role}
+                          userRole={user?.role}
                   onManageActionReturns={() => goToView("action-returns")}
                   onLearnMore={() => {
                     setReferenceSheetRequest({
@@ -3832,14 +3877,14 @@ export default function App() {
           {activeView === "action-returns" && (
             <div className="space-y-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+                  <div>
                   <h1 className="text-2xl font-bold text-slate-900">
-                    Retours d'action
-                  </h1>
+                      Retours d'action
+                    </h1>
                   <p className="mt-1 text-sm text-slate-500">
                     Propositions en attente, rattachées à la fiche du risque
-                  </p>
-                </div>
+                    </p>
+                  </div>
                 <div className="flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
                   <button
                     type="button"
@@ -3951,17 +3996,17 @@ export default function App() {
                 </CardContent>
               </Card>
 
-              {filteredPendingActionReturns.length === 0 ? (
+                {filteredPendingActionReturns.length === 0 ? (
                 <Card className="border border-dashed border-slate-200 bg-white shadow-sm">
                   <CardContent className="py-12 text-center">
                     <p className="text-sm font-medium text-slate-700">
-                      Aucun retour d'action en attente
-                    </p>
+                        Aucun retour d'action en attente
+                      </p>
                     <p className="mt-1 text-sm text-slate-500">
                       Une proposition est toujours portée par une fiche du risque.
                     </p>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
               ) : actionReturnsDisplay === "cards" ? (
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {paginatedPendingActionReturns.map((actionReturn) => {
@@ -3995,8 +4040,8 @@ export default function App() {
                             </span>
                           </div>
                           <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
-                            {actionReturn.proposedMeasure}
-                          </p>
+                                {actionReturn.proposedMeasure}
+                              </p>
                           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                             <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-emerald-100 bg-white px-3 py-2.5 shadow-sm">
                               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
@@ -4005,7 +4050,7 @@ export default function App() {
                               <div className="min-w-0">
                                 <p className="text-xs font-medium text-emerald-800/70">Auteur</p>
                                 <p className="truncate text-sm font-semibold text-slate-900">{actionReturn.proposedBy}</p>
-                              </div>
+                            </div>
                             </div>
                             <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-teal-100 bg-white px-3 py-2.5 shadow-sm">
                               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500 text-white shadow-sm">
@@ -4112,10 +4157,10 @@ export default function App() {
                           })}
                         </tbody>
                       </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                )}
               <ListPaginationBar
                 currentPage={actionReturnsCurrentPage}
                 totalPages={actionReturnsTotalPages}
@@ -4175,13 +4220,68 @@ export default function App() {
           )}
 
           {/* Documents view */}
-          {activeView === "documents" && (
-            <DocumentsView
-              risks={risks}
-              actions={manualActions}
-              accessToken={accessToken}
-            />
-          )}
+          {activeView === "documents" && (() => {
+            const director = adminUsers.find((person) => person.signatureDuty === "directeur");
+            const advisor = adminUsers.find((person) => person.signatureDuty === "conseiller_prevention");
+            const directorLabel = director ? `${director.firstName} ${director.lastName}`.trim() : "";
+            const sameEmail = (email?: string) => Boolean(email) && email!.toLowerCase() === (user?.email || "").toLowerCase();
+            const canSend = !advisor || sameEmail(advisor.email) || user?.role === "admin";
+            return (
+              <DocumentsView
+                risks={risks}
+                actions={manualActions}
+                accessToken={accessToken}
+                senderName={user?.name || "Prévention"}
+                senderEmail={user?.email || ""}
+                directorName={directorLabel}
+                directorEmail={director?.email || ""}
+                canSendForSignature={canSend}
+                onSendForSignature={(edition) => {
+                  setNotifications((prev) => [
+                    {
+                      id: crypto.randomUUID(),
+                      titre: "DUERP à signer",
+                      contenu: `${user?.name || "Le conseiller de prévention"} a transmis « ${edition.title} ». Ouvrez Signature DUERP pour consulter, signer ou refuser.`,
+                      type: "alerte",
+                      dateCreation: new Date().toISOString(),
+                      isRead: false,
+                      recipientEmail: director?.email || user?.email,
+                    },
+                    ...prev,
+                  ]);
+                }}
+              />
+            );
+          })()}
+
+          {activeView === "signature-duerp" && (() => {
+            const director = adminUsers.find((person) => person.signatureDuty === "directeur");
+            const directorLabel = director ? `${director.firstName} ${director.lastName}`.trim() : "";
+            return (
+              <DirectorSignatureView
+                accessToken={accessToken}
+                signerName={user?.name || "Directeur"}
+                signerEmail={user?.email || ""}
+                designatedEmail={director?.email}
+                designatedName={directorLabel}
+                enabled={user?.role === "directeur"}
+                onDecided={(notice) => {
+                  setNotifications((prev) => [
+                    {
+                      id: crypto.randomUUID(),
+                      titre: notice.titre,
+                      contenu: notice.contenu,
+                      type: notice.titre.includes("refusé") ? "urgent" : "info",
+                      dateCreation: new Date().toISOString(),
+                      isRead: false,
+                      recipientEmail: notice.recipientEmail || user?.email,
+                    },
+                    ...prev,
+                  ]);
+                }}
+              />
+            );
+          })()}
 
           {/* Archives view */}
           {activeView === "archives" && (
@@ -4281,138 +4381,6 @@ export default function App() {
             />
           )}
 
-          {/* Signature DUERP view */}
-          {activeView === "signature-duerp" && (
-            <DUERPSignatureManagement
-              currentSignature={{
-                id: "duerp-2025-v1",
-                version: "2025.1",
-                status: "pending_signature",
-                createdDate: "2025-01-15T10:00:00Z",
-                sentForSignatureDate: "2025-01-15T14:30:00Z",
-                signatoryEmail:
-                  "jean-marc.dubois@developpement-durable.gouv.fr",
-                signatoryName: "Jean-Marc DUBOIS",
-                signatoryTitle: "Directeur Interrégional",
-                changesSummary: {
-                  newRisks: 12,
-                  updatedRisks: 8,
-                  newMeasures: 15,
-                  updatedMeasures: 6,
-                },
-                comments:
-                  "Mise à jour suite aux dernières évaluations des risques pour l'année 2025. Nouveaux risques identifiés dans les activités en mer.",
-                expirationDate: "2025-02-14T23:59:59Z",
-              }}
-              signatureHistory={[
-                {
-                  id: "duerp-2024-v3",
-                  version: "2024.3",
-                  status: "signed",
-                  createdDate: "2024-11-20T10:00:00Z",
-                  sentForSignatureDate: "2024-11-20T15:00:00Z",
-                  signedDate: "2024-11-22T09:30:00Z",
-                  signatoryEmail:
-                    "jean-marc.dubois@developpement-durable.gouv.fr",
-                  signatoryName: "Jean-Marc DUBOIS",
-                  signatoryTitle: "Directeur Interrégional",
-                  changesSummary: {
-                    newRisks: 5,
-                    updatedRisks: 12,
-                    newMeasures: 8,
-                    updatedMeasures: 10,
-                  },
-                  signatureData: {
-                    signedBy: "Jean-Marc DUBOIS",
-                    signedAt: "2024-11-22T09:30:00Z",
-                    ipAddress: "192.168.1.100",
-                    userAgent: "Mozilla/5.0",
-                    certificateId: "CERT-2024-11-22-001",
-                  },
-                  comments: "Validation de fin d'année 2024",
-                },
-                {
-                  id: "duerp-2024-v2",
-                  version: "2024.2",
-                  status: "signed",
-                  createdDate: "2024-07-10T10:00:00Z",
-                  sentForSignatureDate: "2024-07-10T16:00:00Z",
-                  signedDate: "2024-07-12T11:15:00Z",
-                  signatoryEmail:
-                    "jean-marc.dubois@developpement-durable.gouv.fr",
-                  signatoryName: "Jean-Marc DUBOIS",
-                  signatoryTitle: "Directeur Interrégional",
-                  changesSummary: {
-                    newRisks: 8,
-                    updatedRisks: 6,
-                    newMeasures: 10,
-                    updatedMeasures: 4,
-                  },
-                  signatureData: {
-                    signedBy: "Jean-Marc DUBOIS",
-                    signedAt: "2024-07-12T11:15:00Z",
-                    ipAddress: "192.168.1.105",
-                    userAgent: "Mozilla/5.0",
-                    certificateId: "CERT-2024-07-12-002",
-                  },
-                },
-                {
-                  id: "duerp-2024-v1",
-                  version: "2024.1",
-                  status: "signed",
-                  createdDate: "2024-01-15T10:00:00Z",
-                  sentForSignatureDate: "2024-01-15T14:00:00Z",
-                  signedDate: "2024-01-17T10:45:00Z",
-                  signatoryEmail:
-                    "jean-marc.dubois@developpement-durable.gouv.fr",
-                  signatoryName: "Jean-Marc DUBOIS",
-                  signatoryTitle: "Directeur Interrégional",
-                  changesSummary: {
-                    newRisks: 20,
-                    updatedRisks: 15,
-                    newMeasures: 25,
-                    updatedMeasures: 12,
-                  },
-                  signatureData: {
-                    signedBy: "Jean-Marc DUBOIS",
-                    signedAt: "2024-01-17T10:45:00Z",
-                    ipAddress: "192.168.1.98",
-                    userAgent: "Mozilla/5.0",
-                    certificateId: "CERT-2024-01-17-003",
-                  },
-                  comments: "Première version 2024",
-                },
-              ]}
-              directorEmail="jean-marc.dubois@developpement-durable.gouv.fr"
-              directorName="Jean-Marc DUBOIS"
-              onSendForSignature={(comments) => {
-                console.log(
-                  "Envoi pour signature avec commentaires:",
-                  comments,
-                );
-                toast.success(
-                  "Document envoyé pour signature au directeur",
-                );
-                // Ici on enverrait un email au directeur avec le lien de signature
-              }}
-              onViewDocument={(signatureId) => {
-                console.log(
-                  "Visualisation du document:",
-                  signatureId,
-                );
-                toast.info("Ouverture du document...");
-              }}
-              onDownloadDocument={(signatureId) => {
-                console.log(
-                  "Téléchargement du document:",
-                  signatureId,
-                );
-                toast.success(
-                  "Téléchargement du document PDF en cours...",
-                );
-              }}
-            />
-          )}
         </div>
       </main>
 

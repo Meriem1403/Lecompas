@@ -16,20 +16,21 @@ import {
   Building2,
   Shield,
   ClipboardList,
-  Target,
-  Flame
+  Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Risk } from '@/app/components/admin/RisksManagementView';
 import type { Action } from '@/app/types/action';
 import { generateDuerpPdf, type DuerpExportMode } from '@/app/utils/duerpPdfExport';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import type { Document } from '@/app/components/DocumentsView';
 
 interface GenerateDUERPDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   risks?: Risk[];
   actions?: Action[];
+  onTransmit?: (edition: Document) => void;
 }
 
 export function GenerateDUERPDialog({
@@ -37,6 +38,7 @@ export function GenerateDUERPDialog({
   onOpenChange,
   risks = [],
   actions = [],
+  onTransmit,
 }: GenerateDUERPDialogProps) {
   const [entreprise, setEntreprise] = useState('DIRM Méditerranée');
   const [adresse, setAdresse] = useState('Marseille');
@@ -46,40 +48,71 @@ export function GenerateDUERPDialog({
   const [dateFin, setDateFin] = useState('2026-12-31');
   const [exportMode, setExportMode] = useState<DuerpExportMode>('synthese');
   const [methodologie, setMethodologie] = useState('Évaluation gravité (G) × fréquence (F) = risque initial. Risque résiduel (GFM) = risque initial × coefficient de maîtrise. Priorisation P1/P2/P3 selon le GFM.');
+  const [directorName, setDirectorName] = useState('Directeur Interrégional');
+  const [directorEmail, setDirectorEmail] = useState('');
 
-  const handleGenerate = () => {
+  const buildPdf = () => generateDuerpPdf(
+    risks,
+    actions,
+    { entreprise, adresse, responsable, version, dateDebut, dateFin, methodologie },
+    exportMode,
+  );
+
+  const handleDownloadNow = () => {
     try {
       if (risks.length === 0) {
-        toast.error('Aucun risque disponible pour générer le DUERP.');
+        toast.error('Aucun risque disponible pour cette version.');
         return;
       }
-
-      const pdf = generateDuerpPdf(
-        risks,
-        actions,
-        {
-          entreprise,
-          adresse,
-          responsable,
-          version,
-          dateDebut,
-          dateFin,
-          methodologie,
-        },
-        exportMode,
-      );
-
-      const modeLabel = exportMode === 'synthese' ? 'synthese' : 'complet';
-      const filename = `DUERP_${entreprise.replace(/[^a-z0-9]/gi, '_')}_${modeLabel}_v${version}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const pdf = buildPdf();
+      const filename = `DUERP_${entreprise.replace(/[^a-z0-9]/gi, '_')}_instant_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(filename);
+      toast.success('Version téléchargée. Elle reprend les risques à cet instant.');
+    } catch (error) {
+      console.error(error);
+      toast.error('Impossible de préparer cette version.');
+    }
+  };
 
-      toast.success('DUERP généré avec succès', {
-        description: `${risks.length} risque(s) — mode ${exportMode === 'synthese' ? 'synthétique' : 'complet'}`,
-      });
+  const handleTransmit = () => {
+    try {
+      if (risks.length === 0) {
+        toast.error('Aucun risque disponible pour cette version.');
+        return;
+      }
+      if (!directorName.trim()) {
+        toast.error('Indiquez le directeur qui doit signer.');
+        return;
+      }
+      const pdf = buildPdf();
+      const fileDataUrl = pdf.output('datauristring');
+      const today = new Date().toISOString().split('T')[0];
+      const edition: Document = {
+        id: `duerp-instant-${Date.now()}`,
+        title: `DUERP ${version}, version à signer`,
+        description: `Version arrêtée le ${new Date().toLocaleDateString('fr-FR')}, destinée à la signature de ${directorName.trim()}.`,
+        type: 'DUERP',
+        version,
+        status: 'Envoyé pour signature',
+        createdBy: responsable || 'Prévention',
+        createdAt: today,
+        updatedAt: today,
+        fileName: `DUERP_${version}_a_signer.pdf`,
+        fileDataUrl,
+        fileSize: Math.round((fileDataUrl.length * 3) / 4),
+        purpose: 'signature',
+        editionKind: 'instantanee',
+        editionYear: new Date().getFullYear(),
+        snapshotAt: new Date().toISOString(),
+        directorName: directorName.trim(),
+        directorEmail: directorEmail.trim() || undefined,
+        tags: ['signature', version],
+      };
+      onTransmit?.(edition);
       onOpenChange(false);
     } catch (error) {
-      console.error('Error generating DUERP:', error);
-      toast.error('Erreur lors de la génération du DUERP');
+      console.error(error);
+      toast.error('Impossible de transmettre cette version.');
     }
   };
 
@@ -88,11 +121,11 @@ export function GenerateDUERPDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center text-2xl">
-            <FileText className="h-6 w-6 mr-2 text-purple-600" />
-            Générer le DUERP
+            <FileText className="h-6 w-6 mr-2 text-violet-700" />
+            Version du DUERP à signer
           </DialogTitle>
           <DialogDescription>
-            Génération automatique du Document Unique d'Évaluation des Risques Professionnels conforme à la réglementation française
+            Cette version fige les risques à cet instant. Elle peut être téléchargée tout de suite, ou rangée dans la bibliothèque pour la signature du directeur.
           </DialogDescription>
         </DialogHeader>
 
@@ -190,6 +223,28 @@ export function GenerateDUERPDialog({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="directorName">Directeur signataire</Label>
+                <Input
+                  id="directorName"
+                  value={directorName}
+                  onChange={(e) => setDirectorName(e.target.value)}
+                  placeholder="Nom du directeur"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="directorEmail">Adresse du directeur</Label>
+                <Input
+                  id="directorEmail"
+                  type="email"
+                  value={directorEmail}
+                  onChange={(e) => setDirectorEmail(e.target.value)}
+                  placeholder="prenom.nom@developpement-durable.gouv.fr"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="dateDebut">
                   <Calendar className="h-4 w-4 inline mr-1" />
                   Période - Début
@@ -251,24 +306,31 @@ export function GenerateDUERPDialog({
               <div className="text-sm text-amber-800">
                 <p className="font-semibold mb-1">Important</p>
                 <p>
-                  Export basé sur <strong>{risks.length}</strong> risque(s) et les actions du plan.
-                  Le mode synthétique limite le volume pour éviter un PDF de plus de 100 pages.
+                  {risks.length} risque(s) à cet instant. Le 31 décembre, le même extrait est préparé automatiquement pour le directeur. L'envoi du courriel dépend du serveur de messagerie du NAS, qui n'est pas branché ici : la version est enregistrée comme transmise pour signature.
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-lg">
             Annuler
           </Button>
-          <Button 
-            onClick={handleGenerate}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+          <Button
+            variant="outline"
+            onClick={handleDownloadNow}
+            className="rounded-lg border-slate-300"
           >
             <Download className="h-4 w-4 mr-2" />
-            Générer le PDF ({exportMode === 'synthese' ? 'synthèse' : 'complet'})
+            Télécharger maintenant
+          </Button>
+          <Button
+            onClick={handleTransmit}
+            className="rounded-lg bg-indigo-950 text-white hover:bg-indigo-900"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            Transmettre pour signature
           </Button>
         </DialogFooter>
       </DialogContent>

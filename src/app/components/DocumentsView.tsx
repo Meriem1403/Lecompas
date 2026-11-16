@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
@@ -14,9 +14,19 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Filter,
-  Archive
+  Search,
+  Send,
+  SlidersHorizontal,
+  FileSpreadsheet,
 } from 'lucide-react';
+import { Input } from '@/app/components/ui/input';
+import { MultiSelectFilter } from '@/app/components/ui/multi-select-filter';
+import { generateDuerpPdf } from '@/app/utils/duerpPdfExport';
+import { downloadDocumentExcel, downloadDocumentPdf, readLibraryFile, loadDocumentLibrary, saveDocumentLibrary } from '@/app/utils/documentLibraryExport';
+import { getDocumentLibraryFixtures } from '@/app/fixtures/documentLibraryFixtures';
+import { DuerpEditionPage } from '@/app/components/DuerpEditionPage';
+import type { DocumentDraft } from '@/app/components/DocumentFormFields';
+import { duerpTableFile, risksToDuerpRows, duerpMention } from '@/app/utils/duerpTableExport';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,9 +40,7 @@ import {
 import { DocumentCreateView } from './DocumentCreateView';
 import { DocumentDetailView } from './DocumentDetailView';
 import { DocumentEditView } from './DocumentEditView';
-import { GenerateDUERPDialog } from './GenerateDUERPDialog';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
 import { ListPaginationBar, DEFAULT_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
 import { APP_DATA_KEYS } from '@/app/services/appDataApi';
 import { useAppDataDocumentStore } from '@/app/hooks/useAppDataDocumentStore';
@@ -43,127 +51,79 @@ export interface Document {
   description: string;
   type: 'DUERP' | 'Registre' | 'Procédure' | 'Compte-rendu' | 'Audit' | 'Formation';
   version: string;
-  status: 'Brouillon' | 'En validation' | 'Validé' | 'Obsolète';
+  status: 'Brouillon' | 'En validation' | 'Validé' | 'Obsolète' | 'Envoyé pour signature' | 'Signé' | 'Refusé';
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   validatedBy?: string;
   validatedAt?: string;
   fileUrl?: string;
+  fileName?: string;
+  fileDataUrl?: string;
   fileSize?: number;
   tags?: string[];
+  purpose?: 'bibliotheque' | 'signature';
+  editionKind?: 'instantanee' | 'annuelle';
+  editionYear?: number;
+  snapshotAt?: string;
+  directorName?: string;
+  directorEmail?: string;
+  sentByName?: string;
+  sentByEmail?: string;
+  signatureImage?: string;
+  signatureMode?: "fichier" | "pad" | "texte";
+  signedAt?: string;
+  signedBy?: string;
+  refusalReason?: string;
+  signatureComment?: string;
+  fixture?: boolean;
+  documentDate?: string;
+  badgeColor?: string;
+  tagColors?: Record<string, string>;
+  riskRows?: import('@/app/utils/duerpTableExport').DuerpTableRow[];
 }
 
-// Fake data
-const FAKE_DOCUMENTS: Document[] = [
-  {
-    id: '1',
-    title: 'Document Unique d\'Évaluation des Risques Professionnels 2026',
-    description: 'Version annuelle du DUERP incluant tous les risques identifiés et les mesures de prévention associées',
-    type: 'DUERP',
-    version: '3.0',
-    status: 'Validé',
-    createdBy: 'Marie Dupont',
-    createdAt: '2026-01-15',
-    updatedAt: '2026-01-20',
-    validatedBy: 'Jean Martin (Directeur)',
-    validatedAt: '2026-01-20',
-    fileSize: 2456789,
-    tags: ['2026', 'version-annuelle', 'validé']
-  },
-  {
-    id: '2',
-    title: 'Registre des accidents du travail 2026',
-    description: 'Registre de déclaration et suivi des accidents du travail survenus en 2026',
-    type: 'Registre',
-    version: '1.0',
-    status: 'En validation',
-    createdBy: 'Sophie Bernard',
-    createdAt: '2026-01-10',
-    updatedAt: '2026-01-25',
-    fileSize: 1234567,
-    tags: ['accidents', '2026', 'en-cours']
-  },
-  {
-    id: '3',
-    title: 'Procédure d\'intervention en hauteur',
-    description: 'Procédure détaillée pour les interventions en hauteur avec les EPI requis et les autorisations nécessaires',
-    type: 'Procédure',
-    version: '2.1',
-    status: 'Validé',
-    createdBy: 'Marc Durand',
-    createdAt: '2025-11-20',
-    updatedAt: '2026-01-10',
-    validatedBy: 'Pierre Leclerc (Responsable Sécurité)',
-    validatedAt: '2026-01-10',
-    fileSize: 456789,
-    tags: ['hauteur', 'sécurité', 'epi']
-  },
-  {
-    id: '4',
-    title: 'Compte-rendu CSSCT - Janvier 2026',
-    description: 'Compte-rendu de la réunion du Comité Social et de Santé au Travail du mois de janvier 2026',
-    type: 'Compte-rendu',
-    version: '1.0',
-    status: 'Validé',
-    createdBy: 'Claire Dubois',
-    createdAt: '2026-01-28',
-    updatedAt: '2026-01-29',
-    validatedBy: 'Jean Martin (Directeur)',
-    validatedAt: '2026-01-29',
-    fileSize: 234567,
-    tags: ['cssct', 'janvier-2026', 'réunion']
-  },
-  {
-    id: '5',
-    title: 'Audit sécurité incendie',
-    description: 'Rapport d\'audit de sécurité incendie réalisé par organisme externe agréé',
-    type: 'Audit',
-    version: '1.0',
-    status: 'Validé',
-    createdBy: 'Cabinet SECURITEST',
-    createdAt: '2025-12-10',
-    updatedAt: '2025-12-15',
-    validatedBy: 'Pierre Leclerc (Responsable Sécurité)',
-    validatedAt: '2025-12-15',
-    fileSize: 3456789,
-    tags: ['incendie', 'audit', 'externe']
-  },
-  {
-    id: '6',
-    title: 'Attestation formation gestes et postures',
-    description: 'Attestations de formation collective aux gestes et postures - Session novembre 2025',
-    type: 'Formation',
-    version: '1.0',
-    status: 'Validé',
-    createdBy: 'Anne Petit',
-    createdAt: '2025-11-25',
-    updatedAt: '2025-11-25',
-    validatedBy: 'Claire Dubois (RH)',
-    validatedAt: '2025-11-26',
-    fileSize: 567890,
-    tags: ['formation', 'gestes-postures', 'tms']
-  },
-  {
-    id: '7',
-    title: 'Projet DUERP 2027',
-    description: 'Projet de mise à jour du Document Unique pour l\'année 2027',
-    type: 'DUERP',
-    version: '0.1',
-    status: 'Brouillon',
-    createdBy: 'Marie Dupont',
-    createdAt: '2026-01-28',
-    updatedAt: '2026-01-30',
-    fileSize: 1890234,
-    tags: ['2027', 'brouillon', 'en-cours']
-  }
-];
+const DEMO_LIBRARY_TITLES = new Set([
+  "Document Unique d'Évaluation des Risques Professionnels 2026",
+  "Registre des accidents du travail 2026",
+  "Procédure d'intervention en hauteur",
+  "Compte-rendu CSSCT - Janvier 2026",
+  "Audit sécurité incendie",
+  "Attestation formation gestes et postures",
+  "Projet DUERP 2027",
+]);
+
+export { readLibraryFile };
+
+export function withoutDemoLibraryDocuments(documents: Document[]) {
+  return documents.filter((document) => !DEMO_LIBRARY_TITLES.has(document.title));
+}
+
+export function dueYearlyDuerpYear(now: Date, documents: Document[]) {
+  const year = now.getMonth() === 11 && now.getDate() === 31
+    ? now.getFullYear()
+    : now.getMonth() === 0
+      ? now.getFullYear() - 1
+      : null;
+  if (year === null) return null;
+  const alreadyKept = documents.some(
+    (document) => document.editionKind === "annuelle" && document.editionYear === year,
+  );
+  return alreadyKept ? null : year;
+}
+
 
 interface DocumentsViewProps {
   documents?: Document[];
   risks?: import('@/app/components/admin/RisksManagementView').Risk[];
   actions?: import('@/app/types/action').Action[];
   accessToken?: string;
+  senderName?: string;
+  senderEmail?: string;
+  directorName?: string;
+  directorEmail?: string;
+  canSendForSignature?: boolean;
+  onSendForSignature?: (edition: Document) => void;
 }
 
 export function DocumentsView({
@@ -171,32 +131,65 @@ export function DocumentsView({
   risks = [],
   actions = [],
   accessToken = '',
+  senderName = "Prévention",
+  senderEmail = "",
+  directorName = "",
+  directorEmail = "",
+  canSendForSignature = true,
+  onSendForSignature,
 }: DocumentsViewProps) {
   const [documents, setDocuments] = useAppDataDocumentStore<Document[]>(
     APP_DATA_KEYS.documentsLibrary,
     accessToken,
-    { seed: propDocuments ?? FAKE_DOCUMENTS },
+    { seed: propDocuments ?? [], loadLocal: loadDocumentLibrary, saveLocal: saveDocumentLibrary },
   );
   const [isCreating, setIsCreating] = useState(false);
   const [viewingDocument, setViewingDocument] = useState<Document | null>(null);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
+  const [selectedPurposes, setSelectedPurposes] = useState<string[]>([]);
+  const [hiddenFixtureIds, setHiddenFixtureIds] = useState<string[]>([]);
+  const [isEditingDuerp, setIsEditingDuerp] = useState(false);
+  const yearlyLock = useRef(false);
   const [listPage, setListPage] = useState(1);
-  const [generateDUERPOpen, setGenerateDUERPOpen] = useState(false);
+  const fixtures = useMemo(() => getDocumentLibraryFixtures(), []);
 
   const handleAdd = () => {
     setIsCreating(true);
   };
 
-  const handleSaveCreate = (documentData: Omit<Document, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveCreate = (draft: DocumentDraft) => {
+    const today = new Date().toISOString().split('T')[0];
+    const table = draft.type === 'DUERP' && draft.includeRiskTable ? duerpTableFile(risksToDuerpRows(risks)) : null;
+    const description = table && !draft.description.includes('Mise à jour des risques')
+      ? `${draft.description.trim()}\n\n${duerpMention()}`.trim()
+      : draft.description;
     const newDocument: Document = {
-      ...documentData,
       id: `doc-${Date.now()}`,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0]
+      title: draft.title,
+      description,
+      type: draft.type,
+      version: draft.version,
+      status: draft.status,
+      createdBy: draft.createdBy,
+      createdAt: today,
+      updatedAt: today,
+      documentDate: draft.documentDate,
+      badgeColor: draft.badgeColor,
+      tags: draft.tags,
+      tagColors: draft.tagColors,
+      validatedBy: draft.status === 'Validé' ? draft.validatedBy : undefined,
+      validatedAt: draft.status === 'Validé' ? draft.validatedAt : undefined,
+      fileName: table?.fileName || draft.fileName,
+      fileDataUrl: table?.fileDataUrl || draft.fileDataUrl,
+      fileSize: table?.fileSize || draft.fileSize,
+      riskRows: table?.riskRows,
     };
     setDocuments([...documents, newDocument]);
     toast.success('Document créé avec succès ✅');
@@ -224,8 +217,39 @@ export function DocumentsView({
     setEditingDocument(document);
   };
 
-  const handleSaveEdit = (updatedDocument: Document) => {
-    setDocuments(documents.map(d => d.id === updatedDocument.id ? { ...updatedDocument, updatedAt: new Date().toISOString().split('T')[0] } : d));
+  const handleSaveEdit = (draft: DocumentDraft, source: Document) => {
+    const today = new Date().toISOString().split('T')[0];
+    const table = draft.type === 'DUERP' && draft.includeRiskTable ? duerpTableFile(risksToDuerpRows(risks)) : null;
+    const description = table && !draft.description.includes('Mise à jour des risques')
+      ? `${draft.description.trim()}\n\n${duerpMention()}`.trim()
+      : draft.description;
+    const saved: Document = {
+      ...source,
+      title: draft.title,
+      description,
+      type: draft.type,
+      version: draft.version,
+      status: draft.status,
+      createdBy: draft.createdBy,
+      updatedAt: today,
+      documentDate: draft.documentDate,
+      badgeColor: draft.badgeColor,
+      tags: draft.tags,
+      tagColors: draft.tagColors,
+      validatedBy: draft.status === 'Validé' ? draft.validatedBy : undefined,
+      validatedAt: draft.status === 'Validé' ? draft.validatedAt : undefined,
+      fileName: table?.fileName || draft.fileName,
+      fileDataUrl: table?.fileDataUrl || draft.fileDataUrl,
+      fileSize: table?.fileSize || draft.fileSize,
+      riskRows: table?.riskRows,
+      fixture: undefined,
+    };
+    if (source.fixture) {
+      setDocuments([{ ...saved, id: `doc-${Date.now()}` }, ...documents]);
+      setHiddenFixtureIds((current) => [...current, source.id]);
+    } else {
+      setDocuments(documents.map((item) => item.id === source.id ? { ...saved, id: source.id } : item));
+    }
     toast.success('Document modifié avec succès ✅');
     setEditingDocument(null);
   };
@@ -241,200 +265,192 @@ export function DocumentsView({
 
   const handleDeleteConfirm = () => {
     if (documentToDelete) {
-      setDocuments(documents.filter(d => d.id !== documentToDelete));
+      const target = [...documents, ...fixtures].find((item) => item.id === documentToDelete);
+      if (target?.fixture) {
+        setHiddenFixtureIds((current) => [...current, target.id]);
+      } else {
+        setDocuments(documents.filter(d => d.id !== documentToDelete));
+      }
       toast.success('Document supprimé avec succès ✅');
       setDeleteDialogOpen(false);
       setDocumentToDelete(null);
     }
   };
 
-  const handleDownload = (document: Document) => {
-    try {
-      // Créer un nouveau PDF
-      const pdf = new jsPDF();
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      let yPos = 20;
-
-      // Header avec dégradé (simulé avec rectangles)
-      pdf.setFillColor(147, 51, 234); // Purple
-      pdf.rect(0, 0, pageWidth, 40, 'F');
-      
-      // Titre principal
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(24);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('DUERP Manager', pageWidth / 2, 20, { align: 'center' });
-      pdf.setFontSize(12);
-      pdf.text('Sécurité & Prévention', pageWidth / 2, 30, { align: 'center' });
-
-      yPos = 55;
-
-      // Titre du document
-      pdf.setTextColor(31, 41, 55);
-      pdf.setFontSize(18);
-      pdf.setFont('helvetica', 'bold');
-      const titleLines = pdf.splitTextToSize(document.title, pageWidth - 40);
-      pdf.text(titleLines, 20, yPos);
-      yPos += titleLines.length * 8 + 10;
-
-      // Badge Type et Statut
-      pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'normal');
-      
-      // Type badge
-      const typeColors: { [key: string]: [number, number, number] } = {
-        'DUERP': [147, 51, 234],
-        'Registre': [59, 130, 246],
-        'Procédure': [34, 197, 94],
-        'Compte-rendu': [249, 115, 22],
-        'Audit': [239, 68, 68],
-        'Formation': [236, 72, 153]
-      };
-      const typeColor = typeColors[document.type] || [107, 114, 128];
-      pdf.setFillColor(typeColor[0], typeColor[1], typeColor[2]);
-      pdf.roundedRect(20, yPos, 30, 8, 2, 2, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.text(document.type, 22, yPos + 5.5);
-
-      // Status badge
-      const statusColors: { [key: string]: [number, number, number] } = {
-        'Validé': [34, 197, 94],
-        'En validation': [59, 130, 246],
-        'Brouillon': [107, 114, 128],
-        'Obsolète': [239, 68, 68]
-      };
-      const statusColor = statusColors[document.status] || [107, 114, 128];
-      pdf.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
-      pdf.roundedRect(55, yPos, 35, 8, 2, 2, 'F');
-      pdf.setTextColor(255, 255, 255);
-      pdf.text(document.status, 57, yPos + 5.5);
-
-      // Version badge
-      pdf.setFillColor(139, 92, 246);
-      pdf.roundedRect(95, yPos, 25, 8, 2, 2, 'F');
-      pdf.text(`v${document.version}`, 97, yPos + 5.5);
-
-      yPos += 18;
-
-      // Section Description
-      pdf.setFillColor(219, 234, 254);
-      pdf.roundedRect(15, yPos, pageWidth - 30, 5, 2, 2, 'F');
-      pdf.setTextColor(30, 58, 138);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('DESCRIPTION', 20, yPos + 3.5);
-      yPos += 10;
-
-      pdf.setTextColor(55, 65, 81);
-      pdf.setFont('helvetica', 'normal');
-      const descLines = pdf.splitTextToSize(document.description, pageWidth - 40);
-      pdf.text(descLines, 20, yPos);
-      yPos += descLines.length * 5 + 15;
-
-      // Informations
-      pdf.setFillColor(236, 253, 245);
-      pdf.roundedRect(15, yPos, pageWidth - 30, 5, 2, 2, 'F');
-      pdf.setTextColor(6, 95, 70);
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('INFORMATIONS', 20, yPos + 3.5);
-      yPos += 12;
-
-      pdf.setTextColor(55, 65, 81);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
-      pdf.text('Créé par:', 20, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(document.createdBy, 50, yPos);
-      yPos += 7;
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Date de création:', 20, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(new Date(document.createdAt).toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      }), 50, yPos);
-      yPos += 7;
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.text('Dernière modification:', 20, yPos);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(new Date(document.updatedAt).toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      }), 55, yPos);
-      yPos += 10;
-
-      // Validation si validé
-      if (document.validatedBy && document.validatedAt) {
-        pdf.setFillColor(220, 252, 231);
-        pdf.roundedRect(15, yPos, pageWidth - 30, 5, 2, 2, 'F');
-        pdf.setTextColor(21, 128, 61);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.text('VALIDATION', 20, yPos + 3.5);
-        yPos += 12;
-
-        pdf.setTextColor(55, 65, 81);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(9);
-        pdf.text('Validé par:', 20, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(document.validatedBy, 50, yPos);
-        yPos += 7;
-
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('Date de validation:', 20, yPos);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(new Date(document.validatedAt).toLocaleDateString('fr-FR'), 55, yPos);
-        yPos += 10;
-      }
-
-      // Tags
-      if (document.tags && document.tags.length > 0) {
-        pdf.setFillColor(252, 231, 243);
-        pdf.roundedRect(15, yPos, pageWidth - 30, 5, 2, 2, 'F');
-        pdf.setTextColor(190, 24, 93);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(10);
-        pdf.text('ÉTIQUETTES', 20, yPos + 3.5);
-        yPos += 12;
-
-        pdf.setTextColor(55, 65, 81);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9);
-        pdf.text(document.tags.join(' • '), 20, yPos);
-        yPos += 10;
-      }
-
-      // Footer
-      const footerY = pageHeight - 20;
-      pdf.setDrawColor(209, 213, 219);
-      pdf.line(20, footerY - 5, pageWidth - 20, footerY - 5);
-      pdf.setTextColor(107, 114, 128);
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'italic');
-      pdf.text('Document généré automatiquement par DUERP Manager', pageWidth / 2, footerY, { align: 'center' });
-      pdf.text(new Date().toLocaleDateString('fr-FR') + ' - ' + new Date().toLocaleTimeString('fr-FR'), pageWidth / 2, footerY + 4, { align: 'center' });
-
-      // Sauvegarder le PDF
-      const filename = `${document.title.replace(/[^a-z0-9]/gi, '_')}_v${document.version}.pdf`;
-      pdf.save(filename);
-
-      toast.success('PDF téléchargé avec succès', {
-        description: `"${document.title}" a été téléchargé`
-      });
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Erreur lors de la génération du PDF', {
-        description: 'Veuillez réessayer'
-      });
-    }
+  const handleDownloadPdf = (document: Document) => {
+    downloadDocumentPdf(document);
+    toast.success("PDF téléchargé.");
   };
+
+  const handleDownloadExcel = (document: Document) => {
+    downloadDocumentExcel(document);
+    toast.success("Classeur Excel téléchargé.");
+  };
+
+  const library = useMemo(() => {
+    const storedIds = new Set(documents.map((item) => item.id));
+    const examples = fixtures.filter((item) => !storedIds.has(item.id) && !hiddenFixtureIds.includes(item.id));
+    return [...documents, ...examples];
+  }, [documents, fixtures, hiddenFixtureIds]);
+
+  const includes = (selected: string[], value: string) => selected.length === 0 || selected.includes(value);
+  const filteredDocuments = library.filter(doc => {
+    const purpose = doc.purpose === "signature" ? "signature" : "bibliotheque";
+    const needle = search.trim().toLowerCase();
+    const searchMatch = !needle || [doc.title, doc.description, doc.createdBy, doc.fileName, ...(doc.tags ?? [])]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(needle));
+    return includes(selectedTypes, doc.type)
+      && includes(selectedStatuses, doc.status)
+      && includes(selectedAuthors, doc.createdBy)
+      && includes(selectedPurposes, purpose)
+      && searchMatch;
+  });
+  const filtersActive = Boolean(search.trim()) || selectedTypes.length + selectedStatuses.length + selectedAuthors.length + selectedPurposes.length > 0;
+  const authors = Array.from(new Set(library.map((item) => item.createdBy))).sort((a, b) => a.localeCompare(b, "fr"));
+
+  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
+  const listTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / listPageSize));
+  const paginatedDocuments = useMemo(() => {
+    const start = (listPage - 1) * listPageSize;
+    return filteredDocuments.slice(start, start + listPageSize);
+  }, [filteredDocuments, listPage, listPageSize]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [selectedTypes, selectedStatuses, selectedAuthors, selectedPurposes, search]);
+
+  useEffect(() => {
+    const cleaned = withoutDemoLibraryDocuments(documents);
+    if (cleaned.length !== documents.length) setDocuments(cleaned);
+  }, [documents, setDocuments]);
+
+  useEffect(() => {
+    const year = dueYearlyDuerpYear(new Date(), documents);
+    if (!year || yearlyLock.current || risks.length === 0) return;
+    yearlyLock.current = true;
+    try {
+      const pdf = generateDuerpPdf(
+        risks,
+        actions,
+        {
+          entreprise: "DIRM Méditerranée",
+          adresse: "16 Quai de Rive Neuve, 13007 Marseille",
+          responsable: "Directeur Interrégional",
+          version: String(year),
+          dateDebut: `${year}-01-01`,
+          dateFin: `${year}-12-31`,
+          methodologie: "Évaluation gravité (G) × fréquence (F) = risque initial. Risque résiduel (GFM) = risque initial × coefficient de maîtrise.",
+        },
+        "synthese",
+      );
+      const fileDataUrl = pdf.output("datauristring");
+      const today = new Date().toISOString().split("T")[0];
+      const edition: Document = {
+        id: `duerp-annuel-${year}`,
+        title: `DUERP ${year}, extrait du 31 décembre`,
+        description: `Version arrêtée au 31 décembre ${year}, préparée pour la signature du directeur.`,
+        type: "DUERP",
+        version: String(year),
+        status: "Envoyé pour signature",
+        createdBy: "Préparation automatique",
+        createdAt: today,
+        updatedAt: today,
+        fileName: `DUERP_${year}_31-decembre.pdf`,
+        fileDataUrl,
+        fileSize: Math.round((fileDataUrl.length * 3) / 4),
+        purpose: "signature",
+        editionKind: "annuelle",
+        editionYear: year,
+        snapshotAt: today,
+        directorName: "Directeur Interrégional",
+        tags: ["signature", String(year)],
+      };
+      setDocuments((current) =>
+        current.some((item) => item.editionKind === "annuelle" && item.editionYear === year)
+          ? current
+          : [edition, ...current],
+      );
+      toast.success(`Extrait du 31 décembre ${year} préparé pour la signature du directeur.`);
+    } catch (error) {
+      yearlyLock.current = false;
+      console.error(error);
+    }
+  }, [actions, documents, risks, setDocuments]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
+
+  if (isEditingDuerp) {
+    return (
+      <DuerpEditionPage
+        risks={risks}
+        canSendForSignature={canSendForSignature}
+        directorName={directorName}
+        onBack={() => setIsEditingDuerp(false)}
+        onCreate={(edition) => {
+          setDocuments((current) => [edition, ...current]);
+          setIsEditingDuerp(false);
+          toast.success("Le DUERP est créé dans la bibliothèque, avec le tableau en PDF.");
+        }}
+        onSend={(edition) => {
+          const sent: Document = {
+            ...edition,
+            status: "Envoyé pour signature",
+            purpose: "signature",
+            createdBy: senderName,
+            sentByName: senderName,
+            sentByEmail: senderEmail,
+            directorName: directorName || "Directeur",
+            directorEmail: directorEmail || senderEmail,
+          };
+          setDocuments((current) => [sent, ...current]);
+          setIsEditingDuerp(false);
+          onSendForSignature?.(sent);
+          toast.success(directorName
+            ? `Version envoyée à ${directorName}. Une notification lui est destinée.`
+            : "Version envoyée. Aucun directeur n'est encore désigné : la notification arrive sur ce compte pour l'essai du rôle Directeur.");
+        }}
+      />
+    );
+  }
+
+  // Si on est en mode création, afficher uniquement la page de création
+  if (isCreating) {
+    return (
+      <DocumentCreateView
+        riskCount={risks.length}
+        onSave={handleSaveCreate}
+        onCancel={handleCancelCreate}
+      />
+    );
+  }
+
+  // Si on est en mode consultation, afficher uniquement la page de détail
+  if (viewingDocument) {
+    return (
+      <DocumentDetailView
+        document={viewingDocument}
+        onBack={handleBackFromView}
+        onEdit={handleEditFromView}
+        onDownload={handleDownloadPdf}
+        onDownloadExcel={handleDownloadExcel}
+      />
+    );
+  }
+
+  // Si on est en mode édition, afficher uniquement la page d'édition
+  if (editingDocument) {
+    return (
+      <DocumentEditView
+        document={editingDocument}
+        riskCount={risks.length}
+        onSave={handleSaveEdit}
+        onCancel={handleCancelEdit}
+      />
+    );
+  }
 
   const getTypeColor = (type: Document['type']) => {
     switch (type) {
@@ -456,97 +472,28 @@ export function DocumentsView({
   const getStatusConfig = (status: Document['status']) => {
     switch (status) {
       case 'Validé':
-        return { 
-          icon: CheckCircle2, 
-          gradient: 'from-green-500 to-emerald-500',
-          bgColor: 'bg-green-50',
-          textColor: 'text-green-700'
-        };
+        return { icon: CheckCircle2, bgColor: 'bg-green-50', textColor: 'text-green-700' };
       case 'En validation':
-        return { 
-          icon: Clock, 
-          gradient: 'from-blue-500 to-cyan-500',
-          bgColor: 'bg-blue-50',
-          textColor: 'text-blue-700'
-        };
+        return { icon: Clock, bgColor: 'bg-blue-50', textColor: 'text-blue-700' };
       case 'Brouillon':
-        return { 
-          icon: Edit, 
-          gradient: 'from-gray-500 to-slate-500',
-          bgColor: 'bg-gray-50',
-          textColor: 'text-gray-700'
-        };
+        return { icon: Edit, bgColor: 'bg-gray-50', textColor: 'text-gray-700' };
       case 'Obsolète':
-        return { 
-          icon: AlertCircle, 
-          gradient: 'from-red-500 to-rose-500',
-          bgColor: 'bg-red-50',
-          textColor: 'text-red-700'
-        };
+        return { icon: AlertCircle, bgColor: 'bg-red-50', textColor: 'text-red-700' };
+      case 'Envoyé pour signature':
+        return { icon: Send, bgColor: 'bg-violet-50', textColor: 'text-violet-800' };
+      case 'Signé':
+        return { icon: CheckCircle2, bgColor: 'bg-emerald-50', textColor: 'text-emerald-800' };
+      case 'Refusé':
+        return { icon: AlertCircle, bgColor: 'bg-rose-50', textColor: 'text-rose-800' };
     }
   };
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'N/A';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
-
-  // Filtrage
-  const filteredDocuments = documents.filter(doc => {
-    const typeMatch = filterType === 'all' || doc.type === filterType;
-    const statusMatch = filterStatus === 'all' || doc.status === filterStatus;
-    return typeMatch && statusMatch;
-  });
-
-  const listPageSize = DEFAULT_LIST_PAGE_SIZE;
-  const listTotalPages = Math.max(1, Math.ceil(filteredDocuments.length / listPageSize));
-  const paginatedDocuments = useMemo(() => {
-    const start = (listPage - 1) * listPageSize;
-    return filteredDocuments.slice(start, start + listPageSize);
-  }, [filteredDocuments, listPage, listPageSize]);
-
-  useEffect(() => {
-    setListPage(1);
-  }, [filterType, filterStatus]);
-
-  useEffect(() => {
-    if (listPage > listTotalPages) setListPage(listTotalPages);
-  }, [listPage, listTotalPages]);
-
-  // Si on est en mode création, afficher uniquement la page de création
-  if (isCreating) {
-    return (
-      <DocumentCreateView
-        onSave={handleSaveCreate}
-        onCancel={handleCancelCreate}
-      />
-    );
-  }
-
-  // Si on est en mode consultation, afficher uniquement la page de détail
-  if (viewingDocument) {
-    return (
-      <DocumentDetailView
-        document={viewingDocument}
-        onBack={handleBackFromView}
-        onEdit={handleEditFromView}
-        onDownload={handleDownload}
-      />
-    );
-  }
-
-  // Si on est en mode édition, afficher uniquement la page d'édition
-  if (editingDocument) {
-    return (
-      <DocumentEditView
-        document={editingDocument}
-        onSave={handleSaveEdit}
-        onCancel={handleCancelEdit}
-      />
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -554,249 +501,234 @@ export function DocumentsView({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-gray-900">Documents SST</h3>
-          <p className="text-gray-600">Gérez l'ensemble des documents réglementaires</p>
+          <p className="text-gray-600">Bibliothèque des documents. Le DUERP reprend le tableau de la mise à jour des risques.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            {library.filter((item) => item.status === "Validé").length} validés, {library.filter((item) => item.status === "En validation").length} en validation, {library.filter((item) => item.status === "Brouillon").length} brouillons, {library.length} au total.
+          </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
           <Button 
-            onClick={() => setGenerateDUERPOpen(true)}
-            className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
+            onClick={() => setIsEditingDuerp(true)}
+            className="w-full rounded-lg bg-indigo-950 text-white hover:bg-indigo-900 sm:w-auto"
           >
             <FileText className="h-4 w-4 mr-2" />
-            Générer DUERP Complet
+            Générer le DUERP
           </Button>
-          <Button className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg" onClick={handleAdd}>
+          <Button className="w-full rounded-lg bg-violet-700 text-white hover:bg-violet-800 sm:w-auto" onClick={handleAdd}>
             <PlusCircle className="h-4 w-4 mr-2" />
-            Nouveau document
+            Ajouter un document
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-green-500 to-emerald-500 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-green-100 text-sm font-medium">Validés</p>
-                <p className="text-3xl font-bold">{documents.filter(d => d.status === 'Validé').length}</p>
-              </div>
-              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-green-50" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-blue-500 to-cyan-500 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-blue-100 text-sm font-medium">En validation</p>
-                <p className="text-3xl font-bold">{documents.filter(d => d.status === 'En validation').length}</p>
-              </div>
-              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-blue-50" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-gray-500 to-slate-500 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-gray-100 text-sm font-medium">Brouillons</p>
-                <p className="text-3xl font-bold">{documents.filter(d => d.status === 'Brouillon').length}</p>
-              </div>
-              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
-                <Edit className="h-6 w-6 text-gray-50" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="h-full border-0 shadow-lg bg-gradient-to-br from-purple-500 to-indigo-500 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-purple-100 text-sm font-medium">Total</p>
-                <p className="text-3xl font-bold">{documents.length}</p>
-              </div>
-              <div className="h-11 w-11 shrink-0 rounded-xl bg-white/20 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-purple-50" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters */}
-      <Card className="border-0 shadow-lg bg-white/80 backdrop-blur">
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-gray-700">
-              <Filter className="h-5 w-5 text-gray-500" />
-              <span className="text-sm font-semibold">Filtres</span>
+      <Card className="border-0 bg-white/80 shadow-xl backdrop-blur" role="region" aria-label="Filtres des documents">
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-500" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Rechercher un titre, un auteur, un fichier"
+                className="h-11 rounded-xl border-violet-200 bg-white pl-10 shadow-sm"
+              />
             </div>
-            <div className="overflow-x-auto">
-              <div className="flex items-center gap-2 min-w-max pb-1">
-                <span className="text-sm font-semibold text-gray-700">Type:</span>
-                <Badge 
-                  className={`cursor-pointer ${filterType === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                  onClick={() => setFilterType('all')}
-                >
-                  Tous
-                </Badge>
-                {['DUERP', 'Registre', 'Procédure', 'Compte-rendu', 'Audit', 'Formation'].map(type => (
-                  <Badge 
-                    key={type}
-                    className={`cursor-pointer ${filterType === type ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                    onClick={() => setFilterType(type)}
-                  >
-                    {type}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <div className="flex items-center gap-2 min-w-max pb-1">
-                <span className="text-sm font-semibold text-gray-700">Statut:</span>
-                <Badge 
-                  className={`cursor-pointer ${filterStatus === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                  onClick={() => setFilterStatus('all')}
-                >
-                  Tous
-                </Badge>
-                {['Validé', 'En validation', 'Brouillon', 'Obsolète'].map(status => (
-                  <Badge 
-                    key={status}
-                    className={`cursor-pointer ${filterStatus === status ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                    onClick={() => setFilterStatus(status)}
-                  >
-                    {status}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+            <p className="shrink-0 text-sm font-semibold text-violet-950">{filteredDocuments.length} document(s)</p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="h-11 rounded-xl border-violet-200 bg-white px-4 text-violet-800 hover:bg-violet-50"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {filtersOpen ? "Masquer les filtres" : "Filtres"}
+            </Button>
+            {filtersActive ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setSearch("");
+                  setSelectedTypes([]);
+                  setSelectedStatuses([]);
+                  setSelectedAuthors([]);
+                  setSelectedPurposes([]);
+                }}
+                className="h-11 rounded-xl text-slate-600"
+              >
+                Réinitialiser
+              </Button>
+            ) : null}
           </div>
+          {filtersOpen ? (
+            <div className="grid grid-cols-1 gap-4 border-t border-violet-100 pt-4 xl:grid-cols-3">
+              <section className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50/80 p-4">
+                <h2 className="text-sm font-bold text-violet-950">Identification</h2>
+                <MultiSelectFilter
+                  label="Type"
+                  selected={selectedTypes}
+                  onChange={setSelectedTypes}
+                  options={["DUERP", "Registre", "Procédure", "Compte-rendu", "Audit", "Formation"].map((value) => ({ value, label: value }))}
+                />
+                <MultiSelectFilter
+                  label="Auteur"
+                  selected={selectedAuthors}
+                  onChange={setSelectedAuthors}
+                  options={authors.map((value) => ({ value, label: value }))}
+                />
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">Origine</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {([
+                      ["bibliotheque", "Bibliothèque"],
+                      ["signature", "Version à signer"],
+                    ] as const).map(([value, label]) => {
+                      const active = selectedPurposes.includes(value);
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setSelectedPurposes((current) => active ? current.filter((item) => item !== value) : [...current, value])}
+                          className={`flex min-h-11 items-center justify-center rounded-xl border px-3 text-sm font-semibold ${active ? "border-violet-400 bg-violet-100 text-violet-950" : "border-white bg-white text-slate-700"}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+              <section className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 xl:col-span-2">
+                <h2 className="text-sm font-bold text-slate-900">Suivi</h2>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {["Brouillon", "En validation", "Validé", "Envoyé pour signature", "Signé", "Obsolète"].map((status) => {
+                    const active = selectedStatuses.includes(status);
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setSelectedStatuses((current) => active ? current.filter((item) => item !== status) : [...current, status])}
+                        className={`flex min-h-11 items-center justify-center rounded-xl border px-3 text-sm font-semibold ${active ? "border-slate-700 bg-slate-800 text-white" : "border-white bg-white text-slate-700"}`}
+                      >
+                        {status}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       {/* Documents List */}
       <div className="space-y-4">
+        {paginatedDocuments.length === 0 ? (
+          <Card className="border-0 bg-white/80 shadow-xl">
+            <CardContent className="py-12 text-center text-slate-600">
+              {filtersActive
+                ? "Aucun document ne correspond à ces filtres."
+                : "La bibliothèque est vide. Ajoutez un fichier, ou générez le DUERP."}
+            </CardContent>
+          </Card>
+        ) : null}
         {paginatedDocuments.map((document) => {
           const statusConfig = getStatusConfig(document.status);
           const StatusIcon = statusConfig.icon;
-
           return (
-            <Card key={document.id} className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white/80 backdrop-blur group">
+            <Card key={document.id} className="border-0 bg-white/80 shadow-xl backdrop-blur transition-all hover:shadow-2xl">
               <CardContent className="p-6">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="flex-1">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4">
-                      <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${getTypeColor(document.type)} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                        <FileText className="h-7 w-7 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="mb-2">
-                          <div>
-                            <h4 className="font-bold text-xl text-gray-900 mb-1">{document.title}</h4>
-                            <p className="text-sm text-gray-600 mb-3">{document.description}</p>
-                          </div>
-                        </div>
-
-                        {/* Meta Info */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 mb-4">
-                          <div className="flex items-center space-x-2">
-                            <FileText className="h-4 w-4 text-purple-500" />
-                            <div>
-                              <p className="text-xs text-gray-500">Version</p>
-                              <p className="text-sm font-semibold text-gray-800">v{document.version}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <User className="h-4 w-4 text-blue-500" />
-                            <div>
-                              <p className="text-xs text-gray-500">Créé par</p>
-                              <p className="text-sm font-semibold text-gray-800">{document.createdBy}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <Calendar className="h-4 w-4 text-orange-500" />
-                            <div>
-                              <p className="text-xs text-gray-500">Dernière màj</p>
-                              <p className="text-sm font-semibold text-gray-800">
-                                {new Date(document.updatedAt).toLocaleDateString('fr-FR')}
-                              </p>
-                            </div>
-                          </div>
-
-                          {document.fileSize && (
-                            <div className="flex items-center space-x-2">
-                              <Download className="h-4 w-4 text-green-500" />
-                              <div>
-                                <p className="text-xs text-gray-500">Taille</p>
-                                <p className="text-sm font-semibold text-gray-800">{formatFileSize(document.fileSize)}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Badges */}
-                        <div className="flex flex-wrap gap-2">
-                          <Badge className={`bg-gradient-to-r ${getTypeColor(document.type)} text-white border-0 shadow-md`}>
-                            {document.type}
-                          </Badge>
-                          <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {document.status}
-                          </Badge>
-                          {document.tags?.map((tag, idx) => (
-                            <Badge key={idx} variant="outline" className="bg-gray-50 text-gray-600">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${getTypeColor(document.type)} shadow-lg`}>
+                    <FileText className="h-7 w-7 text-white" />
                   </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 xl:ml-4">
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleView(document)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Eye className="h-3.5 w-3.5 mr-1" />
-                      Consulter
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleEdit(document)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Modifier
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleDownload(document)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Download className="h-3.5 w-3.5 mr-1" />
-                      Télécharger
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleDeleteClick(document.id)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white shadow-md hover:shadow-lg transition-all"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Supprimer
-                    </Button>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="mb-1 text-xl font-bold text-gray-900">{document.title}</h4>
+                    <p className="mb-3 text-sm text-gray-600">{document.description}</p>
+                    {document.purpose === "signature" ? (
+                      <p className="mb-3 text-sm text-violet-800">
+                        Version du {new Date(document.snapshotAt || document.createdAt).toLocaleDateString("fr-FR")}
+                        {document.editionKind === "annuelle" ? ", extrait du 31 décembre" : ", arrêtée à cet instant"}
+                        {document.directorName ? `, pour ${document.directorName}` : ""}.
+                      </p>
+                    ) : null}
+                    {document.fileName ? (
+                      <p className="mb-3 text-sm text-slate-600">Fichier : {document.fileName}</p>
+                    ) : null}
+                    {document.fixture ? (
+                      <p className="mb-3 text-sm font-medium text-amber-800">Exemple d'affichage. Il n'est pas enregistré dans la base.</p>
+                    ) : null}
+                    <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="h-4 w-4 text-purple-500" />
+                        <div>
+                          <p className="text-xs text-gray-500">Version</p>
+                          <p className="text-sm font-semibold text-gray-800">v{document.version}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4 text-blue-500" />
+                        <div>
+                          <p className="text-xs text-gray-500">Créé par</p>
+                          <p className="text-sm font-semibold text-gray-800">{document.createdBy}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-orange-500" />
+                        <div>
+                          <p className="text-xs text-gray-500">Dernière màj</p>
+                          <p className="text-sm font-semibold text-gray-800">{new Date(document.updatedAt).toLocaleDateString("fr-FR")}</p>
+                        </div>
+                      </div>
+                      {document.fileSize ? (
+                        <div className="flex items-center space-x-2">
+                          <Download className="h-4 w-4 text-green-500" />
+                          <div>
+                            <p className="text-xs text-gray-500">Taille</p>
+                            <p className="text-sm font-semibold text-gray-800">{formatFileSize(document.fileSize)}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="mb-4 flex flex-wrap gap-2">
+                      <Badge className={`border-0 bg-gradient-to-r ${getTypeColor(document.type)} text-white shadow-md`}>
+                        {document.type}
+                      </Badge>
+                      <Badge className={`border-0 ${statusConfig.bgColor} ${statusConfig.textColor}`}>
+                        <StatusIcon className="mr-1 h-3 w-3" />
+                        {document.status}
+                      </Badge>
+                      {document.tags?.map((tag) => (
+                        <Badge key={tag} variant="outline" className="bg-gray-50 text-gray-600">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleView(document)} className="h-9 rounded-lg border-violet-200 bg-white text-violet-950 hover:bg-violet-50">
+                        <Eye className="mr-1 h-3.5 w-3.5" />
+                        Consulter
+                      </Button>
+                      <Button size="sm" onClick={() => handleEdit(document)} className="h-9 rounded-lg bg-violet-700 text-white hover:bg-violet-800">
+                        <Edit className="mr-1 h-3.5 w-3.5" />
+                        Modifier
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDownloadPdf(document)} className="h-9 rounded-lg border-slate-200 bg-white text-slate-800 hover:bg-slate-50">
+                        <Download className="mr-1 h-3.5 w-3.5" />
+                        PDF
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDownloadExcel(document)} className="h-9 rounded-lg border-slate-200 bg-white text-slate-800 hover:bg-slate-50">
+                        <FileSpreadsheet className="mr-1 h-3.5 w-3.5" />
+                        Excel
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteClick(document.id)} className="h-9 rounded-lg border-rose-200 bg-white text-rose-700 hover:bg-rose-50">
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        Supprimer
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -833,14 +765,6 @@ export function DocumentsView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Generate DUERP Dialog */}
-      <GenerateDUERPDialog
-        open={generateDUERPOpen}
-        onOpenChange={setGenerateDUERPOpen}
-        risks={risks}
-        actions={actions}
-      />
     </div>
   );
 }

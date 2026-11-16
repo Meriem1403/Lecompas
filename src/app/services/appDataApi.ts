@@ -33,6 +33,7 @@ export const APP_DATA_KEYS = {
   accidentSuiviIndicateurs: "accidentSuiviIndicateurs",
   papripactProgram: "papripactProgram",
   transportCoverageRequests: "transportCoverageRequests",
+  rpsSignalements: "rpsSignalements",
   workflowAssignments: "workflowAssignments",
   agentProfiles: "agentProfiles",
 } as const;

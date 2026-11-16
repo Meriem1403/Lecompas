@@ -881,6 +881,7 @@ export function PreventionPlanView({
 }: PreventionPlanViewProps) {
   const plansSkipRef = useRef(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const requestLeave = useLeaveGuard(viewMode === "create" || viewMode === "edit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedPlanSnapshot, setSelectedPlanSnapshot] = useState<PlanRecord | null>(null);
   const [query, setQuery] = useState("");

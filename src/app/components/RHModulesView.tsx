@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Bus,
+  HeartHandshake,
 } from "lucide-react";
 
 interface Module {
@@ -50,6 +51,14 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
       gradient: "from-teal-600 via-cyan-500 to-blue-500",
     },
     {
+      id: "signalements",
+      title: "Signalements RPS",
+      description: "Cellule de travail pour une personne qui ne se sent pas bien au travail",
+      icon: HeartHandshake,
+      color: "text-rose-700",
+      gradient: "from-rose-500 via-orange-300 to-amber-200",
+    },
+    {
       id: "transport-coverage",
       title: "Transports",
       description: "Demande de prise en charge partielle des titres d'abonnement domicile-travail",
@@ -77,7 +86,7 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
                   Ressources humaines
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Visites médicales, registre SST, arrivées et départs, transports
+                  Visites médicales, registre SST, arrivées et départs, signalements, transports
                 </p>
               </div>
             </div>
