@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { SignalementShortcut } from "./SignalementShortcut";
 import { 
   AppWindow,
   Shield, 
@@ -27,9 +28,10 @@ interface CategoriesViewProps {
   onGoToDashboard: () => void;
   /** Accès rapide : ouvrir directement l'évaluation des risques */
   onGoToRisks: () => void;
+  onSignalement: () => void;
 }
 
-export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks }: CategoriesViewProps) {
+export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks, onSignalement }: CategoriesViewProps) {
   const categories: Category[] = [
     {
       id: "applications",
@@ -98,7 +100,7 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-cyan-100 shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
@@ -109,14 +111,17 @@ export function CategoriesView({ onSelectCategory, onGoToDashboard, onGoToRisks 
               </h1>
               <p className="text-gray-600 mt-1 text-sm sm:text-base">DIRM</p>
             </div>
+            <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+              <SignalementShortcut onClick={onSignalement} />
             <button
               type="button"
               onClick={onGoToDashboard}
-              className="inline-flex w-full sm:w-auto shrink-0 items-center justify-center gap-2 px-5 py-3 sm:px-6 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg active:scale-[0.99] sm:hover:scale-105 transition-all min-h-11"
+              className="inline-flex min-w-0 flex-1 sm:flex-none shrink-0 items-center justify-center gap-2 px-5 py-3 sm:px-6 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white rounded-xl font-medium hover:shadow-lg active:scale-[0.99] transition-all min-h-11"
             >
               <LayoutDashboard className="h-5 w-5 shrink-0" />
               Dashboard
             </button>
+            </div>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { APP_DATA_KEYS } from "@/app/services/appDataApi";
 import { useAppDataDocumentStore } from "@/app/hooks/useAppDataDocumentStore";
 import { Button } from "@/app/components/ui/button";
+import { SignalementShortcut } from "@/app/components/SignalementShortcut";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Badge } from "@/app/components/ui/badge";
@@ -84,12 +85,14 @@ interface ReservationsViewProps {
   accessToken?: string;
   currentUserName?: string;
   onBack?: () => void;
+  onSignalement?: () => void;
 }
 
 export function ReservationsView({
   accessToken = "",
   currentUserName = "Utilisateur",
   onBack,
+  onSignalement,
 }: ReservationsViewProps) {
   const [reservations, setReservations] = useAppDataDocumentStore<
     ResourceReservation[]
@@ -234,7 +237,8 @@ export function ReservationsView({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onSignalement ? <SignalementShortcut onClick={onSignalement} /> : null}
             <Button
               variant={viewMode === "planning" ? "default" : "outline"}
               size="sm"

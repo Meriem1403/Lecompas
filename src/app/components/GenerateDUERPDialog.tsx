@@ -317,7 +317,7 @@ export function GenerateDUERPDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-lg">
             Annuler
           </Button>
-          <Button
+          <Button 
             variant="outline"
             onClick={handleDownloadNow}
             className="rounded-lg border-slate-300"

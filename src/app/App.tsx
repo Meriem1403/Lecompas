@@ -72,6 +72,7 @@ import { ReservationsView } from "./components/ReservationsView";
 import { InformatiqueModulesView } from "./components/InformatiqueModulesView";
 import { ActualitesView } from "./components/ActualitesView";
 import { NotificationBell } from "./components/NotificationBell";
+import { SignalementShortcut } from "./components/SignalementShortcut";
 import { ArriveesDepartsView } from "./components/ArriveesDepartsView";
 import { TransportCoverageView } from "./components/TransportCoverageView";
 import { RetourActionView } from "./components/RetourActionView";
@@ -716,7 +717,7 @@ export default function App() {
     useState<RiskEvaluationFilters>(emptyRiskEvaluationFilters());
   const [riskSearchQuery, setRiskSearchQuery] = useState("");
   const [riskCurrentPage, setRiskCurrentPage] = useState(1);
-  const riskPageSize = 6;
+  const [riskPageSize, setRiskPageSize] = useState(10);
 
   const filteredVisibleRisks = React.useMemo(() => {
     return visibleRisks.filter((risk) =>
@@ -2569,6 +2570,10 @@ export default function App() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const openSignalement = useCallback(() => {
+    setIsMobileSidebarOpen(false);
+    requestLeave(() => navigate(getPathForView("signalements"), { state: { deposit: Date.now() } }));
+  }, [navigate, requestLeave]);
 
   const sidebarItems = [
     {
@@ -2920,6 +2925,7 @@ export default function App() {
           }
           onGoToDashboard={() => goToView("dashboard")}
           onGoToRisks={() => goToView("risks")}
+          onSignalement={openSignalement}
         />
       </>
     );
@@ -2933,6 +2939,7 @@ export default function App() {
           <DUERPModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
           />
         </>
       );
@@ -2943,6 +2950,7 @@ export default function App() {
           <RHModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
           />
         </>
       );
@@ -2953,6 +2961,7 @@ export default function App() {
           <EnvironnementModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
           />
         </>
       );
@@ -2966,6 +2975,7 @@ export default function App() {
           <ApplicationsModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
           />
         </>
       );
@@ -2976,6 +2986,7 @@ export default function App() {
           <AdministrationModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
           />
         </>
       );
@@ -2989,6 +3000,7 @@ export default function App() {
           <InformatiqueModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
           />
         </>
       );
@@ -3255,6 +3267,7 @@ export default function App() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <SignalementShortcut onClick={openSignalement} />
                 <Button
                   variant="outline"
                   size="icon"
@@ -3681,6 +3694,11 @@ export default function App() {
                     totalItems={filteredVisibleRisks.length}
                     onPageChange={setRiskCurrentPage}
                     itemLabel="risque(s)"
+                    pageSize={riskPageSize}
+                    onPageSizeChange={(size) => {
+                      setRiskPageSize(size);
+                      setRiskCurrentPage(1);
+                    }}
                   />
                 </>
               ) : isEditingRisk && selectedRisk ? (
@@ -4329,6 +4347,7 @@ export default function App() {
               accessToken={accessToken}
               currentUserName={user?.name || "Utilisateur"}
               onBack={() => goToView("category-modules", "informatique")}
+              onSignalement={openSignalement}
             />
           )}
 

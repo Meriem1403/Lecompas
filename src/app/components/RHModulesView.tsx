@@ -1,5 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { SignalementShortcut } from "./SignalementShortcut";
 import { 
   Stethoscope, 
   ClipboardList, 
@@ -7,7 +8,6 @@ import {
   ArrowLeft,
   ChevronRight,
   Bus,
-  HeartHandshake,
 } from "lucide-react";
 
 interface Module {
@@ -22,9 +22,10 @@ interface Module {
 interface RHModulesViewProps {
   onSelectModule: (moduleId: string) => void;
   onGoBack: () => void;
+  onSignalement: () => void;
 }
 
-export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) {
+export function RHModulesView({ onSelectModule, onGoBack, onSignalement }: RHModulesViewProps) {
   const modules: Module[] = [
     {
       id: "medical-visits",
@@ -51,14 +52,6 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
       gradient: "from-teal-600 via-cyan-500 to-blue-500",
     },
     {
-      id: "signalements",
-      title: "Signalements RPS",
-      description: "Cellule de travail pour une personne qui ne se sent pas bien au travail",
-      icon: HeartHandshake,
-      color: "text-rose-700",
-      gradient: "from-rose-500 via-orange-300 to-amber-200",
-    },
-    {
       id: "transport-coverage",
       title: "Transports",
       description: "Demande de prise en charge partielle des titres d'abonnement domicile-travail",
@@ -69,40 +62,34 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-cyan-100 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+      <div className="sticky top-0 z-10 border-b border-cyan-100 bg-white/80 shadow-sm backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={onGoBack}
-                className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white hover:shadow-lg transition-all hover:scale-105"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white transition-all hover:scale-105 hover:shadow-lg"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent">
+              <div className="min-w-0">
+                <h1 className="break-words bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-xl font-bold text-transparent sm:text-3xl">
                   Ressources humaines
                 </h1>
-                <p className="text-gray-600 mt-1">
-                  Visites médicales, registre SST, arrivées et départs, signalements, transports
+                <p className="mt-1 break-words text-gray-600">
+                  Santé au travail, arrivées et transports
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-teal-500 via-cyan-500 to-blue-500 flex items-center justify-center shadow-lg">
-                <Users className="h-6 w-6 text-white" />
-              </div>
-            </div>
+            <SignalementShortcut onClick={onSignalement} />
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          <h2 className="mb-2 text-2xl font-bold text-gray-800">
             Modules des ressources humaines
           </h2>
           <p className="text-gray-600">
@@ -110,7 +97,7 @@ export function RHModulesView({ onSelectModule, onGoBack }: RHModulesViewProps) 
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {modules.map((module) => {
             const Icon = module.icon;
             return (

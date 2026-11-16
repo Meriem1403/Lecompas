@@ -197,60 +197,6 @@ export function AsbestosAttestationsListView({
       </div>
 
       {/* Workflow Info Card */}
-      <Card className="border-2 border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 shadow-lg">
-        <CardContent className="pt-6 pb-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="h-10 w-10 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
-              <Shield className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-lg text-amber-900 mb-1">Comment fonctionne le workflow de validation ?</h3>
-              <p className="text-sm text-gray-700 mb-3">
-                Les attestations suivent un processus de validation en 3 étapes avant d'être délivrées à l'agent.
-              </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div className="p-4 bg-white rounded-lg border-2 border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">1</div>
-                <h4 className="font-semibold text-blue-900">Agent</h4>
-              </div>
-              <p className="text-xs text-gray-600">L'agent crée et soumet l'attestation pour validation</p>
-            </div>
-            
-            <div className="p-4 bg-white rounded-lg border-2 border-indigo-200">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">2</div>
-                <h4 className="font-semibold text-indigo-900">Admin</h4>
-              </div>
-              <p className="text-xs text-gray-600">
-                <strong>Changez votre rôle</strong> en "Administrateur" dans la sidebar pour <strong>valider ou rejeter</strong>
-              </p>
-            </div>
-            
-            <div className="p-4 bg-white rounded-lg border-2 border-purple-200">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">3</div>
-                <h4 className="font-semibold text-purple-900">Secrétaire Général</h4>
-              </div>
-              <p className="text-xs text-gray-600">
-                <strong>Changez votre rôle</strong> en "Secrétaire Général (SG)" pour <strong>validation finale</strong>
-              </p>
-            </div>
-            
-            <div className="p-4 bg-white rounded-lg border-2 border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold">✓</div>
-                <h4 className="font-semibold text-green-900">Attestation délivrée</h4>
-              </div>
-              <p className="text-xs text-gray-600">L'attestation validée est envoyée à l'agent</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
         <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50">

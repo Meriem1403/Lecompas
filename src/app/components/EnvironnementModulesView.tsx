@@ -1,11 +1,11 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { SignalementShortcut } from "./SignalementShortcut";
 import { 
   Droplet, 
   Shield, 
   FileSignature,
   ClipboardList,
-  Leaf,
   ArrowLeft,
   ChevronRight
 } from "lucide-react";
@@ -22,9 +22,10 @@ interface Module {
 interface EnvironnementModulesViewProps {
   onSelectModule: (moduleId: string) => void;
   onGoBack: () => void;
+  onSignalement: () => void;
 }
 
-export function EnvironnementModulesView({ onSelectModule, onGoBack }: EnvironnementModulesViewProps) {
+export function EnvironnementModulesView({ onSelectModule, onGoBack, onSignalement }: EnvironnementModulesViewProps) {
   const modules: Module[] = [
     {
       id: "mercury",
@@ -61,38 +62,34 @@ export function EnvironnementModulesView({ onSelectModule, onGoBack }: Environne
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-teal-50">
+    <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50 via-cyan-50 to-teal-50">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-cyan-100 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 sm:py-6">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <button
                 onClick={onGoBack}
-                className="flex items-center justify-center h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white hover:shadow-lg transition-all hover:scale-105"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-teal-500 text-white hover:shadow-lg transition-all hover:scale-105"
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 via-teal-600 to-blue-600 bg-clip-text text-transparent">
+              <div className="min-w-0">
+                <h1 className="break-words text-xl font-bold bg-gradient-to-r from-cyan-600 via-teal-600 to-blue-600 bg-clip-text text-transparent sm:text-3xl">
                   Environnement
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="mt-1 break-words text-gray-600">
                   Campagnes mercure et suivi amiante
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-cyan-500 via-teal-500 to-blue-500 flex items-center justify-center shadow-lg">
-                <Leaf className="h-6 w-6 text-white" />
-              </div>
-            </div>
+            <SignalementShortcut onClick={onSignalement} />
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
             Modules d&apos;environnement

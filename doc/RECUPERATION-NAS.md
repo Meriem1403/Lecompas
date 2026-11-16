@@ -1,6 +1,16 @@
 # Récupérer cette version sur le NAS
 
-Un `git pull` seul ne change pas le site. Les conteneurs continuent de servir l’ancienne image tant qu’ils ne sont pas reconstruits.
+Un `git pull` seul ne change pas le site. Les conteneurs continuent de servir l’ancienne image tant qu’ils ne sont pas reconstruits. Le push sur `main` lance le déploiement. L’action « Deploy intranet » doit être verte, puis le site se vérifie dans une fenêtre privée.
+
+## Ce que contient cette livraison
+
+Ce sont des écrans. Ils n’écrasent pas les comptes, les 478 risques, le PAPRIPACT ni les accidents déjà enregistrés.
+
+- **Signalement.** Le bouton **Signaler** est dans l’en-tête, pour tous les rôles, sur l’accueil, les pages de modules et les écrans de l’application. Il ouvre le formulaire de dépôt. Il ne flotte plus au-dessus des cartes.
+- **Suivi amiante.** Vraies pages, sans fenêtre surgissante : sites, matériaux et zones, synthèse, contrôles. Affichage cartes ou tableau, filtres, création, modification, suppression avec confirmation, dossier PDF. Zone et matériau sont deux listes fermées. Le tableau des sites du classeur est dans `src/app/seeds/imported/asbestos-sites-dta.json` (108 sites). Le fichier source est `data/Tableau amiante le compas.xlsx`.
+- **Tableaux risques.** Dans l’évaluation, la mise à jour et le référentiel : choix d’afficher 10, 50 ou 100 lignes, et défilement horizontal gardé en bas du tableau. Les listes déroulantes gardent leur flèche dans le champ.
+
+Le tableau amiante du dépôt n’est recopié sur le NAS que si le document `asbestosSitesDta` est encore vide. S’il contient déjà une liste, cette liste reste. Ne pas forcer l’écriture : la commande d’import des documents réécrirait aussi le PAPRIPACT.
 
 ## Cette version ne remplace pas les données du NAS
 

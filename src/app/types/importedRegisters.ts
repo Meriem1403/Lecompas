@@ -37,6 +37,7 @@ export interface AsbestosRegisterRow {
   rawCol7?: string;
   rawCol8?: string;
   rawCol9?: string;
+  zone?: string;
   zoneMateriau?: string;
   datePremierReperage?: string;
   typeAnalyse?: string;
@@ -46,6 +47,7 @@ export interface AsbestosRegisterRow {
   retraitRealise?: string;
   actionAPrevoir?: string;
   statutMateriau?: string;
+  siteId?: string;
 }
 
 export interface AsbestosSiteDtaRow {
@@ -57,6 +59,10 @@ export interface AsbestosSiteDtaRow {
   commentaires: string;
   dtaStatut: string;
   attachments: RegisterAttachment[];
+  personneEnCharge?: string;
+  presenceAmiante?: string;
+  prochainControle?: string;
+  dateMaj?: string;
 }
 
 export interface AccidentYearIndicator {

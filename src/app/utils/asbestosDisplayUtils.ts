@@ -75,7 +75,97 @@ export function scoreTone(scoreRaw: string | undefined): {
   };
 }
 
+export const AMIANTE_ZONES = [
+  "Toiture",
+  "Bardage",
+  "Façade",
+  "Faux plafond",
+  "Sol",
+  "Cloisons",
+  "Cages d'escalier",
+  "Circulations",
+  "Bureaux",
+  "Bureau",
+  "Vestiaires",
+  "Sanitaires",
+  "Cuisine",
+  "Chaufferie",
+  "Local technique",
+  "Local de stockage",
+  "Hangar",
+  "Magasin",
+  "Atelier",
+  "Porche",
+  "Gaines et réseaux",
+  "Zones non accessibles",
+] as const;
+
+export const AMIANTE_MATERIAUX = [
+  "Toiture et bardage en fibres-ciment",
+  "Plaques de toiture en fibres-ciment",
+  "Toiture en fibres-ciment",
+  "Conduits en fibres-ciment",
+  "Plaques planes en fibres-ciment",
+  "Canalisations en fibres-ciment",
+  "Bardage en fibres-ciment",
+  "Dalles de sol et colle",
+  "Dalles de sol",
+  "Isolants de faux plafonds",
+  "Faux plafonds",
+  "Calorifugeages",
+  "Flocages",
+  "Enduits",
+  "Joints",
+  "Peintures",
+  "Revêtements de sol",
+  "Carton amiante",
+] as const;
+
+function fold(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function mentions(haystack: string, needle: string): boolean {
+  const text = fold(haystack);
+  const probe = fold(needle);
+  if (probe.length > 2 && text.includes(probe)) return true;
+  const singular = probe.replace(/s$/g, "");
+  return singular.length > 2 && singular !== probe && text.includes(singular);
+}
+
+function matchList(text: string, list: readonly string[]): string {
+  return list
+    .filter((item) => mentions(text, item) || mentions(text, item.replace(" et ", " + ")))
+    .sort((left, right) => right.length - left.length)[0] || "";
+}
+
+function listed(value: string, list: readonly string[]): boolean {
+  return (list as readonly string[]).includes(value);
+}
+
+export function displayZone(row: AsbestosRegisterRow): string {
+  const explicit = (row.zone || "").trim();
+  if (listed(explicit, AMIANTE_ZONES)) return explicit;
+  return matchList(`${explicit} ${row.localisation || ""} ${row.lieuZone || ""}`, AMIANTE_ZONES)
+    || matchList(row.zoneMateriau || "", AMIANTE_ZONES)
+    || explicit
+    || "—";
+}
+
+export function displayMaterial(row: AsbestosRegisterRow): string {
+  const explicit = (row.materiau || "").trim();
+  if (listed(explicit, AMIANTE_MATERIAUX)) return explicit;
+  return matchList(`${explicit} ${row.zoneMateriau || ""}`, AMIANTE_MATERIAUX) || explicit || "—";
+}
+
 export function registerRowTitle(row: AsbestosRegisterRow): string {
+  if (row.kind === "materiau" || row.kind === "synthese") {
+    const zone = displayZone(row);
+    const material = displayMaterial(row);
+    if (zone !== "—" && material !== "—") return `${zone} — ${material}`;
+    if (material !== "—") return material;
+    if (zone !== "—") return zone;
+  }
   return (
     row.zoneMateriau ||
     row.materiau ||
@@ -101,7 +191,7 @@ export function matchesRegisterSearch(
 export function matchesSiteSearch(row: AsbestosSiteDtaRow, query: string): boolean {
   const q = asText(query).trim().toLowerCase();
   if (!q) return true;
-  return [row.site, row.departement, row.commentaires, row.acces, row.dtaStatut]
+  return [row.site, row.departement, row.commentaires, row.acces, row.dtaStatut, row.personneEnCharge, row.presenceAmiante]
     .map((value) => asText(value).toLowerCase())
     .some((value) => value.includes(q));
 }
@@ -109,6 +199,30 @@ export function matchesSiteSearch(row: AsbestosSiteDtaRow, query: string): boole
 export function asText(value: unknown): string {
   if (value == null) return "";
   return String(value);
+}
+
+export function presenceTone(value: string | undefined): { label: string; className: string } {
+  const raw = (value ?? "").trim();
+  const s = raw.toLowerCase();
+  if (s.startsWith("oui")) {
+    return { label: raw, className: "bg-rose-50 text-rose-900 ring-1 ring-rose-200" };
+  }
+  if (s.includes("désamiant") || s.includes("desamiant")) {
+    return { label: raw, className: "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200" };
+  }
+  if (s.startsWith("non mais")) {
+    return { label: raw, className: "bg-sky-50 text-sky-900 ring-1 ring-sky-200" };
+  }
+  if (s.startsWith("non")) {
+    return { label: raw, className: "bg-stone-100 text-stone-700 ring-1 ring-stone-200" };
+  }
+  if (s.includes("diagnost") || s.includes("vérif") || s.includes("verif")) {
+    return { label: raw, className: "bg-amber-50 text-amber-950 ring-1 ring-amber-200" };
+  }
+  if (!raw) {
+    return { label: "Non renseigné", className: "bg-stone-50 text-stone-500 ring-1 ring-stone-200" };
+  }
+  return { label: raw, className: "bg-stone-50 text-stone-800 ring-1 ring-stone-200" };
 }
 
 export function dtaStatutBadgeClass(statut: unknown): string {

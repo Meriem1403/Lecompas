@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowDownAZ, ArrowDownNarrowWide, ArrowUpAZ, ArrowUpNarrowWide, Filter } from "lucide-react";
+import { ArrowDownAZ, ArrowDownNarrowWide, ArrowUpAZ, ArrowUpNarrowWide, ChevronDown, Filter } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
@@ -182,24 +182,27 @@ export function ColumnFilterPopover({
           </button>
         </div>
         <div className="space-y-2 border-b border-slate-200 p-2">
-          <label className="block text-xs font-medium text-slate-500">
+          <label className="block min-w-0 text-xs font-medium text-slate-500">
             Condition
-            <select
-              value={draft.operator}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  operator: event.target.value as ColumnConditionOperator,
-                }))
-              }
-              className="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800"
-            >
-              {operators.map((operator) => (
-                <option key={operator.value} value={operator.value}>
-                  {operator.label}
-                </option>
-              ))}
-            </select>
+            <span className="relative mt-1 block min-w-0">
+              <select
+                value={draft.operator}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    operator: event.target.value as ColumnConditionOperator,
+                  }))
+                }
+                className="h-8 w-full min-w-0 appearance-none rounded-md border border-slate-300 bg-white pl-2 pr-8 text-sm text-slate-800"
+              >
+                {operators.map((operator) => (
+                  <option key={operator.value} value={operator.value}>
+                    {operator.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
+            </span>
           </label>
           {draft.operator !== "none" ? (
             <div className="grid grid-cols-1 gap-2">

@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
+import { DocumentFileViewer } from "@/app/components/DocumentFileViewer";
 import { jsPDF } from "jspdf";
 import {
   Activity,
@@ -7,6 +9,7 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  CalendarClock,
   Check,
   ChevronDown,
   ChevronUp,
@@ -15,6 +18,8 @@ import {
   CloudRain,
   Download,
   EyeOff,
+  FilePen,
+  FileText,
   FolderHeart,
   Heart,
   Home,
@@ -25,7 +30,6 @@ import {
   MessageSquare,
   MessagesSquare,
   Moon,
-  Paperclip,
   PenLine,
   Phone,
   Plus,
@@ -262,14 +266,32 @@ interface Attachment {
   dataUrl: string;
 }
 
+interface Appointment {
+  date: string;
+  time: string;
+  mode: string;
+  place: string;
+}
+
 interface ThreadMessage {
   id: string;
   at: string;
   authorId: string;
   authorName: string;
   fromCell: boolean;
+  kind?: "message" | "rdv" | "rapport";
   body: string;
   attachments: Attachment[];
+  appointment?: Appointment;
+  reportTitle?: string;
+}
+
+interface MessageDraft {
+  kind: "message" | "rdv" | "rapport";
+  body: string;
+  attachments: Attachment[];
+  appointment?: Appointment;
+  reportTitle?: string;
 }
 
 interface Signalement {
@@ -314,7 +336,7 @@ interface Store {
 }
 
 const EMPTY_STORE: Store = { cells: [], reports: [] };
-const lineInput = "h-12 w-full min-w-0 rounded-xl border border-rose-100 bg-white text-base text-stone-900 shadow-none placeholder:text-stone-400 focus-visible:border-rose-300 focus-visible:ring-2 focus-visible:ring-rose-100";
+const lineInput = "flex h-12 w-full min-w-0 items-center rounded-xl border border-rose-100 bg-white px-3 text-base leading-6 text-stone-900 shadow-none placeholder:text-stone-400 focus-visible:border-rose-300 focus-visible:ring-2 focus-visible:ring-rose-100";
 
 function loadStore(): Store | null {
   try {
@@ -523,7 +545,9 @@ function downloadSignalementPdf(report: Signalement) {
   messages.forEach((message) => {
     const who = message.fromCell ? `Cellule · ${message.authorName || "Membre"}` : report.anonymous ? "Personne concernée" : message.authorName || "Personne concernée";
     const files = message.attachments?.length ? `\nPièces jointes : ${message.attachments.map((file) => file.name).join(", ")}` : "";
-    paragraph(`${who} · ${formatDay(message.at)}\n${message.body || "Pièce jointe"}${files}`);
+    const kind = message.kind === "rdv" ? "Rendez-vous" : message.kind === "rapport" ? `Rapport${message.reportTitle ? ` — ${message.reportTitle}` : ""}` : "Message";
+    const slot = message.appointment ? `\n${formatDay(message.appointment.date)} à ${message.appointment.time} · ${message.appointment.mode}${message.appointment.place ? ` · ${message.appointment.place}` : ""}` : "";
+    paragraph(`${kind}\n${who} · ${formatDay(message.at)}${slot}\n${message.body || "Pièce jointe"}${files}`);
   });
   band("Identité", [68, 64, 60]);
   paragraph(report.anonymous ? "La personne a demandé à rester anonyme. Son nom ne figure pas sur cette fiche." : `${report.authorName || "—"}${report.authorEmail ? `\n${report.authorEmail}` : ""}`);
@@ -646,16 +670,22 @@ function ChoiceChips({ labels, source }: { labels: string[]; source: Proposal[] 
   );
 }
 
+function FieldGlyph({ side, label, tone = "text-rose-700", onClick, children }: { side: "left" | "right"; label: string; tone?: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" aria-label={label} onClick={onClick} className={`absolute top-0 flex h-12 w-10 items-center justify-center ${tone} ${side === "left" ? "left-0" : "right-0"}`}>
+      {children}
+    </button>
+  );
+}
+
 function DateField({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (value: string) => void }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="min-w-0 space-y-2">
       <Label htmlFor={id} className="px-1 text-[13px] font-medium text-stone-600">{label}</Label>
       <div className="relative">
-        <Input ref={ref} id={id} type="date" value={value} onChange={(event) => onChange(event.target.value)} className={`${lineInput} pl-3 pr-12 [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0`} />
-        <button type="button" aria-label={`Ouvrir le calendrier pour ${label}`} onClick={() => openPicker(ref.current)} className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100">
-          <Calendar className="h-4 w-4" />
-        </button>
+        <Input ref={ref} id={id} type="date" value={value} onChange={(event) => onChange(event.target.value)} className={`${lineInput} pr-10 [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0`} />
+        <FieldGlyph side="right" label={`Ouvrir le calendrier pour ${label}`} onClick={() => openPicker(ref.current)}><Calendar className="h-4 w-4" /></FieldGlyph>
       </div>
     </div>
   );
@@ -667,10 +697,8 @@ function IconField({ id, label, icon: Icon, value, onChange, placeholder, listId
     <div className="min-w-0 space-y-2">
       <Label htmlFor={id} className="px-1 text-[13px] font-medium text-stone-600">{label}</Label>
       <div className="relative">
-        <button type="button" aria-label={`Placer le curseur dans ${label}`} onClick={() => ref.current?.focus()} className="absolute left-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100">
-          <Icon className="h-4 w-4" />
-        </button>
-        <Input ref={ref} id={id} list={listId} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`${lineInput} pl-12`} />
+        <Input ref={ref} id={id} list={listId} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} className={`${lineInput} pl-10`} />
+        <FieldGlyph side="left" label={`Placer le curseur dans ${label}`} onClick={() => ref.current?.focus()}><Icon className="h-4 w-4" /></FieldGlyph>
       </div>
     </div>
   );
@@ -732,6 +760,30 @@ export function SignalementsView({
   const [editingCellId, setEditingCellId] = useState<string | null>(null);
   const [memberQuery, setMemberQuery] = useState("");
   const [cellToDelete, setCellToDelete] = useState<WorkCell | null>(null);
+  const location = useLocation();
+  const depositToken = (location.state as { deposit?: number } | null)?.deposit ?? 0;
+
+  useEffect(() => {
+    if (!depositToken) return;
+    setScreen("deposer");
+    setSelectedReportId(null);
+    setStep(1);
+    setTried(false);
+    setFeelings([]);
+    setSituation("");
+    setSince("");
+    setFrequency("");
+    setWorkplace("");
+    setRelations([]);
+    setImpacts([]);
+    setAlreadySpoken("");
+    setOutcome("");
+    setAnonymous(false);
+    setUrgency("");
+    setContact("");
+    setAvailability("");
+    setCellId("");
+  }, [depositToken]);
 
   const catalog = catalogFrom(store);
   const dirty = screen === "deposer" && (feelings.length > 0 || situation.trim().length > 0 || relations.length > 0 || impacts.length > 0);
@@ -843,29 +895,39 @@ export function SignalementsView({
     setStore((current) => ({ ...current, catalog: { ...catalogFrom(current), [key]: items } }));
   };
 
-  const sendMessage = (report: Signalement, body: string, attachments: Attachment[], fromCell: boolean) => {
-    const text = body.trim();
-    if (!text && attachments.length === 0) { toast.error("Écrivez un message ou joignez un fichier."); return false; }
+  const sendMessage = (report: Signalement, draft: MessageDraft, fromCell: boolean) => {
+    const text = draft.body.trim();
+    if (draft.kind === "message" && !text && draft.attachments.length === 0) { toast.error("Écrivez un message ou déposez une pièce."); return false; }
+    if (draft.kind === "rdv" && (!draft.appointment?.date || !draft.appointment.time)) { toast.error("Indiquez le jour et l'heure du rendez-vous."); return false; }
+    if (draft.kind === "rapport" && (!draft.reportTitle?.trim() || text.length < 20)) { toast.error("Le rapport a besoin d'un titre et d'un texte."); return false; }
     const message: ThreadMessage = {
       id: `msg-${Date.now()}`,
       at: new Date().toISOString(),
       authorId: currentUserId,
       authorName: fromCell || !report.anonymous ? currentUserName : "",
       fromCell,
+      kind: draft.kind,
       body: text,
-      attachments,
+      attachments: draft.attachments,
+      appointment: draft.appointment,
+      reportTitle: draft.reportTitle?.trim(),
     };
     const next = { ...report, messages: [...(report.messages || []), message] };
     setStore((current) => ({ ...current, reports: current.reports.map((item) => item.id === next.id ? next : item) }));
+    const notice = draft.kind === "rdv"
+      ? `${report.reference} : un rendez-vous est proposé le ${formatDay(draft.appointment?.date)} à ${draft.appointment?.time}.`
+      : draft.kind === "rapport"
+        ? `${report.reference} : un rapport a été versé au dossier.`
+        : `${report.reference} : ${text || "Une pièce jointe a été ajoutée."}`;
     if (fromCell) {
       const email = report.notifyEmail || report.authorEmail;
-      if (email) onNotify({ titre: "Message de la cellule", contenu: `${report.reference} : ${text || "Une pièce jointe a été ajoutée."}`, recipientEmail: email });
+      if (email) onNotify({ titre: draft.kind === "rdv" ? "Rendez-vous proposé" : draft.kind === "rapport" ? "Rapport au dossier" : "Message de la cellule", contenu: notice, recipientEmail: email });
     } else {
       cells.filter((cell) => !report.cellId || cell.id === report.cellId).flatMap((cell) => cell.members).filter((member) => member.email.toLowerCase() !== currentUserEmail.toLowerCase()).forEach((member) => {
-        onNotify({ titre: "Message sur un signalement", contenu: `${report.reference} : la personne a écrit à la cellule.`, recipientEmail: member.email });
+        onNotify({ titre: "Message sur un signalement", contenu: notice, recipientEmail: member.email });
       });
     }
-    toast.success("Le message est envoyé.");
+    toast.success(draft.kind === "rdv" ? "Le rendez-vous est proposé." : draft.kind === "rapport" ? "Le rapport est versé au dossier." : "Le message est envoyé.");
     return true;
   };
 
@@ -1276,10 +1338,8 @@ function PeoplePicker({ people, selected, query, onQuery, onToggle }: { people: 
         </div>
       ) : <p className="px-1 text-[13px] text-stone-500">Aucune personne pour le moment.</p>}
       <div className="relative">
-        <button type="button" aria-label="Rechercher une personne" onClick={() => searchRef.current?.focus()} className="absolute left-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
-          <Search className="h-4 w-4" />
-        </button>
-        <Input ref={searchRef} value={query} onChange={(event) => { onQuery(event.target.value); setLimit(8); }} className={`${lineInput} pl-12`} placeholder="Rechercher une personne" aria-label="Rechercher une personne" />
+        <Input ref={searchRef} value={query} onChange={(event) => { onQuery(event.target.value); setLimit(8); }} className={`${lineInput} border-violet-100 pl-10 focus-visible:border-violet-300 focus-visible:ring-violet-100`} placeholder="Rechercher une personne" aria-label="Rechercher une personne" />
+        <FieldGlyph side="left" tone="text-violet-700" label="Rechercher une personne" onClick={() => searchRef.current?.focus()}><Search className="h-4 w-4" /></FieldGlyph>
       </div>
       <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white">
         {shown.map((person, index) => {
@@ -1322,7 +1382,7 @@ function CellRoster({ cells }: { cells: WorkCell[] }) {
 function ProgressRail({ status, onChange }: { status: Status; onChange?: (status: Status) => void }) {
   const current = Math.max(0, STATUSES.indexOf(status));
   return (
-    <ol className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {STATUSES.map((item, index) => {
         const state = index < current ? "done" : index === current ? "now" : "later";
         return (
@@ -1345,43 +1405,180 @@ function downloadAttachment(file: Attachment) {
   link.click();
 }
 
-function CaseThread({ report, viewer, onSend }: { report: Signalement; viewer: "author" | "cell"; onSend: (report: Signalement, body: string, attachments: Attachment[], fromCell: boolean) => boolean }) {
+function downloadRapportPdf(report: Signalement, message: ThreadMessage) {
+  const pdf = new jsPDF({ unit: "pt", format: "a4" });
+  const width = pdf.internal.pageSize.getWidth();
+  const margin = 46;
+  pdf.setFont("times", "bold");
+  pdf.setFontSize(18);
+  pdf.setTextColor(76, 5, 25);
+  pdf.text(message.reportTitle || "Rapport", margin, 78);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.setTextColor(87, 83, 78);
+  pdf.text(`${report.reference}   ·   ${formatDay(message.at)}   ·   Confidentiel`, margin, 96);
+  const lines = pdf.splitTextToSize(message.body || "—", width - margin * 2);
+  pdf.setFontSize(11);
+  pdf.setTextColor(41, 37, 36);
+  pdf.text(lines, margin, 124);
+  const pages = pdf.getNumberOfPages();
+  for (let page = 1; page <= pages; page += 1) {
+    pdf.setPage(page);
+    paintPageChrome(pdf, page, pages, "DIRM Méditerranée  ·  Rapport RPS");
+  }
+  pdf.save(`${report.reference}_rapport.pdf`);
+}
+
+async function readPieces(list: FileList | null, current: Attachment[]) {
+  const incoming = [...(list || [])];
+  if (!incoming.length) return current;
+  if (current.length + incoming.length > 3) { toast.error("Trois pièces maximum par envoi."); return current; }
+  const next = [...current];
+  for (const file of incoming) {
+    if (file.size > 600_000) { toast.error(`${file.name} dépasse 600 Ko.`); continue; }
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") { toast.error("Déposez une image ou un PDF."); continue; }
+    const dataUrl = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+    next.push({ id: `file-${Date.now()}-${next.length}`, name: file.name, mime: file.type, dataUrl });
+  }
+  return next;
+}
+
+function AttachmentViewer({ file, onClose }: { file: Attachment; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex bg-stone-950/70 p-0 sm:items-center sm:justify-center sm:p-4" role="dialog" aria-modal="true" aria-label={file.name} onClick={onClose}>
+      <div className="flex h-[100dvh] w-full min-w-0 flex-col bg-white sm:h-[min(90dvh,860px)] sm:max-w-5xl sm:rounded-2xl sm:shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <header className="flex min-w-0 items-center gap-2 border-b border-stone-200 px-3 py-3 sm:px-4">
+          <FileText className="h-4 w-4 shrink-0 text-sky-700" />
+          <p className="min-w-0 flex-1 truncate text-sm font-medium">{file.name}</p>
+          <button type="button" onClick={() => downloadAttachment(file)} className="h-9 shrink-0 rounded-lg px-2 text-[13px] font-medium text-sky-800 hover:bg-sky-50">Télécharger</button>
+          <button type="button" onClick={onClose} aria-label="Fermer la visionneuse" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-stone-100"><X className="h-4 w-4" /></button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-auto p-2 sm:p-4">
+          <DocumentFileViewer name={file.name} dataUrl={file.dataUrl} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DropZone({ onFiles }: { onFiles: (list: FileList | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => inputRef.current?.click()}
+      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); inputRef.current?.click(); } }}
+      onDragOver={(event) => { event.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(event) => { event.preventDefault(); setOver(false); onFiles(event.dataTransfer.files); }}
+      className={`flex min-h-24 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-3 py-4 text-center ${over ? "border-sky-500 bg-sky-50" : "border-stone-300 bg-stone-50 hover:border-sky-300"}`}
+    >
+      <p className="text-sm font-medium text-stone-800">Glissez une pièce ici</p>
+      <p className="mt-1 text-[13px] leading-5 text-stone-500">ou cliquez pour la choisir · image ou PDF</p>
+      <input ref={inputRef} type="file" accept="image/*,application/pdf" multiple className="sr-only" onClick={(event) => event.stopPropagation()} onChange={(event) => { onFiles(event.target.files); event.target.value = ""; }} />
+    </div>
+  );
+}
+
+function CaseThread({ report, viewer, onSend }: { report: Signalement; viewer: "author" | "cell"; onSend: (report: Signalement, draft: MessageDraft, fromCell: boolean) => boolean }) {
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<Attachment[]>([]);
+  const [mode, setMode] = useState<"message" | "rdv" | "rapport">("message");
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [place, setPlace] = useState("");
+  const [meetMode, setMeetMode] = useState("Entretien");
+  const [opened, setOpened] = useState<Attachment | null>(null);
+  const timeRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const messages = report.messages || [];
-  const addFiles = async (list: FileList | null) => {
-    const incoming = [...(list || [])];
-    if (files.length + incoming.length > 3) { toast.error("Trois pièces jointes maximum par message."); return; }
-    const next = [...files];
-    for (const file of incoming) {
-      if (file.size > 600_000) { toast.error(`${file.name} dépasse 600 Ko.`); continue; }
-      if (!file.type.startsWith("image/") && file.type !== "application/pdf") { toast.error("Joignez une image ou un PDF."); continue; }
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.readAsDataURL(file);
-      });
-      next.push({ id: `file-${Date.now()}-${next.length}`, name: file.name, mime: file.type, dataUrl });
-    }
-    setFiles(next);
+  useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight }); }, [messages.length]);
+  const pieces = (message: ThreadMessage) => message.attachments?.length ? (
+    <div className="mt-2 grid grid-cols-1 gap-2">
+      {message.attachments.map((file) => (
+        <button key={file.id} type="button" onClick={() => setOpened(file)} className="flex min-w-0 items-center gap-2 rounded-xl bg-stone-50 p-2 text-left text-stone-900">
+          {file.mime.startsWith("image/") ? <img src={file.dataUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700"><FileText className="h-5 w-5" /></span>}
+          <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{file.name}</span>
+        </button>
+      ))}
+    </div>
+  ) : null;
+  const correspondent = viewer === "cell" ? (report.anonymous ? "Personne concernée" : report.authorName || "Personne concernée") : report.cellName;
+  const addFiles = async (list: FileList | null) => setFiles(await readPieces(list, files));
+  const reset = () => { setBody(""); setFiles([]); setTitle(""); setDate(""); setTime(""); setPlace(""); setMode("message"); };
+  const submit = () => {
+    const draft: MessageDraft = {
+      kind: mode,
+      body,
+      attachments: files,
+      reportTitle: title,
+      appointment: mode === "rdv" ? { date, time, mode: meetMode, place: place.trim() } : undefined,
+    };
+    if (onSend(report, draft, viewer === "cell")) reset();
   };
+
   return (
-    <section className="rounded-3xl border border-sky-200 bg-sky-50/40 p-4">
-      <h3 className="text-lg font-semibold text-sky-950">Messagerie</h3>
-      <p className="mt-1 text-sm text-stone-600">{viewer === "cell" ? "La personne concernée voit ces messages. Une pièce jointe reste dans le dossier." : "Écrivez à la cellule. Vous pouvez joindre une image ou un PDF."}</p>
-      <div className="mt-4 space-y-3">
-        {messages.length === 0 ? <p className="rounded-2xl bg-white px-4 py-5 text-sm text-stone-500">Aucun message pour le moment.</p> : messages.map((message) => {
+    <section className="flex min-h-[70dvh] min-w-0 flex-col overflow-hidden rounded-3xl border border-sky-200 bg-white lg:max-h-[calc(100dvh-7rem)] lg:min-h-[560px]">
+      <header className="flex min-w-0 items-center gap-3 border-b border-sky-100 px-3 py-3 sm:px-4">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[12px] font-semibold ${avatarTone(correspondent)}`}>{initials(correspondent)}</span>
+        <span className="min-w-0">
+          <span className="block truncate text-[15px] font-semibold text-sky-950">{correspondent}</span>
+          <span className="block truncate text-[12px] text-stone-500">{report.reference} · échange confidentiel</span>
+        </span>
+      </header>
+      <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-sky-50/40 px-3 py-4 sm:px-4">
+        {messages.length === 0 ? <p className="rounded-2xl bg-white px-4 py-6 text-center text-sm text-stone-500">L'échange commence ici.</p> : messages.map((message) => {
           const mine = viewer === "cell" ? message.fromCell : !message.fromCell;
           const label = message.fromCell ? (message.authorName || "Cellule") : report.anonymous && viewer === "cell" ? "Personne concernée" : "Vous";
+          if (message.kind === "rdv" && message.appointment) {
+            return (
+              <article key={message.id} className="w-full rounded-2xl border border-amber-200 bg-white p-3 sm:p-4">
+                <p className="text-[12px] font-medium text-amber-800">{label} · {formatDay(message.at)}</p>
+                <div className="mt-2 flex min-w-0 items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white"><CalendarClock className="h-5 w-5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-stone-900">Rendez-vous · {message.appointment.mode}</p>
+                    <p className="mt-1 break-words text-sm text-stone-700">{formatDay(message.appointment.date)} à {message.appointment.time}{message.appointment.place ? ` · ${message.appointment.place}` : ""}</p>
+                    {message.body ? <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-stone-600">{message.body}</p> : null}
+                    {pieces(message)}
+                  </div>
+                </div>
+              </article>
+            );
+          }
+          if (message.kind === "rapport") {
+            return (
+              <article key={message.id} className="w-full rounded-2xl border border-violet-200 bg-white p-3 sm:p-4">
+                <p className="text-[12px] font-medium text-violet-800">{label} · {formatDay(message.at)}</p>
+                <div className="mt-2 flex min-w-0 items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><FilePen className="h-5 w-5" /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-[15px] font-semibold text-stone-900">{message.reportTitle || "Rapport"}</p>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-stone-700">{message.body}</p>
+                    {pieces(message)}
+                    <button type="button" onClick={() => downloadRapportPdf(report, message)} className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-violet-50 px-3 text-[13px] font-medium text-violet-800"><Download className="h-4 w-4" />Télécharger le rapport</button>
+                  </div>
+                </div>
+              </article>
+            );
+          }
           return (
-            <article key={message.id} className={`max-w-[95%] rounded-2xl px-4 py-3 ${mine ? "ml-auto bg-sky-700 text-white" : "bg-white text-stone-900 ring-1 ring-sky-100"}`}>
+            <article key={message.id} className={`w-fit max-w-full rounded-2xl px-3 py-3 sm:max-w-[85%] sm:px-4 ${mine ? "ml-auto bg-sky-700 text-white" : "bg-white text-stone-900 ring-1 ring-sky-100"}`}>
               <p className={`text-[12px] font-medium ${mine ? "text-sky-100" : "text-sky-800"}`}>{label} · {formatDay(message.at)}</p>
-              {message.body ? <p className="mt-1 whitespace-pre-wrap text-[15px] leading-6">{message.body}</p> : null}
+              {message.body ? <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-6">{message.body}</p> : null}
               {message.attachments?.length ? (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 grid grid-cols-1 gap-2">
                   {message.attachments.map((file) => (
-                    <button key={file.id} type="button" onClick={() => downloadAttachment(file)} className={`rounded-xl px-2 py-1 text-left text-[12px] font-medium ${mine ? "bg-white/15" : "bg-sky-50 text-sky-900"}`}>
-                      <Paperclip className="mr-1 inline h-3.5 w-3.5" />{file.name}
+                    <button key={file.id} type="button" onClick={() => setOpened(file)} className={`flex min-w-0 items-center gap-2 rounded-xl p-2 text-left ${mine ? "bg-white/15" : "bg-sky-50"}`}>
+                      {file.mime.startsWith("image/") ? <img src={file.dataUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" /> : <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white text-sky-700"><FileText className="h-5 w-5" /></span>}
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{file.name}</span>
                     </button>
                   ))}
                 </div>
@@ -1390,23 +1587,49 @@ function CaseThread({ report, viewer, onSend }: { report: Signalement; viewer: "
           );
         })}
       </div>
-      <div className="mt-4 space-y-2 rounded-2xl bg-white p-3 ring-1 ring-sky-100">
-        <Textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Votre message" className="min-h-[88px] rounded-xl border border-sky-100 text-base shadow-none" />
+      <footer className="shrink-0 space-y-3 border-t border-sky-100 bg-white p-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+          <button type="button" aria-pressed={mode === "rdv"} onClick={() => setMode(mode === "rdv" ? "message" : "rdv")} className={`flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl px-2 text-[13px] font-medium sm:text-[14px] ${mode === "rdv" ? "bg-amber-600 text-white" : "bg-amber-50 text-amber-900"}`}><CalendarClock className="h-4 w-4 shrink-0" /><span className="truncate">Programmer un rendez-vous</span></button>
+          <button type="button" aria-pressed={mode === "rapport"} onClick={() => setMode(mode === "rapport" ? "message" : "rapport")} className={`flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl px-2 text-[13px] font-medium sm:text-[14px] ${mode === "rapport" ? "bg-violet-700 text-white" : "bg-violet-50 text-violet-900"}`}><FilePen className="h-4 w-4 shrink-0" /><span className="truncate">Rédiger un rapport</span></button>
+        </div>
+        {mode === "rdv" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DateField id={`rdv-date-${report.id}`} label="Jour" value={date} onChange={setDate} />
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor={`rdv-time-${report.id}`} className="px-1 text-[13px] font-medium text-stone-600">Heure</Label>
+              <div className="relative">
+                <Input ref={timeRef} id={`rdv-time-${report.id}`} type="time" value={time} onChange={(event) => setTime(event.target.value)} className={`${lineInput} pr-10 [&::-webkit-calendar-picker-indicator]:pointer-events-none [&::-webkit-calendar-picker-indicator]:opacity-0`} />
+                <FieldGlyph side="right" tone="text-amber-800" label="Choisir l'heure" onClick={() => openPicker(timeRef.current)}><Clock className="h-4 w-4" /></FieldGlyph>
+              </div>
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor={`rdv-mode-${report.id}`} className="px-1 text-[13px] font-medium text-stone-600">Forme</Label>
+              <select id={`rdv-mode-${report.id}`} value={meetMode} onChange={(event) => setMeetMode(event.target.value)} className={lineInput}>
+                {["Entretien", "Visio", "Appel"].map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
+            <IconField id={`rdv-place-${report.id}`} label="Lieu ou lien" icon={MapPin} value={place} onChange={setPlace} placeholder="Bureau, salle ou lien" />
+          </div>
+        ) : null}
+        {mode === "rapport" ? <IconField id={`rapport-title-${report.id}`} label="Titre du rapport" icon={FilePen} value={title} onChange={setTitle} placeholder="Compte rendu d'entretien" /> : null}
+        <Textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder={mode === "rdv" ? "Précision pour le rendez-vous, facultative" : mode === "rapport" ? "Le rapport, en quelques paragraphes" : "Écrire un message"} className="min-h-[88px] w-full rounded-2xl border border-sky-100 text-base leading-6 shadow-none" />
+        <DropZone onFiles={(list) => { void addFiles(list); }} />
         {files.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {files.map((file) => (
-              <button key={file.id} type="button" onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))} className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-1 text-[12px] text-sky-900"><Paperclip className="h-3.5 w-3.5" />{file.name}<X className="h-3 w-3" /></button>
+              <div key={file.id} className="flex min-w-0 items-center gap-2 rounded-xl bg-sky-50 p-2">
+                <button type="button" onClick={() => setOpened(file)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  {file.mime.startsWith("image/") ? <img src={file.dataUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" /> : <FileText className="h-5 w-5 shrink-0 text-sky-700" />}
+                  <span className="truncate text-[13px] font-medium">{file.name}</span>
+                </button>
+                <button type="button" aria-label={`Retirer ${file.name}`} onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-rose-700 hover:bg-white"><X className="h-4 w-4" /></button>
+              </div>
             ))}
           </div>
         ) : null}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 text-[14px] font-medium text-sky-800 hover:bg-sky-50">
-            <Paperclip className="h-4 w-4" />Joindre
-            <input type="file" accept="image/*,application/pdf" multiple className="sr-only" onChange={(event) => { void addFiles(event.target.files); event.target.value = ""; }} />
-          </label>
-          <button type="button" onClick={() => { if (onSend(report, body, files, viewer === "cell")) { setBody(""); setFiles([]); } }} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-sky-700 px-4 text-[15px] font-medium text-white"><Send className="h-4 w-4" />Envoyer</button>
-        </div>
-      </div>
+        <button type="button" onClick={submit} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-700 text-[15px] font-medium text-white sm:w-auto sm:px-5"><Send className="h-4 w-4" />{mode === "rdv" ? "Proposer le rendez-vous" : mode === "rapport" ? "Verser le rapport" : "Envoyer"}</button>
+      </footer>
+      {opened ? <AttachmentViewer file={opened} onClose={() => setOpened(null)} /> : null}
     </section>
   );
 }
@@ -1435,10 +1658,11 @@ function CaseWorkspace({
   onStatus?: (status: Status) => void;
   onAction?: () => void;
   onActionStatus?: (actionId: string, status: ActionStatus) => void;
-  onSendMessage?: (report: Signalement, body: string, attachments: Attachment[], fromCell: boolean) => boolean;
+  onSendMessage?: (report: Signalement, draft: MessageDraft, fromCell: boolean) => boolean;
 }) {
+  const [pane, setPane] = useState<"dossier" | "echanges">("dossier");
   return (
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(200px,280px)_minmax(0,1fr)]">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(180px,260px)_minmax(0,1fr)]">
       <section className={`min-w-0 rounded-3xl border border-rose-100 bg-white p-3 ${selected ? "hidden lg:block" : ""}`}>
         <div className="flex items-center justify-between gap-2 px-2 py-2">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-rose-950"><FolderHeart className="h-4 w-4 text-rose-600" />Dossiers</h2>
@@ -1453,8 +1677,16 @@ function CaseWorkspace({
         ))}
       </section>
       {selected ? (
-        <article className="min-w-0 space-y-5 rounded-3xl border border-rose-100 bg-white p-4 sm:p-6">
-          <button type="button" onClick={() => onSelect(null)} className="text-[13px] font-medium text-rose-700 lg:hidden">Retour aux dossiers</button>
+        <div className="min-w-0 space-y-3">
+          <div className="flex items-center justify-between gap-2 lg:hidden">
+            <button type="button" onClick={() => onSelect(null)} className="text-[13px] font-medium text-rose-700">Retour aux dossiers</button>
+          </div>
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-rose-100/80 p-1 xl:hidden">
+            <button type="button" aria-pressed={pane === "dossier"} onClick={() => setPane("dossier")} className={`h-11 rounded-xl text-[14px] font-medium ${pane === "dossier" ? "bg-white text-rose-900 shadow-sm" : "text-stone-600"}`}>Dossier</button>
+            <button type="button" aria-pressed={pane === "echanges"} onClick={() => setPane("echanges")} className={`h-11 rounded-xl text-[14px] font-medium ${pane === "echanges" ? "bg-white text-sky-900 shadow-sm" : "text-stone-600"}`}>Échanges</button>
+          </div>
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,460px)]">
+        <article className={`min-w-0 space-y-5 rounded-3xl border border-rose-100 bg-white p-4 sm:p-6 ${pane === "echanges" ? "hidden xl:block" : ""}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-xl font-semibold tracking-tight text-rose-950">{selected.reference}</h2>
@@ -1511,8 +1743,10 @@ function CaseWorkspace({
             ))}
           </dl>
           {selected.publicUpdate ? <p className="rounded-2xl border border-sky-100 bg-sky-50 p-4 text-[14px] leading-6">Ancien message de la cellule — {selected.publicUpdate}</p> : null}
-          {onSendMessage ? <CaseThread report={selected} viewer={viewer} onSend={onSendMessage} /> : null}
         </article>
+        {onSendMessage ? <div className={pane === "dossier" ? "hidden min-w-0 xl:block" : "min-w-0"}><CaseThread report={selected} viewer={viewer} onSend={onSendMessage} /></div> : null}
+          </div>
+        </div>
       ) : <section className="hidden rounded-3xl border border-rose-100 bg-white p-8 text-[15px] text-stone-500 lg:block">Choisissez un dossier pour le lire ou le télécharger.</section>}
     </div>
   );

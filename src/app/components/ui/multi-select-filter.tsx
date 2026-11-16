@@ -48,15 +48,15 @@ export function MultiSelectFilter({
         : `${selected.length} sélectionné(s)`;
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("min-w-0 space-y-2", className)}>
       <p className="text-xs font-semibold text-slate-500">{label}</p>
       <Popover>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="h-11 w-full justify-between rounded-xl border-slate-200 bg-white font-normal shadow-sm"
+            className="h-11 w-full min-w-0 max-w-full shrink justify-between overflow-hidden rounded-xl border-slate-200 bg-white font-normal shadow-sm"
           >
-            <span className="truncate text-left">{summary}</span>
+            <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
             <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400" />
           </Button>
         </PopoverTrigger>

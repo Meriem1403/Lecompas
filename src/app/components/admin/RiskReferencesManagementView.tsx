@@ -18,6 +18,7 @@ import { Plus, PlusCircle, Edit, Trash2, ArrowLeft, Search, Paperclip, Download,
 import type { RiskAwarenessRecord } from "@/app/components/RiskAwarenessView";
 import { toast } from "sonner";
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from "@/app/components/ui/list-pagination-bar";
+import { StickyTableScroll } from "@/app/components/ui/StickyTableScroll";
 import type { RegisterAttachment } from "@/app/types/importedRegisters";
 import { resolveRiskReferenceFicheUrl } from "@/app/fixtures/riskReferenceFixtures";
 import { attachmentPreviewKind, displayRiskSheet } from "@/app/fixtures/riskReferenceSheets";
@@ -579,6 +580,7 @@ export function RiskReferencesManagementView({
   const [previewAttachmentId, setPreviewAttachmentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(TABLE_LIST_PAGE_SIZE);
   const [searchQuery, setSearchQuery] = useState("");
   const [catalogFilters, setCatalogFilters] = useState<CatalogFilters>(emptyCatalogFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -710,7 +712,6 @@ export function RiskReferencesManagementView({
     setCatalogFilters((current) => ({ ...current, ...partial }));
   };
 
-  const listPageSize = TABLE_LIST_PAGE_SIZE;
   const listTotalPages = Math.max(
     1,
     Math.ceil(filteredReferences.length / listPageSize),
@@ -1219,10 +1220,10 @@ export function RiskReferencesManagementView({
           ) : null}
 
           {displayMode === "table" ? (
-          <Card className="overflow-hidden border border-orange-100 bg-white shadow-sm">
+          <Card className="overflow-visible border border-orange-100 bg-white shadow-sm">
             <div className="h-1.5 bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500" />
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <StickyTableScroll hint="Faites défiler horizontalement pour afficher toutes les colonnes du tableau.">
                 <table className="w-full min-w-[920px]">
                   <thead className="border-b border-orange-100 bg-orange-50/50">
                     <tr>
@@ -1318,7 +1319,7 @@ export function RiskReferencesManagementView({
                     )}
                   </tbody>
                 </table>
-              </div>
+              </StickyTableScroll>
             </CardContent>
           </Card>
           ) : null}
@@ -1329,6 +1330,11 @@ export function RiskReferencesManagementView({
             totalItems={filteredReferences.length}
             onPageChange={setListPage}
             itemLabel="référence(s)"
+            pageSize={listPageSize}
+            onPageSizeChange={(size) => {
+              setListPageSize(size);
+              setListPage(1);
+            }}
           />
         </div>
 

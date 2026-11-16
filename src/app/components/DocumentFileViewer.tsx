@@ -28,7 +28,7 @@ export function DocumentFileViewer({ name, dataUrl }: { name?: string; dataUrl: 
       <iframe
         title={`Visionneuse, ${fileName}`}
         src={previewUrl}
-        className="h-[70vh] w-full rounded-xl border border-violet-200 bg-white"
+        className="h-[min(70dvh,calc(100dvh-8rem))] w-full rounded-xl border border-violet-200 bg-white"
       />
     ) : null;
   }

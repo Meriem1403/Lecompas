@@ -26,6 +26,7 @@ import {
 } from '@/app/components/risks/RiskFormControls';
 import * as XLSX from 'xlsx';
 import { ListPaginationBar, TABLE_LIST_PAGE_SIZE } from '@/app/components/ui/list-pagination-bar';
+import { StickyTableScroll } from '@/app/components/ui/StickyTableScroll';
 import { ColumnFilterPopover } from '@/app/components/ui/column-filter-popover';
 import {
   buildColumnFilterOptions,
@@ -164,6 +165,7 @@ export function RisksManagementView({
     direction: "asc" | "desc";
   } | null>(null);
   const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(TABLE_LIST_PAGE_SIZE);
 
   // Form state pour création/édition
   const [formData, setFormData] = useState<Partial<Risk>>({});
@@ -597,7 +599,6 @@ export function RisksManagementView({
     );
   }, [filteredRisks, columnSort]);
 
-  const listPageSize = TABLE_LIST_PAGE_SIZE;
   const listTotalPages = Math.max(1, Math.ceil(sortedRisks.length / listPageSize));
   const paginatedRisks = useMemo(() => {
     const start = (listPage - 1) * listPageSize;
@@ -674,12 +675,9 @@ export function RisksManagementView({
           ) : null}
 
           {/* Tableau des risques */}
-          <Card className="border-0 shadow-xl overflow-hidden">
+          <Card className="border-0 shadow-xl overflow-visible">
             <CardContent className="p-0 min-w-0">
-              <div
-                className="w-full overflow-x-scroll overflow-y-visible"
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
+              <StickyTableScroll hint="Faites défiler horizontalement pour afficher toutes les colonnes du tableau.">
                 <table className="w-full" style={{ minWidth: '4400px' }}>
                   <thead className="bg-gradient-to-r from-gray-50 to-slate-50 sticky top-0 z-10">
                       <tr>
@@ -706,7 +704,7 @@ export function RisksManagementView({
                         {renderFilterableTh('retourAction', 'Retour d\'action', '200px')}
                         {renderFilterableTh('observation', 'Observation', '200px')}
                         {renderFilterableTh('status', 'Statut', '100px')}
-                        <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-gray-50 to-slate-50 min-w-[150px] shadow-lg">Actions</th>
+                        <th className="min-w-[150px] bg-gradient-to-r from-gray-50 to-slate-50 px-3 py-3 text-left text-xs font-semibold tracking-wider text-gray-700 uppercase lg:sticky lg:right-0 lg:shadow-lg">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -860,7 +858,7 @@ export function RisksManagementView({
                             <td className="px-4 py-4 whitespace-nowrap">
                               {getStatusBadge(risk.status)}
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap sticky right-0 bg-white">
+                            <td className="bg-white px-4 py-4 whitespace-nowrap lg:sticky lg:right-0">
                               <div className="flex items-center gap-2">
                                 <Button
                                   size="sm"
@@ -899,10 +897,7 @@ export function RisksManagementView({
                       <p>Aucun risque trouvé</p>
                     </div>
                   )}
-              </div>
-              <p className="px-4 py-2 text-xs text-slate-500 border-t border-slate-100 bg-slate-50">
-                Faites défiler horizontalement pour afficher toutes les colonnes du tableau.
-              </p>
+              </StickyTableScroll>
             </CardContent>
           </Card>
 
@@ -912,6 +907,11 @@ export function RisksManagementView({
             totalItems={filteredRisks.length}
             onPageChange={setListPage}
             itemLabel="risque(s)"
+            pageSize={listPageSize}
+            onPageSizeChange={(size) => {
+              setListPageSize(size);
+              setListPage(1);
+            }}
           />
         </div>
 
