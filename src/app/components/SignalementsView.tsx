@@ -302,6 +302,10 @@ interface Signalement {
   authorId: string;
   authorName: string;
   authorEmail: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  assigneeEmail?: string;
+  delegated?: boolean;
   cellId: string;
   cellName: string;
   feelings: string[];
@@ -333,6 +337,7 @@ interface Store {
   cells: WorkCell[];
   reports: Signalement[];
   catalog?: Partial<FormCatalog>;
+  referent?: CellMember | null;
 }
 
 const EMPTY_STORE: Store = { cells: [], reports: [] };
@@ -385,6 +390,19 @@ function iconOf(name: string): LucideIcon {
 
 function toneOf(name: string) {
   return name in TONES ? TONES[name as Tone] : TONES.rose;
+}
+
+function emailsMatch(left?: string, right?: string) {
+  return Boolean(left && right && left.toLowerCase() === right.toLowerCase());
+}
+
+function isAssignee(report: Signalement, userId: string, email: string) {
+  return report.assigneeId === userId || emailsMatch(report.assigneeEmail, email);
+}
+
+function reportIsDelegated(report: Signalement) {
+  if (typeof report.delegated === "boolean") return report.delegated && Boolean(report.cellId);
+  return Boolean(report.cellId);
 }
 
 function catalogFrom(store: Store): FormCatalog {
@@ -452,7 +470,7 @@ function paintPageChrome(pdf: jsPDF, page: number, pages: number, footer: string
   pdf.text(footer, 46, height - 26);
   pdf.text(`Page ${page} / ${pages}`, width - 46, height - 26, { align: "right" });
   pdf.setFontSize(7);
-  pdf.text("Diffusion limitée à la cellule de travail et à la personne concernée.", width / 2, height - 14, { align: "center" });
+  pdf.text("Diffusion limitée à la personne concernée, à la personne désignée et, si elle l'autorise, à sa cellule.", width / 2, height - 14, { align: "center" });
 }
 
 function clipText(pdf: jsPDF, value: string, max: number) {
@@ -651,7 +669,7 @@ function ProposalTile({ item, active, onClick }: { item: Proposal; active: boole
 function ChoiceGrid({ items, selected, onToggle }: { items: Proposal[]; selected: string[]; onToggle: (label: string) => void }) {
   const visible = items.filter((item) => item.active);
   return (
-    <div className={`grid grid-cols-1 gap-2 ${visible.length > 3 ? "min-[520px]:grid-cols-2" : ""}`}>
+    <div className={`grid grid-cols-1 gap-2 ${visible.length > 2 ? "md:grid-cols-2" : ""} ${visible.length > 4 ? "xl:grid-cols-3" : ""}`}>
       {visible.map((item) => <ProposalTile key={item.id} item={item} active={selected.includes(item.label)} onClick={() => onToggle(item.label)} />)}
     </div>
   );
@@ -748,7 +766,6 @@ export function SignalementsView({
   const [urgency, setUrgency] = useState("");
   const [contact, setContact] = useState("");
   const [availability, setAvailability] = useState("");
-  const [cellId, setCellId] = useState("");
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [actionTitle, setActionTitle] = useState("");
   const [actionDetail, setActionDetail] = useState("");
@@ -759,6 +776,7 @@ export function SignalementsView({
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [editingCellId, setEditingCellId] = useState<string | null>(null);
   const [memberQuery, setMemberQuery] = useState("");
+  const [referentQuery, setReferentQuery] = useState("");
   const [cellToDelete, setCellToDelete] = useState<WorkCell | null>(null);
   const location = useLocation();
   const depositToken = (location.state as { deposit?: number } | null)?.deposit ?? 0;
@@ -782,18 +800,25 @@ export function SignalementsView({
     setUrgency("");
     setContact("");
     setAvailability("");
-    setCellId("");
   }, [depositToken]);
 
   const catalog = catalogFrom(store);
   const dirty = screen === "deposer" && (feelings.length > 0 || situation.trim().length > 0 || relations.length > 0 || impacts.length > 0);
   const requestLeave = useLeaveGuard(dirty);
   const cells = store.cells;
-  const myCells = cells.filter((cell) => isAdmin || cell.members.some((member) => member.email.toLowerCase() === currentUserEmail.toLowerCase()));
-  const canHandle = isAdmin || myCells.length > 0;
-  const myReports = store.reports.filter((report) => report.authorId === currentUserId);
-  const cellReports = store.reports.filter((report) => isAdmin || myCells.some((cell) => cell.id === report.cellId));
-  const selectedReport = [...cellReports, ...myReports].find((report) => report.id === selectedReportId) ?? null;
+  const referent = store.referent || null;
+  const iAmReferent = Boolean(referent && (referent.id === currentUserId || emailsMatch(referent.email, currentUserEmail)));
+  const inDelegatedCell = (report: Signalement) => reportIsDelegated(report) && cells.some((cell) => cell.id === report.cellId && cell.members.some((member) => member.id === currentUserId || emailsMatch(member.email, currentUserEmail)));
+  const myCells = cells.filter((cell) => cell.members.some((member) => member.id === currentUserId || emailsMatch(member.email, currentUserEmail)));
+  const myReports = store.reports.filter((report) => report.authorId === currentUserId || emailsMatch(report.authorEmail, currentUserEmail));
+  const handledReports = store.reports.filter((report) => isAssignee(report, currentUserId, currentUserEmail) || inDelegatedCell(report));
+  const waitingCount = store.reports.filter((report) => !report.assigneeId && !report.assigneeEmail && !report.cellId).length;
+  const canHandle = iAmReferent || handledReports.length > 0;
+  const selectedReport = [...handledReports, ...myReports].find((report) => report.id === selectedReportId) ?? null;
+  const referentPeople = useMemo(() => {
+    const needle = referentQuery.trim().toLowerCase();
+    return directory.filter((person) => !needle || `${person.name} ${person.email} ${person.service || ""}`.toLowerCase().includes(needle)).slice(0, 8);
+  }, [directory, referentQuery]);
 
   const filteredPeople = useMemo(() => {
     const needle = memberQuery.trim().toLowerCase();
@@ -807,13 +832,13 @@ export function SignalementsView({
   const resetForm = () => {
     setStep(1); setTried(false); setFeelings([]); setSituation(""); setSince(""); setFrequency(""); setWorkplace("");
     setRelations([]); setImpacts([]); setAlreadySpoken(""); setOutcome(""); setAnonymous(false);
-    setUrgency(""); setContact(""); setAvailability(""); setCellId("");
+    setUrgency(""); setContact(""); setAvailability("");
   };
 
   const stepValid = (index: number) => {
     if (index === 1) return feelings.length > 0 && situation.trim().length >= 20 && Boolean(since) && Boolean(frequency) && Boolean(workplace.trim());
     if (index === 2) return relations.length > 0 && impacts.length > 0 && Boolean(outcome);
-    if (index === 3) return Boolean(urgency) && Boolean(contact) && (cells.length === 0 || Boolean(cellId));
+    if (index === 3) return Boolean(urgency) && Boolean(contact);
     return true;
   };
 
@@ -833,7 +858,6 @@ export function SignalementsView({
     if (index === 3) {
       if (!urgency) return "Indiquez l'urgence pour vous.";
       if (!contact) return "Indiquez le contact souhaité.";
-      if (cells.length > 0 && !cellId) return "Choisissez la cellule destinataire.";
     }
     return "";
   };
@@ -843,7 +867,7 @@ export function SignalementsView({
       toast.error("Certaines réponses manquent encore.");
       return;
     }
-    const cell = cells.find((item) => item.id === cellId);
+    const referent = store.referent;
     const reference = `SIG-${new Date().getFullYear()}-${String(store.reports.length + 1).padStart(3, "0")}`;
     const report: Signalement = {
       id: `sig-${Date.now()}`,
@@ -853,21 +877,25 @@ export function SignalementsView({
       authorId: currentUserId,
       authorName: anonymous ? "" : currentUserName,
       authorEmail: anonymous ? "" : currentUserEmail,
-      cellId: cell?.id || "",
-      cellName: cell?.name || "À orienter",
+      assigneeId: referent?.id || "",
+      assigneeName: referent?.name || "",
+      assigneeEmail: referent?.email || "",
+      delegated: false,
+      cellId: "",
+      cellName: "",
       feelings, situation: situation.trim(), since, frequency, workplace: workplace.trim(),
       relations, impacts, alreadySpoken: alreadySpoken.trim(), outcome, urgency, contact,
       availability: availability.trim(), status: "Reçu", publicUpdate: "", actions: [], messages: [], notifyEmail: currentUserEmail,
     };
     setStore((current) => ({ ...current, reports: [report, ...current.reports] }));
-    (cell?.members || []).filter((member) => member.email.toLowerCase() !== currentUserEmail.toLowerCase()).forEach((member) => {
+    if (referent && !emailsMatch(referent.email, currentUserEmail)) {
       onNotify({
         titre: "Nouveau signalement",
-        contenu: `${reference} est arrivé pour ${cell?.name}. ${anonymous ? "La personne reste anonyme." : "La personne a laissé son nom."}`,
-        recipientEmail: member.email,
+        contenu: `${reference} vous est adressé. Aucune cellule ne le voit tant que vous ne l'y autorisez pas.`,
+        recipientEmail: referent.email,
       });
-    });
-    toast.success(cell ? `${reference} est transmis à ${cell.name}.` : `${reference} est enregistré. Il sera orienté vers une cellule.`);
+    }
+    toast.success(referent ? `${reference} est transmis à ${referent.name}.` : `${reference} est enregistré. Vous seul le voyez tant qu'une personne n'est pas désignée.`);
     resetForm();
     setScreen("suivi");
     setSelectedReportId(report.id);
@@ -884,6 +912,60 @@ export function SignalementsView({
       : { ...current, cells: [{ id: `cell-${Date.now()}`, name: groupName.trim(), mission: groupMission.trim(), members, createdAt: new Date().toISOString() }, ...current.cells] });
     toast.success(editingCellId ? "Le groupe est mis à jour." : "Le groupe de travail est créé.");
     setGroupName(""); setGroupMission(""); setGroupMembers([]); setEditingCellId(null); setMemberQuery("");
+  };
+
+  const chooseReferent = (person: DirectoryPerson) => {
+    const next = { id: person.id, name: person.name, email: person.email };
+    setStore((current) => ({
+      ...current,
+      referent: next,
+      reports: current.reports.map((report) => report.assigneeId || report.assigneeEmail || report.cellId ? report : {
+        ...report,
+        assigneeId: next.id,
+        assigneeName: next.name,
+        assigneeEmail: next.email,
+        delegated: false,
+      }),
+    }));
+    if (!emailsMatch(next.email, currentUserEmail)) {
+      onNotify({ titre: "Signalements à recevoir", contenu: "Vous êtes la personne qui reçoit les signalements. Une cellule ne les voit que si vous l'autorisez.", recipientEmail: next.email });
+    }
+    toast.success(`${next.name} reçoit désormais les signalements.`);
+  };
+
+  const delegateReport = (report: Signalement, cell: WorkCell) => {
+    updateReport({ ...report, delegated: true, cellId: cell.id, cellName: cell.name }, `${report.reference} est maintenant suivi par ${cell.name}.`);
+    cell.members.filter((member) => !emailsMatch(member.email, currentUserEmail)).forEach((member) => {
+      onNotify({ titre: "Dossier confié à votre cellule", contenu: `${report.reference} vous est confié. La personne désignée a autorisé cette délégation.`, recipientEmail: member.email });
+    });
+    toast.success(`${report.reference} est confié à ${cell.name}.`);
+  };
+
+  const revokeDelegation = (report: Signalement) => {
+    const previous = cells.find((cell) => cell.id === report.cellId);
+    updateReport({ ...report, delegated: false, cellId: "", cellName: "" }, `${report.reference} n'est plus partagé avec une cellule.`);
+    previous?.members.filter((member) => !emailsMatch(member.email, currentUserEmail)).forEach((member) => {
+      onNotify({ titre: "Délégation retirée", contenu: `${report.reference} n'est plus accessible à votre cellule.`, recipientEmail: member.email });
+    });
+    toast.success("La cellule ne voit plus ce signalement.");
+  };
+
+  const createCellForReport = (report: Signalement, name: string, mission: string, memberIds: string[]) => {
+    if (!name.trim() || memberIds.length === 0) { toast.error("Nommez la cellule et désignez au moins une personne."); return false; }
+    const members = directory.filter((person) => memberIds.includes(person.id)).map((person) => ({ id: person.id, name: person.name, email: person.email }));
+    const cell: WorkCell = { id: `cell-${Date.now()}`, name: name.trim(), mission: mission.trim(), members, createdAt: new Date().toISOString() };
+    const next = { ...report, delegated: true, cellId: cell.id, cellName: cell.name };
+    setStore((current) => ({
+      ...current,
+      cells: [cell, ...current.cells],
+      reports: current.reports.map((item) => item.id === report.id ? next : item),
+    }));
+    if (next.authorEmail) onNotify({ titre: "Suivi de votre signalement", contenu: `${report.reference} est maintenant suivi par ${cell.name}.`, recipientEmail: next.authorEmail });
+    members.filter((member) => !emailsMatch(member.email, currentUserEmail)).forEach((member) => {
+      onNotify({ titre: "Dossier confié à votre cellule", contenu: `${report.reference} vous est confié.`, recipientEmail: member.email });
+    });
+    toast.success(`${cell.name} est créée et reçoit ${report.reference}.`);
+    return true;
   };
 
   const updateReport = (next: Signalement, notice?: string) => {
@@ -923,7 +1005,11 @@ export function SignalementsView({
       const email = report.notifyEmail || report.authorEmail;
       if (email) onNotify({ titre: draft.kind === "rdv" ? "Rendez-vous proposé" : draft.kind === "rapport" ? "Rapport au dossier" : "Message de la cellule", contenu: notice, recipientEmail: email });
     } else {
-      cells.filter((cell) => !report.cellId || cell.id === report.cellId).flatMap((cell) => cell.members).filter((member) => member.email.toLowerCase() !== currentUserEmail.toLowerCase()).forEach((member) => {
+      const recipients = [
+        ...(report.assigneeEmail ? [{ email: report.assigneeEmail }] : []),
+        ...(reportIsDelegated(report) ? (cells.find((cell) => cell.id === report.cellId)?.members || []) : []),
+      ];
+      recipients.filter((member) => !emailsMatch(member.email, currentUserEmail)).forEach((member) => {
         onNotify({ titre: "Message sur un signalement", contenu: notice, recipientEmail: member.email });
       });
     }
@@ -939,14 +1025,16 @@ export function SignalementsView({
     ...(canHandle ? [{ id: "cellule" as const, short: "Dossiers", full: "Dossiers", icon: FolderHeart, active: "bg-violet-600 text-white" }] : []),
     ...(isAdmin ? [{ id: "organisation" as const, short: "Cellules", full: "Cellules", icon: Settings2, active: "bg-amber-600 text-white" }] : []),
   ];
-  const roleNote = isAdmin
-    ? "Vous organisez les cellules, vous suivez tous les dossiers et vous pouvez écrire dans la messagerie."
-    : canHandle
-      ? `Vous êtes désigné dans ${myCells.map((cell) => cell.name).join(", ")}. Vous menez les actions et répondez aux personnes.`
-      : "Vous déposez un signalement et suivez vos échanges. La conduite des dossiers est réservée aux personnes désignées.";
+  const roleNote = iAmReferent
+    ? "Vous recevez les signalements. Tant que vous ne déléguez pas, seule la personne qui a signalé le voit avec vous."
+    : isAdmin
+      ? "Vous désignez la personne qui reçoit les signalements et vous préparez les cellules. Sans son autorisation, une cellule ne voit aucun dossier."
+      : canHandle
+        ? "Vous voyez seulement les dossiers que la personne désignée a confiés à votre cellule."
+        : "Vous déposez un signalement et vous suivez ses étapes. Il reste entre vous et la personne désignée tant qu'elle ne le délègue pas.";
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4 overflow-x-hidden text-stone-900">
+    <div className="flex w-full min-w-0 flex-col gap-4 overflow-x-hidden text-stone-900">
       <header className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight text-rose-950 sm:text-3xl">Signalements</h1>
@@ -964,7 +1052,7 @@ export function SignalementsView({
       </header>
 
       {visible === "deposer" ? (
-        <form className="mx-auto w-full min-w-0 max-w-3xl" onSubmit={(event) => {
+        <form className="w-full min-w-0" onSubmit={(event) => {
           event.preventDefault();
           if (step < 4) {
             if (!stepValid(step)) { setTried(true); toast.error(missing(step)); return; }
@@ -999,38 +1087,47 @@ export function SignalementsView({
           <div className="space-y-5 rounded-3xl border border-rose-100 bg-white p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-rose-950">{STEPS[step - 1]}</h2>
             {step === 1 ? (
-              <>
-                <div>
-                  <FieldLegend title="Ce qui vous pèse" hint="Plusieurs choix" />
-                  <ChoiceGrid items={catalog.feelings} selected={feelings} onToggle={(value) => setFeelings((current) => toggle(current, value))} />
-                </div>
-                <NotedText id="situation" label="La situation, avec vos mots" value={situation} onChange={setSituation} placeholder="Depuis quand, où, avec qui, et ce que cela change pour vous" />
-                <p className={`px-1 text-[12px] ${situation.trim().length >= 20 ? "text-emerald-700" : "text-stone-500"}`}>{situation.trim().length} / 20 caractères</p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <DateField id="since" label="Depuis quand" value={since} onChange={setSince} />
+              <div className="grid items-start gap-5 xl:grid-cols-2">
+                <div className="space-y-5">
                   <div>
-                    <IconField id="workplace" label="Lieu ou service" icon={MapPin} value={workplace} onChange={setWorkplace} placeholder="Service, site, unité" listId="signalement-services" />
-                    <datalist id="signalement-services">{serviceOptions.map((service) => <option key={service} value={service} />)}</datalist>
+                    <FieldLegend title="Ce qui vous pèse" hint="Plusieurs choix" />
+                    <ChoiceGrid items={catalog.feelings} selected={feelings} onToggle={(value) => setFeelings((current) => toggle(current, value))} />
+                  </div>
+                  <NotedText id="situation" label="La situation, avec vos mots" value={situation} onChange={setSituation} placeholder="Depuis quand, où, avec qui, et ce que cela change pour vous" />
+                  <p className={`px-1 text-[12px] ${situation.trim().length >= 20 ? "text-emerald-700" : "text-stone-500"}`}>{situation.trim().length} / 20 caractères</p>
+                </div>
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <DateField id="since" label="Depuis quand" value={since} onChange={setSince} />
+                    <div>
+                      <IconField id="workplace" label="Lieu ou service" icon={MapPin} value={workplace} onChange={setWorkplace} placeholder="Service, site, unité" listId="signalement-services" />
+                      <datalist id="signalement-services">{serviceOptions.map((service) => <option key={service} value={service} />)}</datalist>
+                    </div>
+                  </div>
+                  <div>
+                    <FieldLegend title="Fréquence" hint="Un seul choix" />
+                    <ChoiceGrid items={catalog.frequencies} selected={frequency ? [frequency] : []} onToggle={(value) => setFrequency((current) => chooseOne(current, value))} />
                   </div>
                 </div>
-                <div>
-                  <FieldLegend title="Fréquence" hint="Un seul choix" />
-                  <ChoiceGrid items={catalog.frequencies} selected={frequency ? [frequency] : []} onToggle={(value) => setFrequency((current) => chooseOne(current, value))} />
-                </div>
-              </>
+              </div>
             ) : null}
             {step === 2 ? (
-              <>
-                <div><FieldLegend title="Cela concerne surtout" hint="Plusieurs choix" /><ChoiceGrid items={catalog.relations} selected={relations} onToggle={(value) => setRelations((current) => toggle(current, value))} /></div>
-                <div><FieldLegend title="Ce que cela change" hint="Plusieurs choix" /><ChoiceGrid items={catalog.impacts} selected={impacts} onToggle={(value) => setImpacts((current) => toggle(current, value))} /></div>
-                <NotedText id="spoken" label="En avez-vous déjà parlé" value={alreadySpoken} onChange={setAlreadySpoken} placeholder="Facultatif" minHeight="min-h-[96px]" />
-                <div><FieldLegend title="Ce que vous attendez" hint="Un seul choix" /><ChoiceGrid items={catalog.outcomes} selected={outcome ? [outcome] : []} onToggle={(value) => setOutcome((current) => chooseOne(current, value))} /></div>
-              </>
+              <div className="grid items-start gap-5 xl:grid-cols-2">
+                <div className="space-y-5">
+                  <div><FieldLegend title="Cela concerne surtout" hint="Plusieurs choix" /><ChoiceGrid items={catalog.relations} selected={relations} onToggle={(value) => setRelations((current) => toggle(current, value))} /></div>
+                  <div><FieldLegend title="Ce que cela change" hint="Plusieurs choix" /><ChoiceGrid items={catalog.impacts} selected={impacts} onToggle={(value) => setImpacts((current) => toggle(current, value))} /></div>
+                </div>
+                <div className="space-y-5">
+                  <NotedText id="spoken" label="En avez-vous déjà parlé" value={alreadySpoken} onChange={setAlreadySpoken} placeholder="Facultatif" minHeight="min-h-[96px]" />
+                  <div><FieldLegend title="Ce que vous attendez" hint="Un seul choix" /><ChoiceGrid items={catalog.outcomes} selected={outcome ? [outcome] : []} onToggle={(value) => setOutcome((current) => chooseOne(current, value))} /></div>
+                </div>
+              </div>
             ) : null}
             {step === 3 ? (
-              <>
+              <div className="grid items-start gap-5 xl:grid-cols-2">
+              <div className="space-y-5">
                 <div>
-                  <FieldLegend title="Ce que la cellule peut connaître" hint="Un seul choix" />
+                  <FieldLegend title="Ce que la personne désignée peut connaître" hint="Un seul choix" />
                   <div className="grid grid-cols-1 gap-2">
                     <button type="button" aria-pressed={!anonymous} onClick={() => setAnonymous(false)} className={`flex min-h-[68px] items-center gap-3 rounded-2xl border p-3 text-left ${!anonymous ? "border-emerald-200 bg-emerald-50 ring-2 ring-emerald-400" : "border-stone-200 bg-white"}`}>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white"><UserRound className="h-5 w-5" /></span>
@@ -1038,27 +1135,21 @@ export function SignalementsView({
                     </button>
                     <button type="button" aria-pressed={anonymous} onClick={() => setAnonymous(true)} className={`flex min-h-[68px] items-center gap-3 rounded-2xl border p-3 text-left ${anonymous ? "border-violet-200 bg-violet-50 ring-2 ring-violet-400" : "border-stone-200 bg-white"}`}>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><EyeOff className="h-5 w-5" /></span>
-                      <span className="min-w-0"><span className="block text-[15px] font-medium">Rester anonyme</span><span className="block text-[13px] text-stone-600">Le nom n'apparaît ni à la cellule, ni sur le PDF.</span></span>
+                      <span className="min-w-0"><span className="block text-[15px] font-medium">Rester anonyme</span><span className="block text-[13px] text-stone-600">Le nom n'apparaît ni à la personne qui reçoit le signalement, ni sur le PDF.</span></span>
                     </button>
                   </div>
                 </div>
+                </div>
+                <div className="space-y-5">
                 <div><FieldLegend title="L'urgence pour vous" hint="Un seul choix" /><ChoiceGrid items={catalog.urgencies} selected={urgency ? [urgency] : []} onToggle={(value) => setUrgency((current) => chooseOne(current, value))} /></div>
                 <div><FieldLegend title="Contact souhaité" hint="Un seul choix" /><ChoiceGrid items={catalog.contacts} selected={contact ? [contact] : []} onToggle={(value) => setContact((current) => chooseOne(current, value))} /></div>
                 <IconField id="availability" label="Disponibilités" icon={Clock} value={availability} onChange={setAvailability} placeholder="Par exemple mardi après-midi" />
-                <div>
-                  <FieldLegend title="Cellule destinataire" hint={cells.length ? "Un seul choix" : "Orientation ensuite"} />
-                  {cells.length === 0 ? <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">Aucun groupe n'est encore constitué. Le signalement sera conservé pour être orienté.</p> : (
-                    <div className="grid grid-cols-1 gap-2">
-                      {cells.map((cell) => (
-                        <button key={cell.id} type="button" aria-pressed={cellId === cell.id} onClick={() => setCellId(cell.id)} className={`flex min-h-[68px] items-center gap-3 rounded-2xl border p-3 text-left ${cellId === cell.id ? "border-violet-200 bg-violet-50 ring-2 ring-violet-400" : "border-stone-200 bg-white"}`}>
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><Users className="h-5 w-5" /></span>
-                          <span className="min-w-0"><span className="block text-[15px] font-medium">{cell.name}</span><span className="block break-words text-[13px] text-stone-600">{cell.members.map((member) => member.name).join(", ")}</span></span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div className="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
+                  <p className="text-[15px] font-medium text-rose-950">Qui reçoit le signalement</p>
+                  <p className="mt-1 text-sm leading-6 text-stone-700">{referent ? `${referent.name} le reçoit. Aucune cellule ne le voit, sauf si cette personne décide ensuite de le lui confier. Vous suivez les étapes dans tous les cas.` : "Aucune personne n'est encore désignée. Le signalement reste visible uniquement pour vous, avec ses étapes, jusqu'à cette désignation."}</p>
                 </div>
-              </>
+                </div>
+              </div>
             ) : null}
             {step === 4 ? (
               <div className="space-y-4">
@@ -1074,6 +1165,7 @@ export function SignalementsView({
                   <p className="text-sm text-stone-700">Attente : {outcome}</p>
                   <p className="text-sm text-stone-700">{anonymous ? "Anonyme. Le nom ne sera pas transmis." : `Nom transmis : ${currentUserName}.`}</p>
                   <p className="text-sm text-stone-700">{urgency} · {contact}</p>
+                  <p className="text-sm text-stone-700">{referent ? `Reçu par ${referent.name}. Une cellule ne le verra que si cette personne l'y autorise.` : "Visible uniquement par vous tant qu'une personne n'est pas désignée."}</p>
                 </article>
               </div>
             ) : null}
@@ -1092,15 +1184,15 @@ export function SignalementsView({
 
       {visible === "cellule" ? (
         <div className="space-y-4">
-          {!isAdmin ? <CellRoster cells={myCells} /> : null}
+          {!iAmReferent && myCells.length > 0 ? <CellRoster cells={myCells} /> : null}
           <CaseWorkspace
-            reports={cellReports}
-            selected={cellReports.find((report) => report.id === selectedReportId) ?? null}
-            empty="Aucun signalement pour vos cellules."
+            reports={handledReports}
+            selected={handledReports.find((report) => report.id === selectedReportId) ?? null}
+            empty={iAmReferent ? "Aucun signalement ne vous est adressé." : "Aucun dossier ne vous a été confié."}
             onSelect={setSelectedReportId}
             viewer="cell"
             canAct
-            onDownloadRegister={cellReports.length > 0 ? () => downloadRegisterPdf(cellReports, myCells[0]?.name || cells[0]?.name || "Cellule de travail") : undefined}
+            onDownloadRegister={handledReports.length > 0 ? () => downloadRegisterPdf(handledReports, iAmReferent ? "Personne désignée" : myCells[0]?.name || "Cellule de travail") : undefined}
             actionTitle={actionTitle}
             setActionTitle={setActionTitle}
             actionDetail={actionDetail}
@@ -1109,7 +1201,15 @@ export function SignalementsView({
             setActionOwner={setActionOwner}
             actionDue={actionDue}
             setActionDue={setActionDue}
-            members={cells.find((cell) => cell.id === selectedReport?.cellId)?.members || myCells[0]?.members || []}
+            members={(() => {
+              if (!selectedReport) return [];
+              const assigned = selectedReport.assigneeId ? [{ id: selectedReport.assigneeId, name: selectedReport.assigneeName || "", email: selectedReport.assigneeEmail || "" }] : [];
+              const shared = reportIsDelegated(selectedReport) ? cells.find((cell) => cell.id === selectedReport.cellId)?.members || [] : [];
+              return [...assigned, ...shared].filter((member, index, list) => member.id && list.findIndex((item) => item.id === member.id) === index);
+            })()}
+            delegation={selectedReport && isAssignee(selectedReport, currentUserId, currentUserEmail) ? (
+              <DelegationPanel report={selectedReport} cells={cells} people={directory} onDelegate={(cell) => delegateReport(selectedReport, cell)} onRevoke={() => revokeDelegation(selectedReport)} onCreate={(name, mission, memberIds) => createCellForReport(selectedReport, name, mission, memberIds)} />
+            ) : null}
             onStatus={(status) => selectedReport && updateReport({ ...selectedReport, status }, `${selectedReport.reference} est maintenant « ${status} ».`)}
             onAction={() => {
               if (!selectedReport || !actionTitle.trim()) { toast.error("Indiquez l'action à mener."); return; }
@@ -1125,7 +1225,25 @@ export function SignalementsView({
       ) : null}
 
       {visible === "organisation" ? (
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(280px,440px)_minmax(0,1fr)]">
+        <div className="space-y-4">
+        <section className="rounded-3xl border border-rose-100 bg-white p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-rose-950">Personne qui reçoit les signalements</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-stone-600">Elle seule voit un nouveau signalement, avec la personne qui l'a déposé. Elle peut ensuite le confier à une cellule déjà créée, ou en créer une pour ce dossier. Sans cette autorisation, personne d'autre ne le lit.</p>
+          {waitingCount > 0 ? <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">{waitingCount} signalement{waitingCount > 1 ? "s" : ""} attend{waitingCount > 1 ? "ent" : ""} cette désignation. {waitingCount > 1 ? "Ils ne sont visibles" : "Il n'est visible"} que par {waitingCount > 1 ? "leurs auteurs" : "son auteur"}.</p> : null}
+          {referent ? <p className="mt-3 text-sm font-medium text-rose-950">Actuellement : {referent.name}</p> : <p className="mt-3 text-sm text-stone-500">Personne n'est désignée.</p>}
+          <div className="mt-4">
+            <IconField id="referent-search" label="Chercher une personne" icon={Search} value={referentQuery} onChange={setReferentQuery} placeholder="Nom, courriel ou service" />
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {referentPeople.map((person) => (
+                <button key={person.id} type="button" onClick={() => chooseReferent(person)} className={`flex min-h-[64px] items-center gap-3 rounded-2xl border p-3 text-left ${referent?.id === person.id ? "border-rose-300 bg-rose-50 ring-2 ring-rose-300" : "border-stone-200 bg-white hover:bg-rose-50/50"}`}>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white"><UserRound className="h-4 w-4" /></span>
+                  <span className="min-w-0"><span className="block truncate text-[14px] font-medium">{person.name}</span><span className="block truncate text-[12px] text-stone-500">{person.service || person.email}</span></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(320px,460px)_minmax(0,1fr)]">
           <GroupEditor
             editing={Boolean(editingCellId)}
             name={groupName}
@@ -1134,7 +1252,7 @@ export function SignalementsView({
             selected={selectedPeople}
             query={memberQuery}
             cells={cells}
-            openCounts={Object.fromEntries(cells.map((cell) => [cell.id, store.reports.filter((report) => report.cellId === cell.id && report.status !== "Clos").length]))}
+            openCounts={Object.fromEntries(cells.map((cell) => [cell.id, store.reports.filter((report) => reportIsDelegated(report) && report.cellId === cell.id && report.status !== "Clos").length]))}
             onName={setGroupName}
             onMission={setGroupMission}
             onQuery={setMemberQuery}
@@ -1151,6 +1269,7 @@ export function SignalementsView({
               <ProposalEditor key={section.key} title={section.title} help={section.help} items={catalog[section.key]} onChange={(items) => updateList(section.key, items)} />
             ))}
           </section>
+        </div>
         </div>
       ) : null}
 
@@ -1194,7 +1313,7 @@ function GroupEditor({
     <div className="space-y-3">
       <div className="space-y-4 rounded-3xl border border-violet-100 bg-white p-4">
         <h2 className="text-lg font-semibold text-violet-950">{editing ? "Modifier la cellule" : "Créer une cellule"}</h2>
-        <p className="text-sm leading-6 text-stone-600">Donnez un nom, une mission, puis désignez au moins une personne. Elle verra les dossiers et pourra mener les actions.</p>
+        <p className="text-sm leading-6 text-stone-600">Donnez un nom, une mission, puis désignez au moins une personne. Elle ne voit un dossier que lorsque la personne qui reçoit les signalements l'y autorise.</p>
         <IconField id="cell-name" label="Nom" icon={Users} value={name} onChange={onName} placeholder="Cellule d'écoute" />
         <NotedText id="cell-mission" label="Mission" value={mission} onChange={onMission} placeholder="Écouter, orienter, suivre" minHeight="min-h-[84px]" />
         <PeoplePicker people={people} selected={selected} query={query} onQuery={onQuery} onToggle={onToggle} />
@@ -1450,7 +1569,7 @@ async function readPieces(list: FileList | null, current: Attachment[]) {
 function AttachmentViewer({ file, onClose }: { file: Attachment; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex bg-stone-950/70 p-0 sm:items-center sm:justify-center sm:p-4" role="dialog" aria-modal="true" aria-label={file.name} onClick={onClose}>
-      <div className="flex h-[100dvh] w-full min-w-0 flex-col bg-white sm:h-[min(90dvh,860px)] sm:max-w-5xl sm:rounded-2xl sm:shadow-2xl" onClick={(event) => event.stopPropagation()}>
+      <div className="flex h-[100dvh] w-full min-w-0 flex-col bg-white sm:h-[min(94dvh,100%)] sm:w-[min(96vw,1440px)] sm:rounded-2xl sm:shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <header className="flex min-w-0 items-center gap-2 border-b border-stone-200 px-3 py-3 sm:px-4">
           <FileText className="h-4 w-4 shrink-0 text-sky-700" />
           <p className="min-w-0 flex-1 truncate text-sm font-medium">{file.name}</p>
@@ -1634,8 +1753,75 @@ function CaseThread({ report, viewer, onSend }: { report: Signalement; viewer: "
   );
 }
 
+function DelegationPanel({
+  report, cells, people, onDelegate, onRevoke, onCreate,
+}: {
+  report: Signalement;
+  cells: WorkCell[];
+  people: DirectoryPerson[];
+  onDelegate: (cell: WorkCell) => void;
+  onRevoke: () => void;
+  onCreate: (name: string, mission: string, memberIds: string[]) => boolean;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [mission, setMission] = useState("");
+  const [query, setQuery] = useState("");
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const shared = reportIsDelegated(report);
+  const matches = people.filter((person) => {
+    const needle = query.trim().toLowerCase();
+    return !needle || `${person.name} ${person.email} ${person.service || ""}`.toLowerCase().includes(needle);
+  }).slice(0, 8);
+  return (
+    <section className="rounded-3xl border border-violet-200 bg-violet-50/70 p-4">
+      <h3 className="text-lg font-semibold text-violet-950">Qui peut voir ce dossier</h3>
+      {shared ? (
+        <>
+          <p className="mt-1 text-sm leading-6 text-stone-700">{report.cellName} est autorisée à le lire et à agir. Si vous retirez cette autorisation, la cellule ne le voit plus. La personne qui a signalé continue de suivre les étapes.</p>
+          <button type="button" onClick={onRevoke} className="mt-3 h-11 rounded-xl bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700">Retirer l'autorisation</button>
+        </>
+      ) : (
+        <>
+          <p className="mt-1 text-sm leading-6 text-stone-700">Pour l'instant, vous et la personne qui a signalé. Une cellule ne le voit que si vous l'y autorisez.</p>
+          {cells.length > 0 ? (
+            <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+              {cells.map((cell) => (
+                <button key={cell.id} type="button" onClick={() => onDelegate(cell)} className="rounded-2xl border border-violet-200 bg-white p-3 text-left hover:bg-violet-50">
+                  <span className="block text-[15px] font-medium text-violet-950">Confier à {cell.name}</span>
+                  <span className="mt-1 block text-[13px] leading-5 text-stone-600">{cell.members.map((member) => member.name).join(", ") || "Aucune personne"}</span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="mt-3 text-sm leading-6 text-stone-600">Aucune cellule n'existe encore. Vous pouvez en créer une pour ce dossier.</p>}
+          <button type="button" onClick={() => setCreating((current) => !current)} className="mt-3 h-11 rounded-xl bg-violet-700 px-4 text-sm font-medium text-white hover:bg-violet-800">{creating ? "Fermer" : "Créer une cellule pour ce dossier"}</button>
+          {creating ? (
+            <div className="mt-3 space-y-3 rounded-2xl bg-white p-3">
+              <IconField id={`delegate-name-${report.id}`} label="Nom de la cellule" icon={Users} value={name} onChange={setName} placeholder="Cellule de suivi" />
+              <NotedText id={`delegate-mission-${report.id}`} label="Mission" value={mission} onChange={setMission} placeholder="Suivre ce signalement" minHeight="min-h-[72px]" />
+              <IconField id={`delegate-search-${report.id}`} label="Personnes" icon={Search} value={query} onChange={setQuery} placeholder="Nom ou courriel" />
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                {matches.map((person) => {
+                  const on = memberIds.includes(person.id);
+                  return (
+                    <button key={person.id} type="button" aria-pressed={on} onClick={() => setMemberIds((current) => on ? current.filter((id) => id !== person.id) : [...current, person.id])} className={`rounded-xl border px-3 py-2 text-left text-sm ${on ? "border-violet-300 bg-violet-50" : "border-stone-200 bg-white"}`}>
+                      <span className="block font-medium">{person.name}</span>
+                      <span className="block truncate text-[12px] text-stone-500">{person.email}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={() => { if (!onCreate(name, mission, memberIds)) return; setCreating(false); setName(""); setMission(""); setMemberIds([]); setQuery(""); }} className="h-11 rounded-xl bg-violet-700 px-4 text-sm font-medium text-white hover:bg-violet-800">Créer et autoriser</button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
+  );
+}
+
 function CaseWorkspace({
-  reports, selected, empty, onSelect, viewer, canAct, onDownloadRegister,
+  reports, selected, empty, onSelect, viewer, canAct, onDownloadRegister, delegation,
   actionTitle = "", setActionTitle, actionDetail = "", setActionDetail, actionOwner = "", setActionOwner, actionDue = "", setActionDue,
   members = [], onStatus, onAction, onActionStatus, onSendMessage,
 }: {
@@ -1646,6 +1832,7 @@ function CaseWorkspace({
   viewer: "author" | "cell";
   canAct: boolean;
   onDownloadRegister?: () => void;
+  delegation?: ReactNode;
   actionTitle?: string;
   setActionTitle?: (value: string) => void;
   actionDetail?: string;
@@ -1662,7 +1849,7 @@ function CaseWorkspace({
 }) {
   const [pane, setPane] = useState<"dossier" | "echanges">("dossier");
   return (
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(180px,260px)_minmax(0,1fr)]">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
       <section className={`min-w-0 rounded-3xl border border-rose-100 bg-white p-3 ${selected ? "hidden lg:block" : ""}`}>
         <div className="flex items-center justify-between gap-2 px-2 py-2">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-rose-950"><FolderHeart className="h-4 w-4 text-rose-600" />Dossiers</h2>
@@ -1672,7 +1859,7 @@ function CaseWorkspace({
           <button key={report.id} type="button" onClick={() => onSelect(report.id)} className={`flex w-full min-w-0 flex-col gap-1 rounded-2xl px-3 py-3 text-left ${selected?.id === report.id ? "bg-rose-50" : "hover:bg-rose-50/50"}`}>
             <span className="flex items-center justify-between gap-2"><span className="text-[14px] font-medium">{report.reference}</span><span className={`rounded-lg px-2 py-0.5 text-[11px] font-medium ring-1 ${STATUS_STYLE[report.status]}`}>{report.status}</span></span>
             <span className="mt-2 flex gap-1" aria-hidden>{STATUSES.map((status, index) => <span key={status} className={`h-1.5 flex-1 rounded-full ${index <= STATUSES.indexOf(report.status) ? "bg-rose-500" : "bg-rose-100"}`} />)}</span>
-            <span className="truncate text-[13px] text-stone-600">{report.feelings[0] || "Signalement"} · {report.anonymous && viewer === "cell" ? "Anonyme" : report.authorName || report.cellName}</span>
+            <span className="truncate text-[13px] text-stone-600">{report.feelings[0] || "Signalement"} · {report.anonymous && viewer === "cell" ? "Anonyme" : report.authorName || "Vous"}{reportIsDelegated(report) ? ` · ${report.cellName}` : ""}</span>
           </button>
         ))}
       </section>
@@ -1681,20 +1868,30 @@ function CaseWorkspace({
           <div className="flex items-center justify-between gap-2 lg:hidden">
             <button type="button" onClick={() => onSelect(null)} className="text-[13px] font-medium text-rose-700">Retour aux dossiers</button>
           </div>
-          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-rose-100/80 p-1 xl:hidden">
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-rose-100/80 p-1 lg:hidden">
             <button type="button" aria-pressed={pane === "dossier"} onClick={() => setPane("dossier")} className={`h-11 rounded-xl text-[14px] font-medium ${pane === "dossier" ? "bg-white text-rose-900 shadow-sm" : "text-stone-600"}`}>Dossier</button>
             <button type="button" aria-pressed={pane === "echanges"} onClick={() => setPane("echanges")} className={`h-11 rounded-xl text-[14px] font-medium ${pane === "echanges" ? "bg-white text-sky-900 shadow-sm" : "text-stone-600"}`}>Échanges</button>
           </div>
-          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(300px,460px)]">
-        <article className={`min-w-0 space-y-5 rounded-3xl border border-rose-100 bg-white p-4 sm:p-6 ${pane === "echanges" ? "hidden xl:block" : ""}`}>
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.9fr)]">
+        <article className={`min-w-0 space-y-5 rounded-3xl border border-rose-100 bg-white p-4 sm:p-6 ${pane === "echanges" ? "hidden lg:block" : ""}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h2 className="text-xl font-semibold tracking-tight text-rose-950">{selected.reference}</h2>
-              <p className="mt-1 break-words text-[13px] text-stone-500">{selected.cellName} · {formatDay(selected.createdAt)} · {selected.anonymous && viewer === "cell" ? "Anonyme" : selected.authorName || "Identifié"}</p>
+              <p className="mt-1 break-words text-[13px] text-stone-500">{selected.assigneeName ? `Reçu par ${selected.assigneeName}` : "En attente d'une personne désignée"}{reportIsDelegated(selected) ? ` · ${selected.cellName}` : " · non délégué"} · {formatDay(selected.createdAt)} · {selected.anonymous && viewer === "cell" ? "Anonyme" : selected.authorName || "Identifié"}</p>
             </div>
             <button type="button" onClick={() => downloadSignalementPdf(selected)} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-700 px-4 text-[14px] font-medium text-white hover:bg-rose-800 sm:w-auto"><Download className="h-4 w-4" />Télécharger la fiche</button>
           </div>
+          <p className="text-sm leading-6 text-stone-600">{viewer === "author"
+            ? (reportIsDelegated(selected)
+              ? `La cellule ${selected.cellName} est autorisée à suivre ce dossier. Vous voyez toujours les étapes.`
+              : selected.assigneeName
+                ? `Ces étapes ne sont visibles que par vous et par ${selected.assigneeName}.`
+                : "Ces étapes ne sont visibles que par vous, tant qu'une personne n'est pas désignée pour recevoir le signalement.")
+            : (reportIsDelegated(selected)
+              ? `La personne désignée a autorisé ${selected.cellName} à suivre ce dossier.`
+              : "Vous seul lisez ce dossier avec la personne qui l'a déposé.")}</p>
           <ProgressRail status={selected.status} onChange={canAct ? onStatus : undefined} />
+          {delegation}
           <section className="rounded-3xl border border-amber-200 bg-amber-50/70 p-4">
             <h3 className="text-lg font-semibold text-amber-950">Actions</h3>
             <p className="mt-1 text-sm text-stone-600">{canAct ? "Une action engagée fait avancer le dossier. Le statut se choisit sur la carte." : "Ce que la cellule a engagé pour votre situation."}</p>
@@ -1744,7 +1941,7 @@ function CaseWorkspace({
           </dl>
           {selected.publicUpdate ? <p className="rounded-2xl border border-sky-100 bg-sky-50 p-4 text-[14px] leading-6">Ancien message de la cellule — {selected.publicUpdate}</p> : null}
         </article>
-        {onSendMessage ? <div className={pane === "dossier" ? "hidden min-w-0 xl:block" : "min-w-0"}><CaseThread report={selected} viewer={viewer} onSend={onSendMessage} /></div> : null}
+        {onSendMessage ? <div className={pane === "dossier" ? "hidden min-w-0 lg:block" : "min-w-0"}><CaseThread report={selected} viewer={viewer} onSend={onSendMessage} /></div> : null}
           </div>
         </div>
       ) : <section className="hidden rounded-3xl border border-rose-100 bg-white p-8 text-[15px] text-stone-500 lg:block">Choisissez un dossier pour le lire ou le télécharger.</section>}
