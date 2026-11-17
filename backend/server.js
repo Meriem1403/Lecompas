@@ -604,6 +604,7 @@ const APP_DATA_REGISTRY = {
   papripactProgram: { adminOnlyWrite: false },
   transportCoverageRequests: { adminOnlyWrite: false },
   rpsSignalements: { adminOnlyWrite: false },
+  subsidyFiles: { adminOnlyWrite: false },
   workflowAssignments: { adminOnlyWrite: true },
   agentProfiles: { adminOnlyWrite: false },
 };

@@ -207,6 +207,18 @@ export const ACCESS_MODULES: AccessModule[] = [
     description: "Processus de signature electronique DUERP.",
   },
   {
+    id: "subventions",
+    label: "Subventions",
+    section: "Comptabilité",
+    description: "Attestation de commencement, numéro EJ et suivi des versements.",
+  },
+  {
+    id: "nomenclature",
+    label: "Nomenclature GM / PCE",
+    section: "Comptabilité",
+    description: "Recherche du groupe de marchandises et du compte PCE à saisir dans Chorus.",
+  },
+  {
     id: "settings",
     label: "Paramètres",
     section: "Systeme",

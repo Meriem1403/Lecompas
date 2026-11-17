@@ -34,6 +34,7 @@ export const APP_DATA_KEYS = {
   papripactProgram: "papripactProgram",
   transportCoverageRequests: "transportCoverageRequests",
   rpsSignalements: "rpsSignalements",
+  subsidyFiles: "subsidyFiles",
   workflowAssignments: "workflowAssignments",
   agentProfiles: "agentProfiles",
 } as const;

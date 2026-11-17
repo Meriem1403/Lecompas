@@ -64,6 +64,9 @@ import { AppUser } from "./components/admin/UserManagementView";
 import { DocumentsView } from "./components/DocumentsView";
 import { DirectorSignatureView } from "./components/DirectorSignatureView";
 import { SignalementsView } from "./components/SignalementsView";
+import { ComptaModulesView } from "./components/ComptaModulesView";
+import { SubventionsView } from "./components/SubventionsView";
+import { NomenclatureView } from "./components/NomenclatureView";
 import { ArchivesView } from "./components/ArchivesView";
 import { RegistreAccidentsView } from "./components/RegistreAccidentsView";
 import { SettingsView } from "./components/SettingsView";
@@ -222,6 +225,8 @@ import {
   Car,
   Bus,
   HeartHandshake,
+  Landmark,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "./components/ui/progress";
@@ -2757,6 +2762,23 @@ export default function App() {
       ],
     },
     {
+      section: "Comptabilité",
+      items: [
+        {
+          id: "subventions",
+          label: "Subventions",
+          icon: Landmark,
+          color: "text-emerald-700",
+        },
+        {
+          id: "nomenclature",
+          label: "Nomenclature",
+          icon: BookOpen,
+          color: "text-emerald-700",
+        },
+      ],
+    },
+    {
       section: "Informatique",
       items: [
         {
@@ -2844,7 +2866,7 @@ export default function App() {
   const hasViewAccess = (viewId: string) => {
     if (!user) return false;
     if (user.role === "admin") return true;
-    if (viewId === "risk-references") return true;
+    if (viewId === "risk-references" || viewId === "subventions" || viewId === "nomenclature") return true;
 
     const moduleExists = ACCESS_MODULES.some(
       (moduleItem) => moduleItem.id === viewId,
@@ -2998,6 +3020,17 @@ export default function App() {
       return (
         <>
           <InformatiqueModulesView
+            onSelectModule={(moduleId) => goToView(moduleId)}
+            onGoBack={() => goToView("categories")}
+            onSignalement={openSignalement}
+          />
+        </>
+      );
+    }
+    if (categoryView === "comptabilite") {
+      return (
+        <>
+          <ComptaModulesView
             onSelectModule={(moduleId) => goToView(moduleId)}
             onGoBack={() => goToView("categories")}
             onSignalement={openSignalement}
@@ -3422,6 +3455,41 @@ export default function App() {
                 service: person.service,
               }))}
               serviceOptions={serviceOptions}
+              onNotify={(notice) => {
+                setNotifications((prev) => [
+                  {
+                    id: crypto.randomUUID(),
+                    titre: notice.titre,
+                    contenu: notice.contenu,
+                    type: "alerte",
+                    dateCreation: new Date().toISOString(),
+                    isRead: false,
+                    recipientEmail: notice.recipientEmail,
+                  },
+                  ...prev,
+                ]);
+              }}
+            />
+          )}
+
+          {activeView === "nomenclature" && <NomenclatureView />}
+
+          {activeView === "subventions" && (
+            <SubventionsView
+              accessToken={accessToken}
+              directory={adminUsers.map((person) => ({
+                id: person.id,
+                name: `${person.firstName} ${person.lastName}`.trim(),
+                email: person.email,
+                service: person.service,
+              }))}
+              currentUser={{
+                id: user?.id || "",
+                name: user?.name || "",
+                email: user?.email || "",
+                service: user?.service || "",
+                role: user?.role || "agent",
+              }}
               onNotify={(notice) => {
                 setNotifications((prev) => [
                   {

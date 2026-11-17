@@ -29,6 +29,8 @@ const AGENT_VISIBLE = new Set([
   "asbestos",
   "asbestos-attestations",
   "risk-references",
+  "subventions",
+  "nomenclature",
 ]);
 
 export type RoleAccessPreset = "admin" | "chef" | "agent";

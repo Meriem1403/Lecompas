@@ -102,6 +102,13 @@ const MODULE_WORKFLOW_ACTIONS: Record<string, WorkflowActionDef[]> = {
     { id: "proposer", label: "Proposer à la signature", seats: 1 },
     { id: "signer", label: "Signer le DUERP", seats: 2 },
   ],
+  subventions: [
+    { id: "inscrire", label: "Inscrire le numéro EJ", seats: 1 },
+    { id: "viser", label: "Viser l'état de versement", seats: 1 },
+  ],
+  nomenclature: [
+    { id: "consulter", label: "Consulter la nomenclature", seats: 0 },
+  ],
   settings: [{ id: "appliquer", label: "Appliquer un paramètre", seats: 1 }],
 };
 
