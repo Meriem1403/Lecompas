@@ -783,12 +783,12 @@ export function demandeProgress(demande: Pick<SubsidyRequest, "kind" | "pieces">
   const pieces = demande.pieces || [];
   const byLabel = new Map(pieces.map((piece) => [piece.label, piece]));
   const total = expected.length;
-  const deposited = expected.filter((label) => (byLabel.get(label)?.files.length || 0) > 0).length;
+  const deposited = expected.filter((label) => (byLabel.get(label)?.files?.length || 0) > 0).length;
   const accepted = expected.filter((label) => byLabel.get(label)?.review === "accepte").length;
   const refused = expected.filter((label) => byLabel.get(label)?.review === "refuse").length;
   const ready = expected.filter((label) => {
     const piece = byLabel.get(label);
-    return Boolean(piece && piece.files.length > 0 && piece.review !== "refuse");
+    return Boolean(piece && (piece.files?.length || 0) > 0 && piece.review !== "refuse");
   }).length;
   return {
     total,
@@ -827,7 +827,13 @@ export function normalizeSubsidy(file: SubsidyFile): SubsidyFile {
     ...demande,
     handlers: demande.handlers || [],
     providers: demande.providers || [],
-    pieces: demande.pieces?.length ? demande.pieces : piecesForKind(demande.kind),
+    pieces: (demande.pieces?.length ? demande.pieces : piecesForKind(demande.kind)).map((piece) => ({
+      ...piece,
+      files: piece.files || [],
+      note: piece.note || "",
+      review: piece.review || "",
+      reviewNote: piece.reviewNote || "",
+    })),
     extraFiles: demande.extraFiles || [],
     stage: demande.stage || "pieces",
     paymentDecision: demande.paymentDecision || "",

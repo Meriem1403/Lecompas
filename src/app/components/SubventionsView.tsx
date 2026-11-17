@@ -77,6 +77,73 @@ const ghostBtn = "inline-flex h-10 items-center justify-center gap-2 rounded-xl 
 const dangerBtn = "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-rose-700 hover:bg-rose-50";
 const line = "h-12 w-full min-w-0 max-w-full rounded-xl border border-emerald-200 bg-white px-3 text-base text-stone-800 outline-none focus:border-emerald-500";
 const panel = "rounded-3xl border border-emerald-100 bg-white";
+const SUBSIDY_SEED = [sampleSubsidy()];
+
+function attachmentStamp(file?: { name?: string; dataUrl?: string } | null) {
+  if (!file?.name && !file?.dataUrl) return "";
+  return `${file.name || ""}:${file.dataUrl?.length || 0}`;
+}
+
+function dossierStamp(file: SubsidyFile) {
+  return JSON.stringify({
+    id: file.id,
+    reference: file.reference,
+    ej: file.ej,
+    ejStampVersion: file.ejStampVersion || 0,
+    programme: file.programme,
+    objet: file.objet,
+    beneficiaire: file.beneficiaire,
+    signataire: file.signataire,
+    qualite: file.qualite,
+    suiviNom: file.suiviNom,
+    suiviEmail: file.suiviEmail,
+    conventionDate: file.conventionDate,
+    commencementDate: file.commencementDate,
+    attestationPlace: file.attestationPlace,
+    attestationDate: file.attestationDate,
+    courrierDate: file.courrierDate,
+    courrierText: file.courrierText,
+    total: file.total,
+    advanceRate: file.advanceRate,
+    requestedAmount: file.requestedAmount,
+    amountSource: file.amountSource,
+    payeeName: file.payeeName,
+    payeeBank: file.payeeBank,
+    attestation: attachmentStamp(file.attestation),
+    attestationStamped: attachmentStamp(file.attestationStamped),
+    courrier: attachmentStamp(file.courrier),
+    payments: file.payments,
+    demandes: (file.demandes || []).map((demande) => ({
+      id: demande.id,
+      receivedAt: demande.receivedAt,
+      label: demande.label,
+      kind: demande.kind,
+      amount: demande.amount,
+      reference: demande.reference,
+      note: demande.note,
+      stage: demande.stage,
+      signedAt: demande.signedAt,
+      signedBy: demande.signedBy,
+      paymentDecision: demande.paymentDecision,
+      paymentId: demande.paymentId,
+      handlers: demande.handlers,
+      providers: demande.providers,
+      pdf: attachmentStamp(demande.pdf),
+      signedPdf: attachmentStamp(demande.signedPdf),
+      signature: demande.signatureImage ? demande.signatureImage.length : 0,
+      pieces: (demande.pieces || []).map((piece) => ({
+        id: piece.id,
+        label: piece.label,
+        note: piece.note || "",
+        review: piece.review || "",
+        reviewNote: piece.reviewNote || "",
+        reviewedAt: piece.reviewedAt || "",
+        reviewedBy: piece.reviewedBy || "",
+        files: (piece.files || []).map((item) => ({ id: item.id, name: item.name, size: item.dataUrl?.length || 0 })),
+      })),
+    })),
+  });
+}
 
 function loadStore(): SubsidyFile[] | null {
   try {
@@ -187,7 +254,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
   const [files, setFiles] = useAppDataDocumentStore<SubsidyFile[]>(
     APP_DATA_KEYS.subsidyFiles,
     accessToken,
-    { seed: [sampleSubsidy()], loadLocal: loadStore, saveLocal: saveStore },
+    { seed: SUBSIDY_SEED, loadLocal: loadStore, saveLocal: saveStore },
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<FolderMode>("consult");
@@ -201,7 +268,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
   const [toDeleteDemande, setToDeleteDemande] = useState<SubsidyRequest | null>(null);
   const stampedFor = useRef("");
   const editing = mode === "edit";
-  const dirty = Boolean(editing && draft && JSON.stringify(draft) !== baseline);
+  const dirty = Boolean(editing && draft && dossierStamp(draft) !== baseline);
   const requestLeave = useLeaveGuard(dirty);
   const selected = files.find((file) => file.id === selectedId) ?? null;
 
@@ -214,7 +281,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
     if (!selected) return;
     const next = normalizeSubsidy(selected);
     setDraft(next);
-    setBaseline(JSON.stringify(next));
+    setBaseline(dossierStamp(next));
     stampedFor.current = next.ejStampVersion === 2 && next.attestationStamped
       ? `2:${next.attestation?.dataUrl.length || 0}:${ejDigits(next.ej)}`
       : "";
@@ -247,7 +314,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
   const createFile = () => requestLeave(() => {
     const created = normalizeSubsidy(blankFile());
     setDraft(created);
-    setBaseline(JSON.stringify(created));
+    setBaseline(dossierStamp(created));
     setMode("edit");
     setSelectedId(created.id);
   });
@@ -292,7 +359,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
         const next = { ...current, attestationStamped: attachment, ejStampVersion: 2, demandes: nextDemandes };
         if (!quiet) {
           setFiles((stored) => stored.map((file) => (file.id === next.id ? next : file)));
-          setBaseline(JSON.stringify(next));
+          setBaseline(dossierStamp(next));
         }
         return next;
       });
@@ -404,7 +471,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
       : [...(draft.demandes || []), nextDemande];
     const next = withDemandes({ ...draft, payments, demandes: nextDemandes });
     setDraft(next);
-    setBaseline(JSON.stringify(next));
+    setBaseline(dossierStamp(next));
     setFiles((current) => (current.some((file) => file.id === next.id)
       ? current.map((file) => (file.id === next.id ? next : file))
       : [next, ...current]));
@@ -494,7 +561,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
       : [next, ...current]));
     setSelectedId(next.id);
     setDraft(next);
-    setBaseline(JSON.stringify(next));
+    setBaseline(dossierStamp(next));
     toast.success("Le dossier de subvention est enregistré.");
   };
 
@@ -656,7 +723,7 @@ export function SubventionsView({ accessToken, directory = [], currentUser = { i
             <p className="mt-4 text-sm leading-6 text-stone-600">
               {draft.attestationStamped ? `Le numéro ${formatEj(draft.ej)} est dans la case EJ.` : "Le numéro apparaît dès que le document et l'EJ sont réunis."}
             </p>
-            {preview ? <a href={preview.dataUrl} download={preview.name} className={`${primaryBtn} mt-4`}><Download className="h-4 w-4" /> Télécharger l'attestation</a> : null}
+            {preview ? <button type="button" onClick={() => saveAttachment(preview)} className={`${primaryBtn} mt-4`}><Download className="h-4 w-4" /> Télécharger l'attestation</button> : null}
           </article>
           <PdfFrame title="Attestation" file={preview} empty="L'attestation s'affiche ici après le dépôt." />
         </section>
@@ -885,7 +952,7 @@ function DemandeForm({ demande, creating, directory, currentUser, onChange, onFi
   onSubmit: () => void;
 }) {
   const chooseKind = (kind: PaymentKind) => {
-    const hasFile = (demande.pieces || []).some((piece) => piece.files.length);
+    const hasFile = (demande.pieces || []).some((piece) => (piece.files || []).length);
     onChange({ ...demande, kind, pieces: hasFile ? demande.pieces : piecesForKind(kind) });
   };
   return (
@@ -949,7 +1016,7 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
   const [pieceNote, setPieceNote] = useState("");
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const catalog = demande.pieces?.length ? demande.pieces : piecesForKind(demande.kind);
-  const selectedPiece = catalog.find((piece) => piece.id === pieceId) || catalog.find((piece) => piece.review === "refuse" || piece.files.length === 0) || catalog[0];
+  const selectedPiece = catalog.find((piece) => piece.id === pieceId) || catalog.find((piece) => piece.review === "refuse" || (piece.files || []).length === 0) || catalog[0];
 
   const notifyPeople = (people: SubsidyActor[] | undefined, notice: { titre: string; contenu: string }) => {
     (people || []).forEach((person) => {
@@ -959,20 +1026,24 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
   };
 
   const addPieceFile = async (targetId: string, file: File) => {
-    const dataUrl = await fileToDataUrl(file);
-    const nextFile: SubsidyPieceFile = { id: `doc-${Date.now()}`, name: file.name, dataUrl };
-    const target = catalog.find((piece) => piece.id === targetId);
-    onUpdate({
-      ...demande,
-      pieces: catalog.map((piece) => (piece.id === targetId
-        ? { ...piece, files: [...piece.files, nextFile], note: pieceNote || piece.note || "", review: "", reviewNote: "", reviewedAt: "", reviewedBy: "" }
-        : piece)),
-    }, `${file.name} est joint à « ${target?.label || "la pièce"} ».`);
-    setPieceNote("");
-    notifyPeople(demande.handlers, {
-      titre: "Pièce déposée",
-      contenu: `${currentUser.name || "Un demandeur"} a déposé « ${target?.label || "une pièce"} » pour « ${demande.label || "la demande"} ».`,
-    });
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const nextFile: SubsidyPieceFile = { id: `doc-${Date.now()}`, name: file.name, dataUrl };
+      const target = catalog.find((piece) => piece.id === targetId);
+      onUpdate({
+        ...demande,
+        pieces: catalog.map((piece) => (piece.id === targetId
+          ? { ...piece, files: [...(piece.files || []), nextFile], note: pieceNote || piece.note || "", review: "", reviewNote: "", reviewedAt: "", reviewedBy: "" }
+          : piece)),
+      }, `${file.name} est joint à « ${target?.label || "la pièce"} ».`);
+      setPieceNote("");
+      notifyPeople(demande.handlers, {
+        titre: "Pièce déposée",
+        contenu: `${currentUser.name || "Un demandeur"} a déposé « ${target?.label || "une pièce"} » pour « ${demande.label || "la demande"} ».`,
+      });
+    } catch {
+      toast.error("Cette pièce n'a pas pu être ajoutée.");
+    }
   };
 
   const reviewPiece = (targetId: string, review: "accepte" | "refuse") => {
@@ -1064,7 +1135,7 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
         <div className="flex flex-wrap gap-2">
           {editing ? <button type="button" onClick={onEdit} className={quietBtn}><Pencil className="h-4 w-4" /> Modifier</button> : null}
           {editing ? <button type="button" onClick={onDelete} className={dangerBtn}><Trash2 className="h-4 w-4" /> Supprimer</button> : null}
-          {demande.pdf ? <a href={demande.pdf.dataUrl} download={demande.pdf.name} className={primaryBtn}><Download className="h-4 w-4" /> Télécharger</a> : null}
+          {demande.pdf ? <button type="button" onClick={() => saveAttachment(demande.pdf)} className={primaryBtn}><Download className="h-4 w-4" /> Télécharger</button> : null}
         </div>
 
         <section className="min-w-0 rounded-2xl border border-emerald-100 p-4">
@@ -1076,7 +1147,7 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
                 {catalog.map((piece) => (
                   <button key={piece.id} type="button" aria-pressed={(selectedPiece?.id || "") === piece.id} onClick={() => { setPieceId(piece.id); setPieceNote(piece.note || ""); }} className={`min-w-0 rounded-xl border px-3 py-3 text-left ${(selectedPiece?.id || "") === piece.id ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-100 bg-white text-emerald-950"}`}>
                     <span className="block text-sm font-medium">{piece.label}</span>
-                    <span className={`mt-1 block text-[12px] ${(selectedPiece?.id || "") === piece.id ? "text-emerald-50" : "text-stone-500"}`}>{piece.files.length ? `${piece.files.length} fichier${piece.files.length > 1 ? "s" : ""}` : "À fournir"}{piece.review === "refuse" ? " · refusée" : ""}</span>
+                    <span className={`mt-1 block text-[12px] ${(selectedPiece?.id || "") === piece.id ? "text-emerald-50" : "text-stone-500"}`}>{(piece.files || []).length ? `${piece.files.length} fichier${piece.files.length > 1 ? "s" : ""}` : "À fournir"}{piece.review === "refuse" ? " · refusée" : ""}</span>
                   </button>
                 ))}
               </div>
@@ -1092,16 +1163,16 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-emerald-950">{piece.label}</p>
-                    <p className="mt-1 text-[12px] text-stone-500">{piece.files.length ? `${piece.files.length} fichier${piece.files.length > 1 ? "s" : ""}` : "Pas encore déposée"}</p>
+                    <p className="mt-1 text-[12px] text-stone-500">{(piece.files || []).length ? `${piece.files.length} fichier${piece.files.length > 1 ? "s" : ""}` : "Pas encore déposée"}</p>
                   </div>
                   <PieceStatus review={piece.review || ""} />
                 </div>
                 {piece.note ? <p className="mt-2 text-sm leading-6 text-stone-700">{piece.note}</p> : null}
                 <ul className="mt-2 space-y-1">
-                  {piece.files.map((file) => <li key={file.id} className="min-w-0"><a href={file.dataUrl} download={file.name} className="break-all text-sm text-emerald-800 underline">{file.name}</a></li>)}
+                  {(piece.files || []).map((file) => <li key={file.id || file.name} className="min-w-0"><button type="button" onClick={() => saveAttachment(file)} className="break-all text-left text-sm text-emerald-800 underline">{file.name}</button></li>)}
                 </ul>
                 {piece.review === "refuse" && piece.reviewNote ? <p className="mt-2 text-sm leading-6 text-rose-800">{piece.reviewNote}</p> : null}
-                {compta && piece.files.length ? (
+                {compta && (piece.files || []).length ? (
                   <div className="mt-3 space-y-2">
                     <Field id={`review-${piece.id}`} label="Motif, si la pièce est refusée">
                       <input id={`review-${piece.id}`} className={line} value={reviewNotes[piece.id] ?? piece.reviewNote ?? ""} onChange={(event) => setReviewNotes((current) => ({ ...current, [piece.id]: event.target.value }))} />
@@ -1121,7 +1192,7 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
         <section className="rounded-2xl border border-emerald-100 p-4">
           <h3 className="text-base font-semibold text-emerald-950">Attestation et signature</h3>
           <p className="mt-1 text-sm leading-6 text-stone-600">{dossier.attestationStamped ? `Le numéro ${formatEj(dossier.ej)} est dans la case EJ. Le document est à renvoyer signé.` : "La comptabilité inscrit le numéro EJ, puis l'attestation revient ici pour signature."}</p>
-          {attestation ? <a href={attestation.dataUrl} download={attestation.name} className={`${quietBtn} mt-3`}><Download className="h-4 w-4" /> Télécharger l'attestation</a> : null}
+          {attestation ? <button type="button" onClick={() => saveAttachment(attestation)} className={`${quietBtn} mt-3`}><Download className="h-4 w-4" /> Télécharger l'attestation</button> : null}
           {provider && (demande.stage === "signature" || dossier.attestationStamped) && !demande.signedAt ? (
             <div className="mt-3 space-y-3">
               <FileButton label="Remettre le document signé" onFile={(file) => void signUploaded(file)} />
@@ -1129,7 +1200,7 @@ function DemandeSheet({ demande, dossier, editing, currentUser, onEdit, onDelete
             </div>
           ) : null}
           {demande.signedAt ? <p className="mt-3 text-sm text-emerald-950">Signé par {demande.signedBy || "le bénéficiaire"} le {formatDateTime(demande.signedAt)}.</p> : null}
-          {demande.signedPdf ? <a href={demande.signedPdf.dataUrl} download={demande.signedPdf.name} className={`${primaryBtn} mt-3`}><Download className="h-4 w-4" /> Télécharger le document signé</a> : null}
+          {demande.signedPdf ? <button type="button" onClick={() => saveAttachment(demande.signedPdf)} className={`${primaryBtn} mt-3`}><Download className="h-4 w-4" /> Télécharger le document signé</button> : null}
         </section>
 
         {compta && demande.signedAt ? (
@@ -1266,6 +1337,19 @@ function SignaturePad({ onSign }: { onSign: (png: string) => void }) {
   );
 }
 
+function saveAttachment(file: { name: string; dataUrl: string }) {
+  const type = /^data:([^;,]+)/.exec(file.dataUrl)?.[1] || "application/octet-stream";
+  const blob = new Blob([dataUrlToBytes(file.dataUrl)], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = file.name || "document";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -1312,6 +1396,7 @@ function PdfFrame({ title, file, empty }: { title: string; file?: SubsidyAttachm
       return;
     }
     let cancelled = false;
+    let task: { cancel: () => void; promise: Promise<unknown> } | null = null;
     const paint = async () => {
       setState("loading");
       setPages(0);
@@ -1331,7 +1416,8 @@ function PdfFrame({ title, file, empty }: { title: string; file?: SubsidyAttachm
         if (cancelled) break;
         const page = await doc.getPage(index);
         const base = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: (cssWidth / base.width) * ratio });
+        const scale = Math.min((cssWidth / base.width) * ratio, 1600 / base.width);
+        const viewport = page.getViewport({ scale });
         const canvas = document.createElement("canvas");
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
@@ -1340,11 +1426,13 @@ function PdfFrame({ title, file, empty }: { title: string; file?: SubsidyAttachm
         canvas.className = "block bg-white";
         const context = canvas.getContext("2d");
         if (!context) continue;
-        await page.render({ canvasContext: context, viewport }).promise;
+        task = page.render({ canvasContext: context, viewport });
+        await task.promise;
+        if (cancelled || !host.current) break;
         const sheet = document.createElement("div");
         sheet.className = "shrink-0 overflow-hidden rounded-lg bg-white shadow-sm";
         sheet.append(canvas);
-        target.append(sheet);
+        host.current.append(sheet);
       }
       await doc.destroy();
       if (cancelled) return;
@@ -1356,6 +1444,7 @@ function PdfFrame({ title, file, empty }: { title: string; file?: SubsidyAttachm
     });
     return () => {
       cancelled = true;
+      task?.cancel();
     };
   }, [file?.dataUrl]);
 
@@ -1363,7 +1452,7 @@ function PdfFrame({ title, file, empty }: { title: string; file?: SubsidyAttachm
     <article className={`${panel} overflow-hidden`}>
       <div className="flex items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3">
         <p className="text-sm font-medium text-emerald-950">{title}{pages > 0 ? ` · ${pages} page${pages > 1 ? "s" : ""}` : ""}</p>
-        {file ? <a href={file.dataUrl} download={file.name} className="shrink-0 text-sm font-medium text-emerald-800 hover:underline">Télécharger</a> : null}
+        {file ? <button type="button" onClick={() => saveAttachment(file)} className="shrink-0 text-sm font-medium text-emerald-800 hover:underline">Télécharger</button> : null}
       </div>
       <div className="bg-stone-100 p-3">
         {file ? <div ref={host} className="flex max-h-[70vh] min-h-0 flex-col gap-3 overflow-y-auto" /> : null}
